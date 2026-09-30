@@ -29,9 +29,11 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 ## 🚀 Key Features
 
 - **🧠 Autonomous Agent Coaching Harness & Evolving Mascot:** The Mascot (Nova) has an adaptive personality that levels up (from *Curious Explorer* to *Distinguished Fellow*) as it learns from you. It maintains persistent long-term SQLite memory of your career aspirations, company targets, and technical blind spots, dynamically alternating between discovering your background, probing deep architecture trade-offs, and teaching brand-new skills with the Feynman technique.
+- **🎨 Interactive Rive AI Mascot with Lip-Sync & Avatar Switcher:** Expressive on-device vector mascot driven by Rive State Machines (`rive-react-native`). Synchronizes mouth animation (`Talking`) directly with on-device Kokoro TTS PCM audio playback, reacts with attentive listening eye tracking, and features a one-tap dynamic avatar toggle between Coach Nova and Teddy Bear.
 - **🎙️ Zero-Friction Hands-Free Voice Experience:** Clean, distraction-free interface where the Mascot talks out loud via Kokoro-82M on the loudspeaker, listens attentively, and loops back-and-forth hands-free with energy VAD silence detection. Includes a secondary backup text drawer when speech or audio is inconvenient.
+- **✨ Unified Vector Icon Design System & Modern UI:** Replaced raw platform emojis with a cohesive, high-performance vector icon suite in `src/components/icons/AppIcons.tsx` built with `react-native-svg`. Styled with a modern cyan (`#38BDF8`), indigo (`#818CF8`), and slate palette, featuring real-time audio waveform activity visualizers (`SoundWaveBars`) in the live teleprompter, safe-area notch and status-bar clearance via `SafeAreaProvider`, and responsive HUD layout.
+- **📱 Modern Android Launcher & Adaptive Icon Suite:** Modern branded Intervity crest featuring cyber neural soundwave bars and a 4-point AI intelligence star spark. Fully configured across all Android mipmap densities (`mdpi` to `xxxhdpi`) and API 26+ adaptive icon suite (`mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml`).
 - **🎙️ Kokoro-82M Neural TTS:** Studio-grade on-device text-to-speech powered by `sherpa-onnx` and ONNX Runtime. Generates rich, human-like cadence across 103 voices, including Indian English (`en-IN`) technical interviewer personas (`hf_alpha` Bengaluru Tech Lead, `hm_omega` VP of Engineering).
-- **🎨 Interactive Rive AI Mascot:** Expressive on-device vector mascot driven by Rive State Machines (`rive-react-native`). Reacts in real time with conversational lip-sync, attentive listening eye tracking, thinking postures, and audio halo biofeedback. Candidates can seamlessly toggle between the 3D Voice Orb and the interactive AI Mascot.
 - **⚡ Ultra-Fast Full-Duplex Audio & Barge-In:** Built-in hardware Acoustic Echo Cancellation (AEC) and instant (<100ms) audio track flush when the candidate interrupts the AI, mirroring real human conversational dynamics.
 - **🧠 Local LLM Reasoning:** Runs quantized SLMs (`MiniCPM-2.5-Q4_K_M`, `Llama-3.2-1B/3B`) via `llama.rn` directly on mobile NPU/GPU/CPU.
 - **🎧 High-Fidelity Speech Recognition:** Seamless streaming transcription via `whisper.rn` with energy-based Voice Activity Detection (VAD).
@@ -183,25 +185,31 @@ Read our [**Contributing Guide (CONTRIBUTING.md)**](CONTRIBUTING.md) to get star
 ```
 Intervity/
 ├── android/                   # Native Android host & Sherpa-ONNX VoiceAudioEngine
-│   └── app/src/main/java/com/
-│       ├── goairm/intervity/  # MainApplication & MainActivity
-│       └── offlineinterview/audio/ # JSI AudioTrack & Kokoro C++ bridge
+│   └── app/src/main/
+│       ├── AndroidManifest.xml # Configured with modern launcher & round adaptive icons
+│       ├── java/com/
+│       │   ├── goairm/intervity/  # MainApplication & MainActivity
+│       │   └── offlineinterview/audio/ # JSI AudioTrack & Kokoro C++ bridge
+│       └── res/               # Mipmap launcher icons & adaptive XML suite
 ├── ios/                       # Native iOS host & CoreAudio engine
 ├── src/
 │   ├── analytics/             # STAR method, mistake taxonomy & prosody analysis
-│   ├── components/            # VoiceOrb, SubtitleBar, RadarChart, PacingMeter
+│   ├── components/            # RiveMascot, VoiceOrb, SubtitleBar, RadarChart, PacingMeter
+│   │   └── icons/             # AppIcons.tsx (unified SVG vector icon design system)
 │   ├── core/
+│   │   ├── agent/             # Autonomous Coaching Harness & SQLite memory
 │   │   ├── audio/             # Full-duplex audio state machine & AEC logic
 │   │   ├── llm/               # Local Llama / MiniCPM prompt & generation orchestrator
 │   │   ├── resume/            # Fast on-device regex & heuristic resume parser
+│   │   ├── stt/               # Whisper speech-to-text service
 │   │   └── tts/               # Kokoro TTS service interface
 │   ├── database/              # SQLite schema, migrations & Bayesian EMA skill store
-│   ├── hooks/                 # Custom React hooks (interview engine, mastery, drills)
-│   ├── navigation/            # React Navigation stack
-│   ├── screens/               # Dashboard, Setup, Live Session, Autopsy, Drills
-│   └── theme/                 # Dark aesthetic design system
+│   ├── hooks/                 # Custom React hooks (interview engine, agent coaching, mastery, drills)
+│   ├── navigation/            # React Navigation stack with SafeAreaProvider
+│   ├── screens/               # AgentCoaching, ModelManager, Dashboard, Drills
+│   └── theme/                 # Dark aesthetic design system & color tokens
 ├── tests/                     # 23+ unit & E2E integration test suites
-└── scripts/                   # Automated model downloaders & device provisioning
+└── scripts/                   # Model downloaders, device provisioning & icon generators
 ```
 
 ---
