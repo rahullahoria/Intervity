@@ -29,6 +29,8 @@ export class NativeAudioEngine {
   private endOfSpeechListeners: Array<(audioPath: string) => void> = [];
   private audioBufferListeners: Array<(pcmData: Uint8Array) => void> = [];
   private playbackDrainedListeners: Array<() => void> = [];
+  private partialTranscriptListeners: Array<(text: string) => void> = [];
+  private finalTranscriptListeners: Array<(text: string) => void> = [];
   private nativeSubscriptions: Array<{ remove: () => void }> = [];
   private eventEmitter: any = null;
 
@@ -102,7 +104,21 @@ export class NativeAudioEngine {
             }
           });
 
-          this.nativeSubscriptions.push(subVol, subSpeech, subEnd, subPlay);
+          const subPartial = this.eventEmitter.addListener('onPartialTranscript', (data: { text: string }) => {
+            const text = data?.text || '';
+            for (const listener of this.partialTranscriptListeners) {
+              listener(text);
+            }
+          });
+
+          const subFinal = this.eventEmitter.addListener('onFinalTranscript', (data: { text: string }) => {
+            const text = data?.text || '';
+            for (const listener of this.finalTranscriptListeners) {
+              listener(text);
+            }
+          });
+
+          this.nativeSubscriptions.push(subVol, subSpeech, subEnd, subPlay, subPartial, subFinal);
         } catch (e) {
           console.warn('[NativeAudioEngine] NativeEventEmitter initialization notice:', e);
         }
@@ -176,6 +192,20 @@ export class NativeAudioEngine {
     this.endOfSpeechListeners.push(callback);
     return () => {
       this.endOfSpeechListeners = this.endOfSpeechListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  onPartialTranscript(callback: (text: string) => void): () => void {
+    this.partialTranscriptListeners.push(callback);
+    return () => {
+      this.partialTranscriptListeners = this.partialTranscriptListeners.filter(cb => cb !== callback);
+    };
+  }
+
+  onFinalTranscript(callback: (text: string) => void): () => void {
+    this.finalTranscriptListeners.push(callback);
+    return () => {
+      this.finalTranscriptListeners = this.finalTranscriptListeners.filter(cb => cb !== callback);
     };
   }
 
@@ -267,5 +297,7 @@ export class NativeAudioEngine {
     this.vadListeners = [];
     this.endOfSpeechListeners = [];
     this.playbackDrainedListeners = [];
+    this.partialTranscriptListeners = [];
+    this.finalTranscriptListeners = [];
   }
 }

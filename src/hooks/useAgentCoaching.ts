@@ -95,51 +95,31 @@ export function useAgentCoaching() {
     };
   }, []);
 
-  // 2. Set up VAD and Audio Level Listeners for Mascot Gaze & Hands-Free Silence Detection
-  useEffect(() => {
-    const unsubVAD = audioEngine.current.onVADEvent((event: VADEvent) => {
-      setAudioLevel(event.volume);
+  // 2. Hands-Free Conversational Turn Engine
+  const startListeningHandsFree = useCallback(() => {
+    isInterruptedRef.current = false;
+    setState('LISTENING');
+    setCurrentSubtitle('👂 Listening to you (speak naturally)...');
+    audioEngine.current.startRecordingStream();
 
-      // Handle hands-free candidate speech detection
-      if (state === 'LISTENING') {
-        if (event.isSpeech && event.volume > 0.08) {
-          setState('USER_SPEAKING');
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = null;
-          }
-        }
-      } else if (state === 'USER_SPEAKING') {
-        // Reset silence countdown timer on continued voice energy
-        if (event.isSpeech && event.volume > 0.06) {
-          if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-          }
-          silenceTimerRef.current = setTimeout(() => {
-            // User paused speaking for 1.4s -> auto-advance turn hands-free!
-            handleUserFinishedSpeaking();
-          }, 1400);
-        }
-      } else if (state === 'AI_SPEAKING' && event.isSpeech && event.volume > 0.25) {
-        // Conversational Barge-In: candidate interrupted the AI
-        triggerBargeIn();
-      }
-    });
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+  }, []);
 
-    const unsubEndOfSpeech = audioEngine.current.onEndOfSpeechDetected((_audioPath: string) => {
-      if (state === 'USER_SPEAKING' || state === 'LISTENING') {
-        handleUserFinishedSpeaking();
-      }
-    });
+  const triggerBargeIn = useCallback(() => {
+    isInterruptedRef.current = true;
+    setState('INTERRUPTED');
+    setCurrentSubtitle('⚡ Listening to your interruption...');
+    audioEngine.current.stopPlaybackAndClearBuffers();
+    ttsService.current.stopPlayback();
 
-    return () => {
-      unsubVAD();
-      unsubEndOfSpeech();
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    };
-  }, [state]);
+    setTimeout(() => {
+      startListeningHandsFree();
+    }, 200);
+  }, [startListeningHandsFree]);
 
-  // 3. Hands-Free Conversational Turn Engine
   const speakMascotResponse = useCallback(async (text: string) => {
     isInterruptedRef.current = false;
     setState('AI_SPEAKING');
@@ -173,30 +153,25 @@ export function useAgentCoaching() {
         startListeningHandsFree();
       }
     }
-  }, [isHandsFreeActive]);
+  }, [isHandsFreeActive, startListeningHandsFree]);
 
-  const startListeningHandsFree = useCallback(() => {
-    isInterruptedRef.current = false;
-    setState('LISTENING');
-    setCurrentSubtitle('👂 Listening to you (speak naturally)...');
-    audioEngine.current.startRecordingStream();
-
-    // In case no speech detected for 8 seconds, keep listening active
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-  }, []);
-
-  const handleUserFinishedSpeaking = useCallback(async () => {
+  const handleUserFinishedSpeaking = useCallback(async (overrideText?: string) => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
 
+    const recognizedText = (overrideText || userSpeechBufferRef.current || '').trim();
+    if (!recognizedText) {
+      if (isHandsFreeActive) {
+        startListeningHandsFree();
+      }
+      return;
+    }
+
     audioEngine.current.stopRecordingStream();
     setState('THINKING');
     setCurrentSubtitle('🧠 Analyzing and updating career coaching model...');
-
-    // Recognize speech or simulated candidate answer
-    const recognizedText = userSpeechBufferRef.current || 'I want to reach Staff Engineer and improve my distributed system design skills.';
     userSpeechBufferRef.current = '';
 
     setMessages((prev) => [
@@ -220,19 +195,53 @@ export function useAgentCoaching() {
 
     // Mascot responds
     await speakMascotResponse(outcome.responseClause);
-  }, [speakMascotResponse]);
+  }, [speakMascotResponse, isHandsFreeActive, startListeningHandsFree]);
 
-  const triggerBargeIn = useCallback(() => {
-    isInterruptedRef.current = true;
-    setState('INTERRUPTED');
-    setCurrentSubtitle('⚡ Listening to your interruption...');
-    audioEngine.current.stopPlaybackAndClearBuffers();
-    ttsService.current.stopPlayback();
+  // 3. Set up SpeechRecognizer, VAD, and Audio Level Listeners
+  useEffect(() => {
+    const unsubVAD = audioEngine.current.onVADEvent((event: VADEvent) => {
+      setAudioLevel(event.volume);
 
-    setTimeout(() => {
-      startListeningHandsFree();
-    }, 200);
-  }, [startListeningHandsFree]);
+      if (state === 'LISTENING') {
+        if (event.isSpeech && event.volume > 0.08) {
+          setState('USER_SPEAKING');
+        }
+      } else if (state === 'AI_SPEAKING' && event.isSpeech && event.volume > 0.28) {
+        // Conversational Barge-In: candidate interrupted the AI
+        triggerBargeIn();
+      }
+    });
+
+    const unsubPartial = audioEngine.current.onPartialTranscript((text: string) => {
+      const clean = text.trim();
+      if (!clean) return;
+      userSpeechBufferRef.current = clean;
+      setState('USER_SPEAKING');
+      setCurrentSubtitle(`🗣️ "${clean}"`);
+    });
+
+    const unsubFinal = audioEngine.current.onFinalTranscript((text: string) => {
+      const clean = text.trim();
+      if (clean) {
+        userSpeechBufferRef.current = clean;
+        handleUserFinishedSpeaking(clean);
+      }
+    });
+
+    const unsubEndOfSpeech = audioEngine.current.onEndOfSpeechDetected(() => {
+      if (state === 'USER_SPEAKING') {
+        setCurrentSubtitle('🤔 Thinking...');
+      }
+    });
+
+    return () => {
+      unsubVAD();
+      unsubPartial();
+      unsubFinal();
+      unsubEndOfSpeech();
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    };
+  }, [state, handleUserFinishedSpeaking, triggerBargeIn]);
 
   const startSession = useCallback(async () => {
     const welcome = `Hello! I'm Nova, your personal AI career coach. My goal is to learn about you, sharpen your skills, and help you advance in your career. What role or level are you aiming for next, and what are you working on right now?`;

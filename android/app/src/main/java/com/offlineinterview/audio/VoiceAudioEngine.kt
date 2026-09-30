@@ -10,8 +10,14 @@ import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -43,8 +49,19 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     private var isPlayingKokoro = false
     private var kokoroPlaybackThread: Thread? = null
 
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var speechRecognizer: SpeechRecognizer? = null
+    @Volatile
+    private var isListeningForSpeech = false
+    private var lastVolumeEmitTime = 0L
+
     var onAudioBufferCallback: ((ByteArray, Float) -> Unit)? = null
     var onPlaybackFinishedCallback: (() -> Unit)? = null
+    var onAudioVolumeCallback: ((Float) -> Unit)? = null
+    var onSpeechDetectedCallback: (() -> Unit)? = null
+    var onPartialTranscriptCallback: ((String) -> Unit)? = null
+    var onFinalTranscriptCallback: ((String) -> Unit)? = null
+    var onEndOfSpeechCallback: (() -> Unit)? = null
 
     companion object {
         private const val TAG = "VoiceAudioEngine"
@@ -530,6 +547,11 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                         val volume = (rms * 5.0f).coerceIn(0.0f, 1.0f)
 
                         onAudioBufferCallback?.invoke(buffer.copyOf(readBytes), volume)
+                        val now = System.currentTimeMillis()
+                        if (now - lastVolumeEmitTime > 60) {
+                            lastVolumeEmitTime = now
+                            onAudioVolumeCallback?.invoke(volume)
+                        }
                     }
                 } catch (e: Throwable) {
                     Log.w(TAG, "Exception during audio record loop: ${e.message}")
@@ -537,6 +559,125 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                 }
             }
         }.also { it.start() }
+    }
+
+    fun startListeningForSpeech() {
+        stopRecording()
+        mainHandler.post {
+            try {
+                if (speechRecognizer != null) {
+                    try {
+                        speechRecognizer?.cancel()
+                        speechRecognizer?.destroy()
+                    } catch (_: Throwable) {}
+                    speechRecognizer = null
+                }
+
+                if (context != null) {
+                    speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                }
+
+                val recognizer = speechRecognizer
+                if (recognizer == null) {
+                    Log.w(TAG, "SpeechRecognizer unavailable, falling back to AudioRecord")
+                    startRecording()
+                    return@post
+                }
+
+                recognizer.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        Log.d(TAG, "SpeechRecognizer: onReadyForSpeech")
+                    }
+
+                    override fun onBeginningOfSpeech() {
+                        Log.d(TAG, "SpeechRecognizer: onBeginningOfSpeech")
+                        onSpeechDetectedCallback?.invoke()
+                    }
+
+                    override fun onRmsChanged(rmsdB: Float) {
+                        val now = System.currentTimeMillis()
+                        if (now - lastVolumeEmitTime > 60) {
+                            lastVolumeEmitTime = now
+                            val normalized = ((rmsdB + 2.0f) / 12.0f).coerceIn(0.0f, 1.0f)
+                            onAudioVolumeCallback?.invoke(normalized)
+                        }
+                    }
+
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+
+                    override fun onEndOfSpeech() {
+                        Log.d(TAG, "SpeechRecognizer: onEndOfSpeech")
+                        onEndOfSpeechCallback?.invoke()
+                    }
+
+                    override fun onError(error: Int) {
+                        Log.w(TAG, "SpeechRecognizer error: $error")
+                        if (isListeningForSpeech) {
+                            mainHandler.postDelayed({
+                                if (isListeningForSpeech) {
+                                    startListeningForSpeech()
+                                }
+                            }, 400)
+                        }
+                    }
+
+                    override fun onResults(results: Bundle?) {
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull()?.trim() ?: ""
+                        Log.i(TAG, "SpeechRecognizer onResults: \"$text\"")
+                        if (text.isNotBlank()) {
+                            isListeningForSpeech = false
+                            onFinalTranscriptCallback?.invoke(text)
+                        } else {
+                            if (isListeningForSpeech) {
+                                mainHandler.postDelayed({
+                                    if (isListeningForSpeech) {
+                                        startListeningForSpeech()
+                                    }
+                                }, 300)
+                            }
+                        }
+                    }
+
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        val text = matches?.firstOrNull()?.trim() ?: ""
+                        if (text.isNotBlank()) {
+                            onPartialTranscriptCallback?.invoke(text)
+                        }
+                    }
+
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                }
+
+                isListeningForSpeech = true
+                recognizer.startListening(intent)
+                Log.i(TAG, "SpeechRecognizer started listening")
+            } catch (e: Throwable) {
+                Log.e(TAG, "Failed to start SpeechRecognizer: ${e.message}", e)
+                startRecording()
+            }
+        }
+    }
+
+    fun stopListeningForSpeech() {
+        isListeningForSpeech = false
+        mainHandler.post {
+            try {
+                speechRecognizer?.stopListening()
+                speechRecognizer?.cancel()
+            } catch (e: Throwable) {
+                Log.w(TAG, "stopListeningForSpeech error: ${e.message}")
+            }
+        }
+        stopRecording()
     }
 
     fun stopRecording() {
@@ -587,7 +728,13 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     }
 
     fun release() {
-        stopRecording()
+        stopListeningForSpeech()
+        mainHandler.post {
+            try {
+                speechRecognizer?.destroy()
+                speechRecognizer = null
+            } catch (_: Throwable) {}
+        }
         releaseAudioRecord()
 
         try {

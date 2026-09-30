@@ -5,6 +5,7 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReadableArray
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import android.util.Log
 
@@ -21,6 +22,30 @@ class VoiceAudioEngineModule(private val reactContext: ReactApplicationContext) 
     init {
         engine.onPlaybackFinishedCallback = {
             sendEvent("onPlaybackFinished", null)
+        }
+        engine.onAudioVolumeCallback = { volume ->
+            val map = Arguments.createMap().apply {
+                putDouble("volume", volume.toDouble())
+            }
+            sendEvent("onAudioVolume", map)
+        }
+        engine.onSpeechDetectedCallback = {
+            sendEvent("onSpeechDetected", null)
+        }
+        engine.onPartialTranscriptCallback = { text ->
+            val map = Arguments.createMap().apply {
+                putString("text", text)
+            }
+            sendEvent("onPartialTranscript", map)
+        }
+        engine.onFinalTranscriptCallback = { text ->
+            val map = Arguments.createMap().apply {
+                putString("text", text)
+            }
+            sendEvent("onFinalTranscript", map)
+        }
+        engine.onEndOfSpeechCallback = {
+            sendEvent("onEndOfSpeech", null)
         }
     }
 
@@ -79,7 +104,7 @@ class VoiceAudioEngineModule(private val reactContext: ReactApplicationContext) 
     @ReactMethod
     fun startRecording() {
         try {
-            engine.startRecording()
+            engine.startListeningForSpeech()
         } catch (e: Exception) {
             Log.e(TAG, "startRecording error: ${e.message}", e)
         }
@@ -88,7 +113,7 @@ class VoiceAudioEngineModule(private val reactContext: ReactApplicationContext) 
     @ReactMethod
     fun stopRecording() {
         try {
-            engine.stopRecording()
+            engine.stopListeningForSpeech()
         } catch (e: Exception) {
             Log.e(TAG, "stopRecording error: ${e.message}", e)
         }

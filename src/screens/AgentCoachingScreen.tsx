@@ -157,7 +157,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             <Text style={styles.bargeInBtnText}>⚡ Tap to Speak (Barge-In)</Text>
           </TouchableOpacity>
         ) : isListening ? (
-          <TouchableOpacity style={styles.listeningActiveBtn} onPress={handleUserFinishedSpeaking}>
+          <TouchableOpacity style={styles.listeningActiveBtn} onPress={() => handleUserFinishedSpeaking()}>
             <Text style={styles.listeningActiveBtnText}>
               👂 Listening... (Pause 1s or Tap when Done)
             </Text>
