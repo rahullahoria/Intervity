@@ -6,9 +6,10 @@
 [![React Native](https://img.shields.io/badge/React%20Native-0.76%20(New%20Architecture)-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
 [![Offline First](https://img.shields.io/badge/Offline-100%25%20On--Device-success)](#)
 [![Privacy First](https://img.shields.io/badge/Privacy-Zero%20Data%20Egress-green)](#)
-[![Kokoro TTS](https://img.shields.io/badge/TTS-Kokoro--82M%20(INT8)-orange)](#)
-[![Whisper STT](https://img.shields.io/badge/STT-Whisper.rn-blueviolet)](#)
-[![Rive](https://img.shields.io/badge/Mascot-Rive%20State%20Machine-ff5c8a?logo=rive&logoColor=white)](#)
+[![Kokoro TTS](https://img.shields.io/badge/TTS-Kokoro--82M%20(INT8)-orange)](https://huggingface.co/hexgrad/Kokoro-82M)
+[![Whisper STT](https://img.shields.io/badge/STT-Whisper.rn-blueviolet)](https://github.com/mybigday/whisper.rn)
+[![Rive](https://img.shields.io/badge/Mascot-Rive%20State%20Machine-ff5c8a?logo=rive&logoColor=white)](https://rive.app/)
+[![Attributions](https://img.shields.io/badge/Attributions-Models%20%26%20Assets-informational)](ATTRIBUTIONS.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ---
@@ -32,7 +33,7 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 - **🎨 Interactive Rive AI Mascot with Lip-Sync & Avatar Switcher:** Expressive on-device vector mascot driven by Rive State Machines (`rive-react-native`). Synchronizes mouth animation (`Talking`) directly with on-device Kokoro TTS PCM audio playback, reacts with attentive listening eye tracking, and features a one-tap dynamic avatar toggle between Coach Nova and Teddy Bear.
 - **🎙️ Zero-Friction Hands-Free Voice Experience:** Clean, distraction-free interface where the Mascot talks out loud via Kokoro-82M on the loudspeaker, listens attentively, and loops back-and-forth hands-free with energy VAD silence detection. Includes a secondary backup text drawer when speech or audio is inconvenient.
 - **✨ Unified Vector Icon Design System & Modern UI:** Replaced raw platform emojis with a cohesive, high-performance vector icon suite in `src/components/icons/AppIcons.tsx` built with `react-native-svg`. Styled with a modern cyan (`#38BDF8`), indigo (`#818CF8`), and slate palette, featuring real-time audio waveform activity visualizers (`SoundWaveBars`) in the live teleprompter, safe-area notch and status-bar clearance via `SafeAreaProvider`, and responsive HUD layout.
-- **📱 Modern Android Launcher & Adaptive Icon Suite:** Modern branded Intervity crest featuring cyber neural soundwave bars and a 4-point AI intelligence star spark. Fully configured across all Android mipmap densities (`mdpi` to `xxxhdpi`) and API 26+ adaptive icon suite (`mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml`).
+- **📱 Mascot Face App Launcher & Adaptive Icon Suite:** Modern branded Intervity launcher icons featuring Coach Nova's face across Android (adaptive, round, square, Play Store 512×512) and iOS (`AppIcon.appiconset` with solid RGB across all device scales). Generated via [`scripts/generate_mascot_icons.py`](scripts/generate_mascot_icons.py).
 - **🎙️ Kokoro-82M Neural TTS:** Studio-grade on-device text-to-speech powered by `sherpa-onnx` and ONNX Runtime. Generates rich, human-like cadence across 103 voices, including Indian English (`en-IN`) technical interviewer personas (`hf_alpha` Bengaluru Tech Lead, `hm_omega` VP of Engineering).
 - **⚡ Ultra-Fast Full-Duplex Audio & Barge-In:** Built-in hardware Acoustic Echo Cancellation (AEC) and instant (<100ms) audio track flush when the candidate interrupts the AI, mirroring real human conversational dynamics.
 - **🧠 Local LLM Reasoning:** Runs quantized SLMs (`MiniCPM-2.5-Q4_K_M`, `Llama-3.2-1B/3B`) via `llama.rn` directly on mobile NPU/GPU/CPU.
@@ -211,6 +212,34 @@ Intervity/
 ├── tests/                     # 23+ unit & E2E integration test suites
 └── scripts/                   # Model downloaders, device provisioning & icon generators
 ```
+
+---
+
+## 📚 Third-Party Assets, Models & Acknowledgments
+
+Intervity is powered by incredible advancements from the global open-source AI community. We gratefully acknowledge the creators, researchers, and maintainers of the following models, assets, and frameworks:
+
+### 🤖 On-Device AI Models
+- **[Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M)** by [@hexgrad](https://huggingface.co/hexgrad) (Apache 2.0) — Lightweight studio-grade neural text-to-speech. Mobile INT8 bundles provided by [k2-fsa/sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx).
+- **[Whisper](https://github.com/openai/whisper)** by OpenAI & [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by Georgi Gerganov (MIT) — Real-time on-device speech-to-text transcription via [whisper.rn](https://github.com/mybigday/whisper.rn). Quantized weights from [ggerganov/whisper.cpp](https://huggingface.co/ggerganov/whisper.cpp) and [handy-computer](https://huggingface.co/handy-computer/whisper-large-v3-turbo-gguf).
+- **[Qwen 2.5 0.5B Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF)** by Alibaba Cloud Qwen Team (Apache 2.0) — Ultra-fast, low-latency conversational reasoning.
+- **[MiniCPM-2.5 / MiniCPM5-2B](https://huggingface.co/bartowski/MiniCPM5-2B-GGUF)** by OpenBMB / ModelBest & quantized by bartowski (Apache 2.0) — Technical architecture probing and deep curriculum reasoning.
+- **[Llama 3.2](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct)** by Meta AI (Llama 3.2 Community License) — Optional conversational engine.
+
+### 🎨 Mascots, Avatars & Visual Design
+- **Coach Nova Robot Mascot (`src/assets/rive/mascot.riv`)**: Custom interactive Rive state machine featuring real-time lip sync (`Talking`), listening gaze, and celebratory animations (Apache 2.0).
+- **Teddy Bear Avatar (`src/assets/rive/teddy.riv`)**: Created by the [Rive Community](https://rive.app/community/) ([CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)) — Accessible, friendly companion avatar option.
+- **Mascot Face App Launcher Icons**: Custom high-resolution brand icons across Android adaptive densities and iOS asset catalog ([`scripts/generate_mascot_icons.py`](scripts/generate_mascot_icons.py)).
+- **Unified Vector Icons**: Built with [`react-native-svg`](https://github.com/software-mansion/react-native-svg) in [`src/components/icons/AppIcons.tsx`](src/components/icons/AppIcons.tsx).
+
+### ⚙️ Core Engines & Acceleration
+- **[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)** (Apache 2.0) — On-device ONNX runtime execution for Kokoro-82M TTS.
+- **[llama.rn](https://github.com/mybigday/llama.rn) & [llama.cpp](https://github.com/ggerganov/llama.cpp)** (MIT) — C++ JSI execution engine for local GGUF models with ARM NEON, OpenCL, and DSP support.
+- **[rive-react-native](https://github.com/rive-app/rive-react-native)** (MIT / Rive License) — High-performance 60/120 FPS vector runtime for interactive characters.
+- **[op-sqlite](https://github.com/OP-Engineering/op-sqlite)** (MIT) — Fast embedded SQLite database for local mastery analytics and conversation memory.
+- **Qualcomm Hexagon HTP GGML Binaries** (`android/app/src/main/assets/ggml-hexagon/`) — Snapdragon NPU acceleration drivers.
+
+👉 **For complete upstream references, licenses, and legal notices, see [ATTRIBUTIONS.md](ATTRIBUTIONS.md).**
 
 ---
 
