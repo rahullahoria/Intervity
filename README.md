@@ -28,6 +28,8 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 
 ## 🚀 Key Features
 
+- **🧠 Autonomous Agent Coaching Harness & Evolving Mascot:** The Mascot (Nova) has an adaptive personality that levels up (from *Curious Explorer* to *Distinguished Fellow*) as it learns from you. It maintains persistent long-term SQLite memory of your career aspirations, company targets, and technical blind spots, dynamically alternating between discovering your background, probing deep architecture trade-offs, and teaching brand-new skills with the Feynman technique.
+- **🎙️ Zero-Friction Hands-Free Voice Experience:** Clean, distraction-free interface where the Mascot talks out loud via Kokoro-82M on the loudspeaker, listens attentively, and loops back-and-forth hands-free with energy VAD silence detection. Includes a secondary backup text drawer when speech or audio is inconvenient.
 - **🎙️ Kokoro-82M Neural TTS:** Studio-grade on-device text-to-speech powered by `sherpa-onnx` and ONNX Runtime. Generates rich, human-like cadence across 103 voices, including Indian English (`en-IN`) technical interviewer personas (`hf_alpha` Bengaluru Tech Lead, `hm_omega` VP of Engineering).
 - **🎨 Interactive Rive AI Mascot:** Expressive on-device vector mascot driven by Rive State Machines (`rive-react-native`). Reacts in real time with conversational lip-sync, attentive listening eye tracking, thinking postures, and audio halo biofeedback. Candidates can seamlessly toggle between the 3D Voice Orb and the interactive AI Mascot.
 - **⚡ Ultra-Fast Full-Duplex Audio & Barge-In:** Built-in hardware Acoustic Echo Cancellation (AEC) and instant (<100ms) audio track flush when the candidate interrupts the AI, mirroring real human conversational dynamics.

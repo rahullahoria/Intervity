@@ -96,4 +96,27 @@ CREATE TABLE IF NOT EXISTS soft_skill_turn_evaluations (
     score REAL NOT NULL,
     observation TEXT NOT NULL
 );
+
+-- 9. Mascot Profile & Personality State
+CREATE TABLE IF NOT EXISTS mascot_profile (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL DEFAULT 'Nova',
+    level INTEGER NOT NULL DEFAULT 1,
+    xp INTEGER NOT NULL DEFAULT 0,
+    personality_tier TEXT NOT NULL DEFAULT 'Curious Explorer',
+    relationship_summary TEXT,
+    coaching_style TEXT DEFAULT 'Socratic',
+    updated_at INTEGER NOT NULL
+);
+
+-- 10. Agent Long-Term User Memory & Career Facts
+CREATE TABLE IF NOT EXISTS agent_user_memory (
+    memory_id TEXT PRIMARY KEY,
+    category TEXT NOT NULL, -- 'career_goal', 'current_role', 'strength', 'weakness', 'project', 'preference', 'milestone'
+    fact_key TEXT NOT NULL,
+    fact_value TEXT NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    created_at INTEGER NOT NULL,
+    last_referenced_at INTEGER NOT NULL
+);
 `;
