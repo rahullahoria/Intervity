@@ -5,6 +5,7 @@
 
 import React, { useEffect } from 'react';
 import { View, StyleSheet, LogBox, Platform, PermissionsAndroid } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SQLiteClient } from './src/database/SQLiteClient';
 import { colors } from './src/theme/colors';
@@ -31,9 +32,11 @@ export default function App() {
   }, []);
 
   return (
-    <View style={styles.root}>
-      <AppNavigator />
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.root}>
+        <AppNavigator />
+      </View>
+    </SafeAreaProvider>
   );
 }
 

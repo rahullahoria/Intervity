@@ -15,6 +15,7 @@ import {
 import { useModelDownloads } from '../hooks/useModelDownloads';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
+import { ChevronLeftIcon, CheckIcon } from '../components/icons/AppIcons';
 
 interface ModelManagerScreenProps {
   navigation: any;
@@ -39,8 +40,9 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
       <ScrollView contentContainerStyle={styles.container}>
         {/* Top Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>← Back</Text>
+          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <ChevronLeftIcon size={18} color="#38BDF8" />
+            <Text style={styles.backBtnText}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.appTag}>ON-DEVICE AI ASSET MANAGER</Text>
           <View style={{ width: 40 }} />
@@ -85,13 +87,16 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
               </View>
 
               <View style={styles.modelFooterRow}>
-                <Text style={typography.caption}>
-                  {model.isDownloaded
-                    ? '✓ Verified & Locked in RAM'
-                    : model.isDownloading
-                    ? `Downloading: ${modelPercent}%`
-                    : 'Pending Download'}
-                </Text>
+                <View style={styles.modelStatusRow}>
+                  {model.isDownloaded && <CheckIcon size={14} color="#10B981" />}
+                  <Text style={[typography.caption, model.isDownloaded && { color: '#10B981', fontWeight: '600' }]}>
+                    {model.isDownloaded
+                      ? 'Verified & Locked in RAM'
+                      : model.isDownloading
+                      ? `Downloading: ${modelPercent}%`
+                      : 'Pending Download'}
+                  </Text>
+                </View>
 
                 {!model.isDownloaded && !model.isDownloading ? (
                   <TouchableOpacity
@@ -141,6 +146,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   backBtnText: {
     color: colors.textSecondary,
@@ -214,6 +224,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 6,
+  },
+  modelStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   downloadSmallBtn: {
     backgroundColor: colors.accentPrimary,

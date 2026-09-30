@@ -23,9 +23,32 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RiveMascot } from '../components/RiveMascot';
 import { useAgentCoaching } from '../hooks/useAgentCoaching';
 import { colors } from '../theme/colors';
+import {
+  SparklesIcon,
+  StarIcon,
+  CoachIcon,
+  BearIcon,
+  VolumeHighIcon,
+  VolumeLowIcon,
+  SettingsIcon,
+  TargetIcon,
+  MicIcon,
+  BoltIcon,
+  BrainIcon,
+  ChatBubbleIcon,
+  LoopIcon,
+  PauseIcon,
+  CloseIcon,
+  SendIcon,
+  BulbIcon,
+  BriefcaseIcon,
+  ArchitectureIcon,
+  SoundWaveBars,
+} from '../components/icons/AppIcons';
 
 interface AgentCoachingScreenProps {
   navigation: any;
@@ -53,6 +76,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
   const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
   const [typedInput, setTypedInput] = useState('');
   const [selectedMascot, setSelectedMascot] = useState<'coach' | 'teddy'>('coach');
+  const insets = useSafeAreaInsets();
 
   const isSpeaking = state === 'AI_SPEAKING';
   const isListening = state === 'LISTENING' || state === 'USER_SPEAKING';
@@ -88,12 +112,24 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       />
 
       {/* 2. Floating Top Header & Career Goals */}
-      <SafeAreaView style={styles.floatingTopContainer} pointerEvents="box-none">
+      <View
+        style={[
+          styles.floatingTopContainer,
+          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 38) : 0, 42) + 6 },
+        ]}
+        pointerEvents="box-none"
+      >
         <View style={styles.header}>
           <View style={styles.mascotLevelChip}>
-            <Text style={styles.mascotLevelText}>
-              ⭐ Lv.{mascotProfile.level} • {mascotProfile.personalityTier}
-            </Text>
+            <View style={styles.mascotLevelHeaderRow}>
+              <View style={styles.levelBadge}>
+                <StarIcon size={11} color="#38BDF8" />
+                <Text style={styles.levelBadgeText}>Lv.{mascotProfile.level}</Text>
+              </View>
+              <Text style={styles.mascotPersonalityText} numberOfLines={1}>
+                {mascotProfile.personalityTier}
+              </Text>
+            </View>
             <View style={styles.xpBarTrack}>
               <View
                 style={[
@@ -108,8 +144,13 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => setSelectedMascot((prev) => (prev === 'coach' ? 'teddy' : 'coach'))}
+              accessibilityLabel="Switch Avatar"
             >
-              <Text style={styles.iconBtnText}>{selectedMascot === 'coach' ? '🎓' : '🐻'}</Text>
+              {selectedMascot === 'coach' ? (
+                <CoachIcon size={18} color="#38BDF8" />
+              ) : (
+                <BearIcon size={18} color="#38BDF8" />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -118,42 +159,78 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 isLoudspeaker && styles.iconBtnActive,
               ]}
               onPress={toggleSpeakerphone}
+              accessibilityLabel="Toggle Loudspeaker"
             >
-              <Text style={styles.iconBtnText}>{isLoudspeaker ? '🔊' : '🔈'}</Text>
+              {isLoudspeaker ? (
+                <VolumeHighIcon size={18} color="#38BDF8" />
+              ) : (
+                <VolumeLowIcon size={18} color="#94A3B8" />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => navigation.navigate('ModelManager')}
+              accessibilityLabel="Settings"
             >
-              <Text style={styles.iconBtnText}>⚙️</Text>
+              <SettingsIcon size={18} color="#94A3B8" />
             </TouchableOpacity>
           </View>
         </View>
 
         {userMemory?.targetRole ? (
           <View style={styles.targetRoleBadge}>
+            <TargetIcon size={13} color="#818CF8" />
             <Text style={styles.targetRoleText}>
-              🎯 Target: {userMemory.targetRole}
+              Target: {userMemory.targetRole}
             </Text>
           </View>
         ) : null}
-      </SafeAreaView>
+      </View>
 
       {/* 3. Floating Bottom HUD (Subtitles & Primary Action Controls) */}
-      <SafeAreaView style={styles.floatingBottomContainer} pointerEvents="box-none">
+      <View
+        style={[
+          styles.floatingBottomContainer,
+          { paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 22 : 8) + 8 },
+        ]}
+        pointerEvents="box-none"
+      >
         {/* Live Subtitle Teleprompter */}
         <View style={styles.subtitleCard}>
           <View style={styles.subtitleHeaderRow}>
-            <Text style={styles.subtitleSpeaker}>
-              {isSpeaking ? `🎙️ Nova (AI Coach)` : isListening ? `👂 Listening to you` : isThinking ? `🧠 Updating Career Model` : `✨ AI Mentor Ready`}
-            </Text>
+            <View style={styles.speakerStatusRow}>
+              {isSpeaking ? (
+                <>
+                  <SoundWaveBars level={audioLevel} active={true} color="#38BDF8" size={14} />
+                  <Text style={[styles.subtitleSpeaker, { color: '#38BDF8' }]}>Nova (AI Coach)</Text>
+                </>
+              ) : isListening ? (
+                <>
+                  <SoundWaveBars level={audioLevel} active={true} color="#22D3EE" size={14} />
+                  <Text style={[styles.subtitleSpeaker, { color: '#22D3EE' }]}>Listening to you</Text>
+                </>
+              ) : isThinking ? (
+                <>
+                  <BrainIcon size={13} color="#A78BFA" />
+                  <Text style={[styles.subtitleSpeaker, { color: '#A78BFA' }]}>Updating Career Model</Text>
+                </>
+              ) : (
+                <>
+                  <SparklesIcon size={13} color="#94A3B8" />
+                  <Text style={styles.subtitleSpeaker}>AI Mentor Ready</Text>
+                </>
+              )}
+            </View>
+
             {isSpeaking && (
               <View style={styles.bargeInHintPill}>
+                <BoltIcon size={10} color="#FBBF24" />
                 <Text style={styles.bargeInHintText}>Tap screen to interrupt</Text>
               </View>
             )}
           </View>
+
           <Text style={styles.subtitleText} numberOfLines={3}>
             {currentSubtitle || 'Speak naturally into your microphone...'}
           </Text>
@@ -163,32 +240,41 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         <View style={styles.bottomBar}>
           {isReady ? (
             <TouchableOpacity style={styles.primaryStartBtn} onPress={startSession}>
-              <Text style={styles.primaryStartBtnText}>🎙️ Begin Coaching Conversation</Text>
+              <MicIcon size={18} color="#FFFFFF" />
+              <Text style={styles.primaryStartBtnText}>Begin Coaching Conversation</Text>
             </TouchableOpacity>
           ) : isSpeaking ? (
             <TouchableOpacity style={styles.bargeInBtn} onPress={triggerBargeIn}>
-              <Text style={styles.bargeInBtnText}>⚡ Tap to Speak (Barge-In)</Text>
+              <BoltIcon size={16} color="#FBBF24" />
+              <Text style={styles.bargeInBtnText}>Tap to Speak (Barge-In)</Text>
             </TouchableOpacity>
           ) : isListening ? (
             <TouchableOpacity style={styles.listeningActiveBtn} onPress={() => handleUserFinishedSpeaking()}>
+              <SoundWaveBars level={audioLevel} active={true} color="#22D3EE" size={15} />
               <Text style={styles.listeningActiveBtnText}>
-                👂 Listening... (Pause 1s or Tap when Done)
+                Listening... (Pause 1s or Tap when Done)
               </Text>
             </TouchableOpacity>
           ) : isThinking ? (
             <View style={styles.thinkingPill}>
-              <Text style={styles.thinkingPillText}>🧠 Updating Career Model...</Text>
+              <BrainIcon size={16} color="#A78BFA" />
+              <Text style={styles.thinkingPillText}>Updating Career Model...</Text>
             </View>
           ) : null}
 
           {/* Secondary Discreet Backup Option: Text Mode */}
           <View style={styles.secondaryControlsRow}>
             <TouchableOpacity
-              style={styles.handsFreeToggle}
+              style={[styles.handsFreeToggle, isHandsFreeActive && styles.handsFreeToggleActive]}
               onPress={toggleHandsFree}
             >
-              <Text style={styles.handsFreeToggleText}>
-                {isHandsFreeActive ? '🎙️ Hands-Free Loop ON' : '⏸️ Manual Tap Mode'}
+              {isHandsFreeActive ? (
+                <LoopIcon size={13} color="#38BDF8" />
+              ) : (
+                <PauseIcon size={13} color="#94A3B8" />
+              )}
+              <Text style={[styles.handsFreeToggleText, isHandsFreeActive && styles.handsFreeToggleTextActive]}>
+                {isHandsFreeActive ? 'Hands-Free Loop ON' : 'Manual Tap Mode'}
               </Text>
             </TouchableOpacity>
 
@@ -196,11 +282,12 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               style={styles.textBackupBtn}
               onPress={() => setIsTextDrawerVisible(true)}
             >
-              <Text style={styles.textBackupBtnText}>💬 Text Mode</Text>
+              <ChatBubbleIcon size={13} color="#38BDF8" />
+              <Text style={styles.textBackupBtnText}>Text Mode</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
 
       {/* Secondary Backup Text Modal (For Silent / Non-Voice Situations) */}
       <Modal
@@ -216,15 +303,18 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           <View style={styles.modalContent}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>💬 Backup Text Mode</Text>
-                <Text style={styles.modalSubtitle}>Use when you cannot speak or listen out loud</Text>
+              <View style={styles.modalTitleRow}>
+                <ChatBubbleIcon size={18} color="#38BDF8" />
+                <View style={{ marginLeft: 8 }}>
+                  <Text style={styles.modalTitle}>Backup Text Mode</Text>
+                  <Text style={styles.modalSubtitle}>Use when you cannot speak or listen out loud</Text>
+                </View>
               </View>
               <TouchableOpacity
                 style={styles.closeBtn}
                 onPress={() => setIsTextDrawerVisible(false)}
               >
-                <Text style={styles.closeBtnText}>✕</Text>
+                <CloseIcon size={16} color="#94A3B8" />
               </TouchableOpacity>
             </View>
 
@@ -238,19 +328,22 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 style={styles.quickChip}
                 onPress={() => handleQuickPrompt("I'm currently a Senior Engineer aiming for Staff level.")}
               >
-                <Text style={styles.quickChipText}>🎯 Aiming for Staff Level</Text>
+                <BriefcaseIcon size={13} color="#818CF8" />
+                <Text style={styles.quickChipText}>Aiming for Staff Level</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.quickChip}
                 onPress={() => handleQuickPrompt("Teach me how to prevent cache stampedes in distributed systems.")}
               >
-                <Text style={styles.quickChipText}>💡 Learn Cache Stampede</Text>
+                <BulbIcon size={13} color="#FBBF24" />
+                <Text style={styles.quickChipText}>Learn Cache Stampede</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.quickChip}
                 onPress={() => handleQuickPrompt("How do I structure my system design answers to pass L6?")}
               >
-                <Text style={styles.quickChipText}>🏗️ System Design Framing</Text>
+                <ArchitectureIcon size={13} color="#38BDF8" />
+                <Text style={styles.quickChipText}>System Design Framing</Text>
               </TouchableOpacity>
             </ScrollView>
 
@@ -292,6 +385,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 onPress={handleSendText}
                 disabled={!typedInput.trim()}
               >
+                <SendIcon size={15} color={typedInput.trim() ? '#FFFFFF' : '#64748B'} />
                 <Text style={styles.sendBtnText}>Send</Text>
               </TouchableOpacity>
             </View>
@@ -312,7 +406,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    paddingTop: Platform.OS === 'android' ? 14 : 4,
     zIndex: 10,
   },
   floatingBottomContainer: {
@@ -330,11 +423,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   mascotLevelChip: {
+    flexShrink: 1,
+    maxWidth: '65%',
     flexDirection: 'column',
-    gap: 4,
+    gap: 5,
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
@@ -344,14 +439,35 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  mascotLevelText: {
-    color: '#F8FAFC',
-    fontSize: 13,
+  mascotLevelHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  levelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  levelBadgeText: {
+    color: '#38BDF8',
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.2,
+  },
+  mascotPersonalityText: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '600',
+    flexShrink: 1,
   },
   xpBarTrack: {
-    width: 140,
+    width: '100%',
     height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 2,
@@ -359,7 +475,7 @@ const styles = StyleSheet.create({
   },
   xpBarFill: {
     height: '100%',
-    backgroundColor: '#10B981',
+    backgroundColor: '#38BDF8',
     borderRadius: 2,
   },
   headerControls: {
@@ -368,8 +484,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBtn: {
-    padding: 10,
+    width: 40,
+    height: 40,
     borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.12)',
@@ -380,14 +499,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   iconBtnActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
     borderWidth: 1.5,
-    borderColor: '#10B981',
-  },
-  iconBtnText: {
-    fontSize: 16,
+    borderColor: '#38BDF8',
   },
   targetRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     alignSelf: 'flex-start',
     marginLeft: 16,
     marginTop: 4,
@@ -429,6 +548,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 6,
   },
+  speakerStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   subtitleSpeaker: {
     color: '#94A3B8',
     fontSize: 11,
@@ -437,9 +561,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   bargeInHintPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: 'rgba(245, 158, 11, 0.2)',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#F59E0B',
@@ -461,11 +588,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   primaryStartBtn: {
-    backgroundColor: '#3B82F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#0284C7',
     paddingVertical: 16,
     borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#3B82F6',
+    shadowColor: '#0284C7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,
@@ -477,12 +607,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bargeInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: 'rgba(245, 158, 11, 0.15)',
     borderWidth: 1,
     borderColor: '#F59E0B',
     paddingVertical: 14,
     borderRadius: 14,
-    alignItems: 'center',
   },
   bargeInBtnText: {
     color: '#FBBF24',
@@ -490,12 +623,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listeningActiveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: 'rgba(6, 182, 212, 0.15)',
     borderWidth: 1,
     borderColor: '#06B6D4',
     paddingVertical: 14,
     borderRadius: 14,
-    alignItems: 'center',
   },
   listeningActiveBtnText: {
     color: '#22D3EE',
@@ -503,12 +639,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   thinkingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: 'rgba(139, 92, 246, 0.15)',
     borderWidth: 1,
     borderColor: '#8B5CF6',
     paddingVertical: 14,
     borderRadius: 14,
-    alignItems: 'center',
   },
   thinkingPillText: {
     color: '#A78BFA',
@@ -522,8 +661,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   handsFreeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
@@ -534,14 +676,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  handsFreeToggleActive: {
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+  },
   handsFreeToggleText: {
     color: '#E2E8F0',
     fontSize: 12,
     fontWeight: '700',
   },
+  handsFreeToggleTextActive: {
+    color: '#38BDF8',
+  },
   textBackupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingVertical: 7,
+    paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 1,
@@ -579,6 +731,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
   },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   modalTitle: {
     color: '#F8FAFC',
     fontSize: 16,
@@ -592,11 +748,6 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 6,
   },
-  closeBtnText: {
-    color: '#94A3B8',
-    fontSize: 18,
-    fontWeight: '600',
-  },
   quickPromptScroll: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -604,13 +755,16 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.04)',
   },
   quickChip: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(30, 41, 59, 0.7)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 12,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   quickChipText: {
     color: '#93C5FD',
@@ -643,7 +797,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   userBubble: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#0284C7',
     alignSelf: 'flex-end',
     borderBottomRightRadius: 4,
   },
@@ -678,9 +832,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   sendBtn: {
-    backgroundColor: '#2563EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#0284C7',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 12,
   },
   sendBtnDisabled: {
