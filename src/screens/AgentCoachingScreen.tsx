@@ -70,48 +70,59 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0B0F19" />
+    <View style={styles.rootContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
 
-      {/* Top Header: Mascot Personality Level & Audio Output */}
-      <View style={styles.header}>
-        <View style={styles.mascotLevelChip}>
-          <Text style={styles.mascotLevelText}>
-            ⭐ Lv.{mascotProfile.level} • {mascotProfile.personalityTier}
-          </Text>
-          <View style={styles.xpBarTrack}>
-            <View
+      {/* 1. Full Screen Immersive Mascot Layer */}
+      <RiveMascot
+        isFullScreen={true}
+        state={state}
+        audioLevel={audioLevel}
+        mascotType="teddy"
+        onPress={() => {
+          if (isSpeaking) triggerBargeIn();
+          else if (isReady) startSession();
+          else if (isListening) handleUserFinishedSpeaking();
+        }}
+      />
+
+      {/* 2. Floating Top Header & Career Goals */}
+      <SafeAreaView style={styles.floatingTopContainer} pointerEvents="box-none">
+        <View style={styles.header}>
+          <View style={styles.mascotLevelChip}>
+            <Text style={styles.mascotLevelText}>
+              ⭐ Lv.{mascotProfile.level} • {mascotProfile.personalityTier}
+            </Text>
+            <View style={styles.xpBarTrack}>
+              <View
+                style={[
+                  styles.xpBarFill,
+                  { width: `${Math.min(100, (mascotProfile.xp / mascotProfile.xpToNextLevel) * 100)}%` },
+                ]}
+              />
+            </View>
+          </View>
+
+          <View style={styles.headerControls}>
+            <TouchableOpacity
               style={[
-                styles.xpBarFill,
-                { width: `${Math.min(100, (mascotProfile.xp / mascotProfile.xpToNextLevel) * 100)}%` },
+                styles.iconBtn,
+                isLoudspeaker && styles.iconBtnActive,
               ]}
-            />
+              onPress={toggleSpeakerphone}
+            >
+              <Text style={styles.iconBtnText}>{isLoudspeaker ? '🔊' : '🔈'}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => navigation.navigate('ModelManager')}
+            >
+              <Text style={styles.iconBtnText}>⚙️</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.headerControls}>
-          <TouchableOpacity
-            style={[
-              styles.iconBtn,
-              isLoudspeaker && styles.iconBtnActive,
-            ]}
-            onPress={toggleSpeakerphone}
-          >
-            <Text style={styles.iconBtnText}>{isLoudspeaker ? '🔊' : '🔈'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.iconBtn}
-            onPress={() => navigation.navigate('ModelManager')}
-          >
-            <Text style={styles.iconBtnText}>⚙️</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Main Hands-Free Coaching Space */}
-      <View style={styles.centerStage}>
-        {/* Memory Hint: Career Target Badge */}
         {userMemory?.targetRole ? (
           <View style={styles.targetRoleBadge}>
             <Text style={styles.targetRoleText}>
@@ -119,74 +130,69 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             </Text>
           </View>
         ) : null}
+      </SafeAreaView>
 
-        {/* Centerpiece: Expressive Rive Mascot */}
-        <View style={styles.mascotWrapper}>
-          <RiveMascot
-            state={state}
-            audioLevel={audioLevel}
-            size={290}
-            mascotType="teddy"
-            showMascotBadge={true}
-            onPress={() => {
-              if (isSpeaking) triggerBargeIn();
-              else if (isReady) startSession();
-            }}
-          />
-        </View>
-
+      {/* 3. Floating Bottom HUD (Subtitles & Primary Action Controls) */}
+      <SafeAreaView style={styles.floatingBottomContainer} pointerEvents="box-none">
         {/* Live Subtitle Teleprompter */}
         <View style={styles.subtitleCard}>
-          <Text style={styles.subtitleSpeaker}>
-            {isSpeaking ? `Nova (AI Coach):` : isListening ? `Listening to you:` : `Coach Status:`}
-          </Text>
-          <Text style={styles.subtitleText} numberOfLines={4}>
+          <View style={styles.subtitleHeaderRow}>
+            <Text style={styles.subtitleSpeaker}>
+              {isSpeaking ? `🎙️ Nova (AI Coach)` : isListening ? `👂 Listening to you` : isThinking ? `🧠 Updating Career Model` : `✨ AI Mentor Ready`}
+            </Text>
+            {isSpeaking && (
+              <View style={styles.bargeInHintPill}>
+                <Text style={styles.bargeInHintText}>Tap screen to interrupt</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.subtitleText} numberOfLines={3}>
             {currentSubtitle || 'Speak naturally into your microphone...'}
           </Text>
         </View>
-      </View>
 
-      {/* Bottom Hands-Free Action Bar */}
-      <View style={styles.bottomBar}>
-        {isReady ? (
-          <TouchableOpacity style={styles.primaryStartBtn} onPress={startSession}>
-            <Text style={styles.primaryStartBtnText}>🎙️ Begin Coaching Conversation</Text>
-          </TouchableOpacity>
-        ) : isSpeaking ? (
-          <TouchableOpacity style={styles.bargeInBtn} onPress={triggerBargeIn}>
-            <Text style={styles.bargeInBtnText}>⚡ Tap to Speak (Barge-In)</Text>
-          </TouchableOpacity>
-        ) : isListening ? (
-          <TouchableOpacity style={styles.listeningActiveBtn} onPress={() => handleUserFinishedSpeaking()}>
-            <Text style={styles.listeningActiveBtnText}>
-              👂 Listening... (Pause 1s or Tap when Done)
-            </Text>
-          </TouchableOpacity>
-        ) : isThinking ? (
-          <View style={styles.thinkingPill}>
-            <Text style={styles.thinkingPillText}>🧠 Updating Career Model...</Text>
+        {/* Bottom Hands-Free Action Bar */}
+        <View style={styles.bottomBar}>
+          {isReady ? (
+            <TouchableOpacity style={styles.primaryStartBtn} onPress={startSession}>
+              <Text style={styles.primaryStartBtnText}>🎙️ Begin Coaching Conversation</Text>
+            </TouchableOpacity>
+          ) : isSpeaking ? (
+            <TouchableOpacity style={styles.bargeInBtn} onPress={triggerBargeIn}>
+              <Text style={styles.bargeInBtnText}>⚡ Tap to Speak (Barge-In)</Text>
+            </TouchableOpacity>
+          ) : isListening ? (
+            <TouchableOpacity style={styles.listeningActiveBtn} onPress={() => handleUserFinishedSpeaking()}>
+              <Text style={styles.listeningActiveBtnText}>
+                👂 Listening... (Pause 1s or Tap when Done)
+              </Text>
+            </TouchableOpacity>
+          ) : isThinking ? (
+            <View style={styles.thinkingPill}>
+              <Text style={styles.thinkingPillText}>🧠 Updating Career Model...</Text>
+            </View>
+          ) : null}
+
+          {/* Secondary Discreet Backup Option: Text Mode */}
+          <View style={styles.secondaryControlsRow}>
+            <TouchableOpacity
+              style={styles.handsFreeToggle}
+              onPress={toggleHandsFree}
+            >
+              <Text style={styles.handsFreeToggleText}>
+                {isHandsFreeActive ? '🎙️ Hands-Free Loop ON' : '⏸️ Manual Tap Mode'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.textBackupBtn}
+              onPress={() => setIsTextDrawerVisible(true)}
+            >
+              <Text style={styles.textBackupBtnText}>💬 Text Mode</Text>
+            </TouchableOpacity>
           </View>
-        ) : null}
-
-        {/* Secondary Discreet Backup Option: Text Mode */}
-        <View style={styles.secondaryControlsRow}>
-          <TouchableOpacity
-            style={styles.handsFreeToggle}
-            onPress={toggleHandsFree}
-          >
-            <Text style={styles.handsFreeToggleText}>
-              {isHandsFreeActive ? '🎙️ Hands-Free Loop ON' : '⏸️ Manual Tap Mode'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.textBackupBtn}
-            onPress={() => setIsTextDrawerVisible(true)}
-          >
-            <Text style={styles.textBackupBtnText}>💬 Text Mode</Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* Secondary Backup Text Modal (For Silent / Non-Voice Situations) */}
       <Modal
@@ -284,27 +290,51 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  rootContainer: {
     flex: 1,
-    backgroundColor: '#0B0F19',
+    backgroundColor: '#d6e2ea',
+  },
+  floatingTopContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: Platform.OS === 'android' ? 14 : 4,
+    zIndex: 10,
+  },
+  floatingBottomContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   mascotLevelChip: {
     flexDirection: 'column',
     gap: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   mascotLevelText: {
     color: '#F8FAFC',
@@ -315,7 +345,7 @@ const styles = StyleSheet.create({
   xpBarTrack: {
     width: 140,
     height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -330,60 +360,86 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   iconBtnActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(16, 185, 129, 0.3)',
+    borderWidth: 1.5,
     borderColor: '#10B981',
   },
   iconBtnText: {
-    fontSize: 15,
-  },
-  centerStage: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    fontSize: 16,
   },
   targetRoleBadge: {
+    alignSelf: 'flex-start',
+    marginLeft: 16,
+    marginTop: 4,
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.3)',
-    marginBottom: 12,
+    borderColor: 'rgba(99, 102, 241, 0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   targetRoleText: {
-    color: '#818CF8',
+    color: '#A5B4FC',
     fontSize: 12,
-    fontWeight: '600',
-  },
-  mascotWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 10,
+    fontWeight: '700',
   },
   subtitleCard: {
-    width: '100%',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    borderRadius: 16,
+    marginHorizontal: 16,
+    backgroundColor: 'rgba(15, 23, 42, 0.90)',
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginTop: 12,
+    paddingVertical: 14,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  subtitleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
   },
   subtitleSpeaker: {
     color: '#94A3B8',
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginBottom: 4,
     letterSpacing: 0.5,
+  },
+  bargeInHintPill: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  bargeInHintText: {
+    color: '#FBBF24',
+    fontSize: 10,
+    fontWeight: '700',
   },
   subtitleText: {
     color: '#F1F5F9',
@@ -392,9 +448,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   bottomBar: {
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'android' ? 18 : 8,
+    gap: 10,
   },
   primaryStartBtn: {
     backgroundColor: '#3B82F6',
@@ -458,26 +514,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   handsFreeToggle: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   handsFreeToggleText: {
-    color: '#64748B',
+    color: '#E2E8F0',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   textBackupBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   textBackupBtnText: {
-    color: '#94A3B8',
+    color: '#E2E8F0',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,

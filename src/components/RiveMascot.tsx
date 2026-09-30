@@ -11,6 +11,7 @@ interface RiveMascotProps {
   onPress?: () => void;
   showMascotBadge?: boolean;
   mascotType?: 'teddy' | 'coach';
+  isFullScreen?: boolean;
 }
 
 export const RiveMascot: React.FC<RiveMascotProps> = ({
@@ -20,6 +21,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   onPress,
   showMascotBadge = true,
   mascotType = 'teddy',
+  isFullScreen = false,
 }) => {
   const riveRef = useRef<RiveRef>(null);
   const [hasError, setHasError] = useState(false);
@@ -85,6 +87,54 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
     : isInterrupted
     ? '⚡ Yielding Turn (Barge-In)'
     : '✨ AI Mentor Ready';
+
+  if (isFullScreen) {
+    return (
+      <View style={[styles.fullScreenContainer, { backgroundColor: mascotType === 'teddy' ? '#d6e2ea' : '#0B0F19' }]}>
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={onPress}
+          style={StyleSheet.absoluteFillObject}
+        >
+          {!hasError ? (
+            <Rive
+              ref={riveRef}
+              resourceName={mascotType === 'teddy' ? 'teddy' : 'mascot'}
+              stateMachineName={mascotType === 'teddy' ? 'Login Machine' : undefined}
+              artboardName={mascotType === 'teddy' ? 'Teddy' : 'Teacher'}
+              animationName={mascotType === 'coach' ? (isSpeaking ? 'Talking' : 'Blinking') : undefined}
+              fit={Fit.Cover}
+              alignment={Alignment.Center}
+              autoplay={true}
+              onError={(err) => {
+                console.warn('[RiveMascot Error]:', err);
+                setHasError(true);
+              }}
+              style={styles.riveFullScreen}
+            />
+          ) : (
+            <View style={styles.fallbackContainer}>
+              <Text style={styles.fallbackEmoji}>🐻</Text>
+              <Text style={styles.fallbackName}>Nova</Text>
+            </View>
+          )}
+
+          {/* Ambient state glow at the edges of the full screen */}
+          {(isSpeaking || isListening) && (
+            <View
+              style={[
+                styles.fullScreenGlowRing,
+                {
+                  borderColor: stateBorderColor,
+                  opacity: Math.min(0.85, 0.2 + (audioLevel || 0.15)),
+                },
+              ]}
+            />
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.outerContainer, { width: size, height: size + (showMascotBadge ? 42 : 0) }]}>
@@ -152,6 +202,21 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
 };
 
 const styles = StyleSheet.create({
+  fullScreenContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  riveFullScreen: {
+    width: '100%',
+    height: '100%',
+  },
+  fullScreenGlowRing: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 4,
+    pointerEvents: 'none',
+  },
   outerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
