@@ -1,0 +1,7 @@
+<resources>
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="android:editTextBackground">@null</item>
+        <item name="android:windowBackground">#0B0E14</item>
+    </style>
+</resources>

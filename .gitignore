@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# React Native / Bundling
+.metro/
+.expo/
+dist/
+build/
+**/build/
+android/app/src/main/assets/index.android.bundle*
+android/app/src/main/res/drawable-*/
+android/app/src/main/res/raw/
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/DerivedData/
+ios/Podfile.lock
+ios/.xcode.env.local
+*.local
+
+# Android
+**/.cxx/
+**/.gradle/
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+android/app/libs/*.aar
+android/app/*.keystore
+!android/app/debug.keystore
+
+# macOS & Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Temporary & Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# On-Device Model weights & Binary caches
+*.onnx
+*.bin
+*.gguf
+*.tar.bz2
+*.tar.gz
+*.zip
