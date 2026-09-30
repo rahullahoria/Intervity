@@ -228,7 +228,7 @@ Intervity is powered by incredible advancements from the global open-source AI c
 
 ### 🎨 Mascots, Avatars & Visual Design
 - **Coach Nova Robot Mascot (`src/assets/rive/mascot.riv`)**: Custom interactive Rive state machine featuring real-time lip sync (`Talking`), listening gaze, and celebratory animations (Apache 2.0).
-- **Teddy Bear Avatar (`src/assets/rive/teddy.riv`)**: Created by the [Rive Community](https://rive.app/community/) ([CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)) — Accessible, friendly companion avatar option.
+- **Teddy Bear Avatar (`src/assets/rive/teddy.riv`)**: Remixed by [japarj](https://rive.app/marketplace/5628-11215-wave-hear-and-talk/) from [JcToon](https://rive.app/marketplace/3469-7899-login-screen-character/) ([CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)) — Accessible, friendly companion avatar with animated talking mouth (`Talk`), listening pose (`Hear`), and dynamic audio gaze tracking.
 - **Mascot Face App Launcher Icons**: Custom high-resolution brand icons across Android adaptive densities and iOS asset catalog ([`scripts/generate_mascot_icons.py`](scripts/generate_mascot_icons.py)).
 - **Unified Vector Icons**: Built with [`react-native-svg`](https://github.com/software-mansion/react-native-svg) in [`src/components/icons/AppIcons.tsx`](src/components/icons/AppIcons.tsx).
 

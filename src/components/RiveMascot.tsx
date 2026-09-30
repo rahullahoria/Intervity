@@ -46,23 +46,37 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
     try {
       if (mascotType === 'teddy') {
         if (isSpeaking) {
-          riveRef.current.setInputState('Login Machine', 'isChecking', true);
-          const angle = Math.round(45 + Math.sin(Date.now() / 250) * 15);
-          riveRef.current.setInputState('Login Machine', 'numLook', angle);
+          // Teddy Talking animation: animate mouth moving
+          riveRef.current.setInputState('State Machine 1', 'Talk', true);
+          riveRef.current.setInputState('State Machine 1', 'Hear', false);
+          riveRef.current.setInputState('State Machine 1', 'Check', false);
         } else if (isListening) {
-          riveRef.current.setInputState('Login Machine', 'isChecking', true);
-          // Look reacts dynamically to candidate audio level (10 to 90 degrees)
+          // Teddy Hearing/Listening animation: attentively listening to candidate
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.setInputState('State Machine 1', 'Hear', true);
+          riveRef.current.setInputState('State Machine 1', 'Check', false);
+          // Gaze reacts dynamically to candidate audio level (10 to 90 degrees)
           const lookAngle = Math.min(90, Math.max(10, 50 + (audioLevel - 0.5) * 60));
-          riveRef.current.setInputState('Login Machine', 'numLook', Math.round(lookAngle));
+          riveRef.current.setInputState('State Machine 1', 'Look', Math.round(lookAngle));
         } else if (isThinking) {
-          riveRef.current.setInputState('Login Machine', 'isChecking', true);
-          riveRef.current.setInputState('Login Machine', 'numLook', 25);
+          // Teddy Thinking animation: contemplative check pose
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.setInputState('State Machine 1', 'Hear', false);
+          riveRef.current.setInputState('State Machine 1', 'Check', true);
+          riveRef.current.setInputState('State Machine 1', 'Look', 25);
         } else if (isInterrupted) {
-          riveRef.current.fireState('Login Machine', 'trigFail');
+          // Interrupted: puzzled / surprise trigger
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.fireState('State Machine 1', 'fail');
         } else if (isCompleted) {
-          riveRef.current.fireState('Login Machine', 'trigSuccess');
+          // Completed: celebratory success gesture
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.fireState('State Machine 1', 'success');
         } else {
-          riveRef.current.setInputState('Login Machine', 'isChecking', false);
+          // Idle state
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.setInputState('State Machine 1', 'Hear', false);
+          riveRef.current.setInputState('State Machine 1', 'Check', false);
         }
       } else {
         // Coach mascot with expressive talking mouth & gestures
@@ -82,8 +96,8 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
       tick += 1;
       const angle = Math.round(50 + Math.sin(tick * 0.7) * 16);
       try {
-        riveRef.current?.setInputState('Login Machine', 'isChecking', true);
-        riveRef.current?.setInputState('Login Machine', 'numLook', angle);
+        riveRef.current?.setInputState('State Machine 1', 'Talk', true);
+        riveRef.current?.setInputState('State Machine 1', 'Look', angle);
       } catch {}
     }, 180);
 
@@ -123,8 +137,8 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
             <Rive
               ref={riveRef}
               resourceName={mascotType === 'teddy' ? 'teddy' : 'mascot'}
-              stateMachineName={mascotType === 'teddy' ? 'Login Machine' : undefined}
-              artboardName={mascotType === 'teddy' ? 'Teddy' : 'Teacher'}
+              stateMachineName={mascotType === 'teddy' ? 'State Machine 1' : undefined}
+              artboardName={mascotType === 'teddy' ? 'Artboard' : 'Teacher'}
               animationName={mascotType === 'coach' ? coachAnimation : undefined}
               fit={Fit.Cover}
               alignment={Alignment.Center}
@@ -178,8 +192,8 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
           <Rive
             ref={riveRef}
             resourceName={mascotType === 'teddy' ? 'teddy' : 'mascot'}
-            stateMachineName={mascotType === 'teddy' ? 'Login Machine' : undefined}
-            artboardName={mascotType === 'teddy' ? 'Teddy' : 'Teacher'}
+            stateMachineName={mascotType === 'teddy' ? 'State Machine 1' : undefined}
+            artboardName={mascotType === 'teddy' ? 'Artboard' : 'Teacher'}
             animationName={mascotType === 'coach' ? coachAnimation : undefined}
             fit={Fit.Contain}
             alignment={Alignment.Center}
