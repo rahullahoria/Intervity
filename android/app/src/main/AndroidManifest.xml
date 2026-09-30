@@ -14,6 +14,7 @@
          android:roundIcon="@android:drawable/sym_def_app_icon"
          android:allowBackup="false"
          android:theme="@style/AppTheme"
+         android:usesCleartextTraffic="true"
          android:supportsRtl="true">
          <activity
              android:name=".MainActivity"

@@ -8,6 +8,7 @@
 [![Privacy First](https://img.shields.io/badge/Privacy-Zero%20Data%20Egress-green)](#)
 [![Kokoro TTS](https://img.shields.io/badge/TTS-Kokoro--82M%20(INT8)-orange)](#)
 [![Whisper STT](https://img.shields.io/badge/STT-Whisper.rn-blueviolet)](#)
+[![Rive](https://img.shields.io/badge/Mascot-Rive%20State%20Machine-ff5c8a?logo=rive&logoColor=white)](#)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 ---
@@ -28,6 +29,7 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 ## 🚀 Key Features
 
 - **🎙️ Kokoro-82M Neural TTS:** Studio-grade on-device text-to-speech powered by `sherpa-onnx` and ONNX Runtime. Generates rich, human-like cadence across 103 voices, including Indian English (`en-IN`) technical interviewer personas (`hf_alpha` Bengaluru Tech Lead, `hm_omega` VP of Engineering).
+- **🎨 Interactive Rive AI Mascot:** Expressive on-device vector mascot driven by Rive State Machines (`rive-react-native`). Reacts in real time with conversational lip-sync, attentive listening eye tracking, thinking postures, and audio halo biofeedback. Candidates can seamlessly toggle between the 3D Voice Orb and the interactive AI Mascot.
 - **⚡ Ultra-Fast Full-Duplex Audio & Barge-In:** Built-in hardware Acoustic Echo Cancellation (AEC) and instant (<100ms) audio track flush when the candidate interrupts the AI, mirroring real human conversational dynamics.
 - **🧠 Local LLM Reasoning:** Runs quantized SLMs (`MiniCPM-2.5-Q4_K_M`, `Llama-3.2-1B/3B`) via `llama.rn` directly on mobile NPU/GPU/CPU.
 - **🎧 High-Fidelity Speech Recognition:** Seamless streaming transcription via `whisper.rn` with energy-based Voice Activity Detection (VAD).

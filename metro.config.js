@@ -19,6 +19,7 @@ const config = {
       'pte',
       'txt',
       'sqlite',
+      'riv',
     ],
     resolveRequest: (context, moduleName, platform) => {
       if (moduleName === 'react-native/asset-registry') {

@@ -20,6 +20,7 @@ import {
   Modal,
 } from 'react-native';
 import { VoiceOrb } from '../components/VoiceOrb';
+import { RiveMascot } from '../components/RiveMascot';
 import { StateBadge } from '../components/StateBadge';
 import { SubtitleBar } from '../components/SubtitleBar';
 import { useOfflineInterviewEngine } from '../hooks/useOfflineInterviewEngine';
@@ -61,6 +62,7 @@ export const InterviewSessionScreen: React.FC<InterviewSessionScreenProps> = ({
 
   const [isTypeModalVisible, setIsTypeModalVisible] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState('');
+  const [visualMode, setVisualMode] = useState<'mascot' | 'orb'>('mascot');
 
   const {
     state,
@@ -145,20 +147,49 @@ export const InterviewSessionScreen: React.FC<InterviewSessionScreenProps> = ({
         </Text>
       </View>
 
-      {/* State Badge */}
-      <StateBadge state={state} />
+      {/* State & Visual Mode Switcher */}
+      <View style={styles.topStatusRow}>
+        <StateBadge state={state} />
+        <View style={styles.modeToggleRow}>
+          <TouchableOpacity
+            style={[styles.modeToggleBtn, visualMode === 'mascot' && styles.modeToggleBtnActive]}
+            onPress={() => setVisualMode('mascot')}
+          >
+            <Text style={[styles.modeToggleText, visualMode === 'mascot' && styles.modeToggleTextActive]}>
+              🤖 Mascot
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeToggleBtn, visualMode === 'orb' && styles.modeToggleBtnActive]}
+            onPress={() => setVisualMode('orb')}
+          >
+            <Text style={[styles.modeToggleText, visualMode === 'orb' && styles.modeToggleTextActive]}>
+              🔮 Orb
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      {/* Center 3D Voice Orb Canvas */}
+      {/* Center Visual Canvas (Rive Mascot / 3D Voice Orb) */}
       <View style={styles.orbCanvasContainer}>
-        <VoiceOrb state={state} audioLevel={audioLevel} size={250} />
+        {visualMode === 'mascot' ? (
+          <RiveMascot
+            state={state}
+            audioLevel={audioLevel}
+            size={240}
+            onPress={state === 'AI_SPEAKING' ? triggerInterruption : undefined}
+          />
+        ) : (
+          <VoiceOrb state={state} audioLevel={audioLevel} size={240} />
+        )}
 
         <Text style={styles.orbHelperText}>
           {state === 'AI_SPEAKING'
-            ? 'Tap anywhere or speak to interrupt (Barge-In)'
+            ? 'Tap mascot or speak to interrupt (Barge-In)'
             : state === 'LISTENING'
             ? 'Speak clearly into your microphone...'
             : state === 'THINKING'
-            ? 'MiniCPM evaluating technical trade-offs...'
+            ? 'Evaluating technical trade-offs...'
             : state === 'INTERRUPTED'
             ? 'Interruption detected! Listening to you...'
             : 'Candidate Speaking'}
@@ -534,6 +565,38 @@ const styles = StyleSheet.create({
   modalSubmitText: {
     color: '#FFFFFF',
     fontSize: 13,
+    fontWeight: '700',
+  },
+  topStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginVertical: 4,
+  },
+  modeToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 14,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  modeToggleBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  modeToggleBtnActive: {
+    backgroundColor: colors.accentPrimary,
+  },
+  modeToggleText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  modeToggleTextActive: {
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 });
