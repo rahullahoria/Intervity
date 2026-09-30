@@ -177,7 +177,7 @@ export class NativeAudioEngine {
     if (Platform.OS === 'ios' && NativeModules.VoiceAudioEngine) {
       NativeModules.VoiceAudioEngine.stopPlaybackAndFlush();
     } else if (Platform.OS === 'android' && NativeModules.AndroidVoiceAudioEngine) {
-      NativeModules.AndroidVoiceAudioEngine.stopPlaybackInstantly();
+      NativeModules.AndroidVoiceAudioEngine.stopPlaybackAndFlush();
     }
   }
 

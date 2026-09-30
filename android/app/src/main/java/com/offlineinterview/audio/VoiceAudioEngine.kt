@@ -54,6 +54,10 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     private var speechRecognizer: SpeechRecognizer? = null
     @Volatile
     private var isListeningForSpeech = false
+    @Volatile
+    private var isContinuousListening = false
+    @Volatile
+    private var lastBargeInTimestamp = 0L
     private var lastVolumeEmitTime = 0L
     private var lastEndOfSpeechTimestamp = 0L
 
@@ -93,6 +97,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     fun routeToLoudspeaker() {
         try {
             val am = audioManager ?: return
+            am.mode = AudioManager.MODE_IN_COMMUNICATION
             val isHeadsetConnected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { device ->
                     device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
@@ -116,7 +121,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                 }
                 @Suppress("DEPRECATION")
                 am.isSpeakerphoneOn = true
-                Log.d(TAG, "Audio routed to loudspeaker")
+                Log.d(TAG, "Audio routed to loudspeaker with MODE_IN_COMMUNICATION")
             }
         } catch (e: Throwable) {
             Log.w(TAG, "routeToLoudspeaker error: ${e.message}")
@@ -366,7 +371,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                 audioTrack = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build()
                     )
@@ -528,7 +533,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                 audioTrack = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build()
                     )
@@ -607,6 +612,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
 
     fun startListeningForSpeech() {
         stopRecording()
+        isContinuousListening = true
         mainHandler.post {
             try {
                 if (speechRecognizer != null) {
@@ -630,12 +636,22 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
 
                 recognizer.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
-                        Log.d(TAG, "SpeechRecognizer: onReadyForSpeech")
+                        Log.d(TAG, "SpeechRecognizer: onReadyForSpeech (continuous full-duplex)")
                     }
 
                     override fun onBeginningOfSpeech() {
                         Log.d(TAG, "SpeechRecognizer: onBeginningOfSpeech")
-                        onSpeechDetectedCallback?.invoke()
+                        if (isPlayingKokoro) {
+                            val now = System.currentTimeMillis()
+                            if (now - lastBargeInTimestamp > 300) {
+                                lastBargeInTimestamp = now
+                                Log.i(TAG, "⚡ INSTANT NATIVE BARGE-IN: User speech detected onBeginningOfSpeech! Halting Kokoro playback immediately.")
+                                stopPlaybackAndFlush()
+                                onSpeechDetectedCallback?.invoke()
+                            }
+                        } else {
+                            onSpeechDetectedCallback?.invoke()
+                        }
                     }
 
                     override fun onRmsChanged(rmsdB: Float) {
@@ -644,6 +660,16 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                             lastVolumeEmitTime = now
                             val normalized = ((rmsdB + 2.0f) / 12.0f).coerceIn(0.0f, 1.0f)
                             onAudioVolumeCallback?.invoke(normalized)
+                        }
+                        // Secondary high-RMS barge-in check
+                        if (isPlayingKokoro && rmsdB > 4.5f) {
+                            val nowMs = System.currentTimeMillis()
+                            if (nowMs - lastBargeInTimestamp > 300) {
+                                lastBargeInTimestamp = nowMs
+                                Log.i(TAG, "⚡ INSTANT NATIVE BARGE-IN: High RMS volume ($rmsdB) while Kokoro playing! Halting audio.")
+                                stopPlaybackAndFlush()
+                                onSpeechDetectedCallback?.invoke()
+                            }
                         }
                     }
 
@@ -656,13 +682,13 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                     }
 
                     override fun onError(error: Int) {
-                        Log.w(TAG, "SpeechRecognizer error: $error")
-                        if (isListeningForSpeech) {
+                        Log.d(TAG, "SpeechRecognizer status/error: $error (continuous=$isContinuousListening)")
+                        if (isContinuousListening) {
                             mainHandler.postDelayed({
-                                if (isListeningForSpeech) {
-                                    startListeningForSpeech()
+                                if (isContinuousListening) {
+                                    restartListeningInternal()
                                 }
-                            }, 400)
+                            }, 100)
                         }
                     }
 
@@ -672,16 +698,15 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         Log.i(TAG, "[Latency Benchmark] STT Latency: ${sttLatencyMs}ms | Transcribed: \"$text\"")
                         if (text.isNotBlank()) {
-                            isListeningForSpeech = false
                             onFinalTranscriptCallback?.invoke(text)
-                        } else {
-                            if (isListeningForSpeech) {
-                                mainHandler.postDelayed({
-                                    if (isListeningForSpeech) {
-                                        startListeningForSpeech()
-                                    }
-                                }, 300)
-                            }
+                        }
+                        // Continuous full-duplex loop: restart listening immediately
+                        if (isContinuousListening) {
+                            mainHandler.postDelayed({
+                                if (isContinuousListening) {
+                                    restartListeningInternal()
+                                }
+                            }, 80)
                         }
                     }
 
@@ -689,6 +714,15 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                         val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         if (text.isNotBlank()) {
+                            if (isPlayingKokoro) {
+                                val nowMs = System.currentTimeMillis()
+                                if (nowMs - lastBargeInTimestamp > 300) {
+                                    lastBargeInTimestamp = nowMs
+                                    Log.i(TAG, "⚡ INSTANT NATIVE BARGE-IN: Partial transcript (\"$text\") while speaking! Halting audio.")
+                                    stopPlaybackAndFlush()
+                                    onSpeechDetectedCallback?.invoke()
+                                }
+                            }
                             onPartialTranscriptCallback?.invoke(text)
                         }
                     }
@@ -701,11 +735,13 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context?.packageName ?: "com.goairm.intervity")
+                    putExtra("android.speech.extra.DICTATION_MODE", true)
                 }
 
                 isListeningForSpeech = true
                 recognizer.startListening(intent)
-                Log.i(TAG, "SpeechRecognizer started listening")
+                Log.i(TAG, "SpeechRecognizer started full-duplex continuous listening")
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to start SpeechRecognizer: ${e.message}", e)
                 startRecording()
@@ -713,7 +749,43 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
         }
     }
 
+    private fun restartListeningInternal() {
+        mainHandler.post {
+            if (!isContinuousListening) return@post
+            try {
+                speechRecognizer?.cancel()
+            } catch (_: Throwable) {}
+
+            val recognizer = speechRecognizer
+            if (recognizer == null) {
+                startListeningForSpeech()
+                return@post
+            }
+
+            try {
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context?.packageName ?: "com.goairm.intervity")
+                    putExtra("android.speech.extra.DICTATION_MODE", true)
+                }
+                isListeningForSpeech = true
+                recognizer.startListening(intent)
+            } catch (e: Throwable) {
+                Log.w(TAG, "restartListeningInternal retry error: ${e.message}, recreating...")
+                try {
+                    speechRecognizer?.destroy()
+                } catch (_: Throwable) {}
+                speechRecognizer = null
+                startListeningForSpeech()
+            }
+        }
+    }
+
     fun stopListeningForSpeech() {
+        isContinuousListening = false
         isListeningForSpeech = false
         mainHandler.post {
             try {

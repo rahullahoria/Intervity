@@ -75,6 +75,7 @@ export function useAgentCoaching() {
         ]);
 
         await audioEngine.current.setSpeakerphone(true);
+        audioEngine.current.startRecordingStream(); // Live full-duplex continuous listening (24/7 mic)
 
         if (isMounted) {
           setState('READY');
@@ -95,7 +96,7 @@ export function useAgentCoaching() {
     };
   }, []);
 
-  // 2. Hands-Free Conversational Turn Engine
+  // 2. Hands-Free Conversational Turn Engine (Full-Duplex)
   const startListeningHandsFree = useCallback(() => {
     isInterruptedRef.current = false;
     setState('LISTENING');
@@ -111,14 +112,10 @@ export function useAgentCoaching() {
   const triggerBargeIn = useCallback(() => {
     isInterruptedRef.current = true;
     setState('INTERRUPTED');
-    setCurrentSubtitle('⚡ Listening to your interruption...');
+    setCurrentSubtitle('⚡ Listening to you...');
     audioEngine.current.stopPlaybackAndClearBuffers();
     ttsService.current.stopPlayback();
-
-    setTimeout(() => {
-      startListeningHandsFree();
-    }, 200);
-  }, [startListeningHandsFree]);
+  }, []);
 
   const speakMascotResponse = useCallback(async (text: string) => {
     isInterruptedRef.current = false;
@@ -142,17 +139,18 @@ export function useAgentCoaching() {
       // Native audio engine fires onPlaybackFinished when Kokoro finishes hardware playback
       audioEngine.current.onPlaybackDrained(() => {
         if (!isInterruptedRef.current && isHandsFreeActive) {
-          // Immediately auto-listen for candidate hands-free reply
-          startListeningHandsFree();
+          setState('LISTENING');
+          setCurrentSubtitle('👂 Listening to you (speak naturally)...');
         }
       }, 45000);
     } catch (err) {
       console.warn('[useAgentCoaching] TTS error:', err);
       if (!isInterruptedRef.current && isHandsFreeActive) {
-        startListeningHandsFree();
+        setState('LISTENING');
+        setCurrentSubtitle('👂 Listening to you (speak naturally)...');
       }
     }
-  }, [isHandsFreeActive, startListeningHandsFree]);
+  }, [isHandsFreeActive]);
 
   const handleUserFinishedSpeaking = useCallback(async (overrideText?: string) => {
     if (silenceTimerRef.current) {
@@ -162,15 +160,15 @@ export function useAgentCoaching() {
 
     const recognizedText = (overrideText || userSpeechBufferRef.current || '').trim();
     if (!recognizedText) {
-      if (isHandsFreeActive) {
-        startListeningHandsFree();
+      if (isHandsFreeActive && state !== 'AI_SPEAKING' && state !== 'THINKING') {
+        setState('LISTENING');
       }
       return;
     }
 
-    audioEngine.current.stopRecordingStream();
+    // FULL-DUPLEX: Keep microphone stream active 24/7 without stopping
     setState('THINKING');
-    setCurrentSubtitle('🧠 Analyzing and updating career coaching model...');
+    setCurrentSubtitle('🧠 Thinking...');
     userSpeechBufferRef.current = '';
 
     setMessages((prev) => [
@@ -190,6 +188,12 @@ export function useAgentCoaching() {
     const llmDurationMs = Date.now() - llmStartTime;
     console.log(`[Latency Benchmark] LLM/Harness Latency: ${llmDurationMs}ms (Turn #${currentTurn})`);
 
+    // If candidate interrupted while thinking, discard stale answer
+    if (isInterruptedRef.current) {
+      console.log('[useAgentCoaching] Interrupted during thinking phase, aborting stale response.');
+      return;
+    }
+
     turnIndexRef.current += 1;
     setTurnIndex(turnIndexRef.current);
     setMascotProfile(harness.current.getMascotProfile());
@@ -197,7 +201,7 @@ export function useAgentCoaching() {
 
     // Mascot responds
     await speakMascotResponse(outcome.responseClause);
-  }, [speakMascotResponse, isHandsFreeActive, startListeningHandsFree]);
+  }, [speakMascotResponse, isHandsFreeActive, state]);
 
   // 3. Set up SpeechRecognizer, VAD, and Audio Level Listeners
   useEffect(() => {
@@ -205,12 +209,15 @@ export function useAgentCoaching() {
       setAudioLevel(event.volume);
 
       if (state === 'LISTENING') {
-        if (event.isSpeech && event.volume > 0.08) {
+        if (event.isSpeech && event.volume > 0.05) {
           setState('USER_SPEAKING');
         }
-      } else if (state === 'AI_SPEAKING' && event.isSpeech && event.volume > 0.28) {
-        // Conversational Barge-In: candidate interrupted the AI
-        triggerBargeIn();
+      } else if (state === 'AI_SPEAKING' || state === 'THINKING') {
+        // Conversational Barge-In: candidate spoke while AI is speaking or thinking!
+        if (event.isSpeech && event.volume > 0.10) {
+          console.log('[useAgentCoaching] Instant voice barge-in triggered! Vol:', event.volume);
+          triggerBargeIn();
+        }
       }
     });
 
@@ -218,6 +225,12 @@ export function useAgentCoaching() {
       const clean = text.trim();
       if (!clean) return;
       userSpeechBufferRef.current = clean;
+
+      if (state === 'AI_SPEAKING' || state === 'THINKING') {
+        console.log('[useAgentCoaching] Partial speech barge-in triggered:', clean);
+        triggerBargeIn();
+      }
+
       setState('USER_SPEAKING');
       setCurrentSubtitle(`🗣️ "${clean}"`);
     });
@@ -246,6 +259,7 @@ export function useAgentCoaching() {
   }, [state, handleUserFinishedSpeaking, triggerBargeIn]);
 
   const startSession = useCallback(async () => {
+    audioEngine.current.startRecordingStream(); // Ensure 24/7 stream is active
     const welcome = `Hello! I'm Nova, your personal AI career coach. My goal is to learn about you, sharpen your skills, and help you advance in your career. What role or level are you aiming for next, and what are you working on right now?`;
     await speakMascotResponse(welcome);
   }, [speakMascotResponse]);

@@ -350,7 +350,6 @@ export function useOfflineInterviewEngine(options: InterviewOptions) {
   // Direct text submission (e.g. typing or pre-prepared answers)
   const submitCandidateAnswer = async (text: string) => {
     if (state === 'LISTENING' || state === 'USER_SPEAKING' || state === 'INTERRUPTED') {
-      audioEngine.current.stopRecordingStream();
       sttService.current.setSimulatedTranscript(text);
       await handleUserFinishedSpeaking('direct_input.m4a');
     }
