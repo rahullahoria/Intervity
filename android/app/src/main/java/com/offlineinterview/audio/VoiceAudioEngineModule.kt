@@ -117,6 +117,19 @@ class VoiceAudioEngineModule(private val reactContext: ReactApplicationContext) 
     }
 
     @ReactMethod
+    fun setSpeakerphone(enable: Boolean, promise: Promise) {
+        try {
+            if (enable) {
+                engine.routeToLoudspeaker()
+            }
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e(TAG, "setSpeakerphone error: ${e.message}", e)
+            promise.resolve(false)
+        }
+    }
+
+    @ReactMethod
     fun releaseEngine() {
         try {
             engine.release()

@@ -63,6 +63,7 @@ export const InterviewSessionScreen: React.FC<InterviewSessionScreenProps> = ({
   const [isTypeModalVisible, setIsTypeModalVisible] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState('');
   const [visualMode, setVisualMode] = useState<'mascot' | 'orb'>('mascot');
+  const [isLoudspeaker, setIsLoudspeaker] = useState(true);
 
   const {
     state,
@@ -77,7 +78,14 @@ export const InterviewSessionScreen: React.FC<InterviewSessionScreenProps> = ({
     finishSpeakingManually,
     submitCandidateAnswer,
     simulateCandidateAnswer,
+    setSpeakerphone,
   } = useOfflineInterviewEngine(interviewOptions);
+
+  const handleToggleSpeaker = async () => {
+    const nextState = !isLoudspeaker;
+    setIsLoudspeaker(nextState);
+    await setSpeakerphone(nextState);
+  };
 
   // Timer loop
   useEffect(() => {
@@ -129,12 +137,21 @@ export const InterviewSessionScreen: React.FC<InterviewSessionScreenProps> = ({
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.navBtn}
-          onPress={() => navigation.navigate('ModelManager')}
-        >
-          <Text style={styles.navBtnText}>⚙️</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <TouchableOpacity
+            style={[styles.navBtn, isLoudspeaker && { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderRadius: 8 }]}
+            onPress={handleToggleSpeaker}
+          >
+            <Text style={styles.navBtnText}>{isLoudspeaker ? '🔊' : '🔈'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navBtn}
+            onPress={() => navigation.navigate('ModelManager')}
+          >
+            <Text style={styles.navBtnText}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Meta Stats Row */}

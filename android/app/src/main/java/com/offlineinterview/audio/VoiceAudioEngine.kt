@@ -3,11 +3,14 @@ package com.offlineinterview.audio
 import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
 import android.media.audiofx.AcousticEchoCanceler
+import android.os.Build
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -21,6 +24,7 @@ import java.util.Locale
 import kotlin.math.sqrt
 
 class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpeech.OnInitListener {
+    private val audioManager = context?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
     private var audioRecord: AudioRecord? = null
     private var audioTrack: AudioTrack? = null
     private var aec: AcousticEchoCanceler? = null
@@ -54,11 +58,49 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                 Log.w(TAG, "TTS initialization error: ${e.message}")
             }
         }
+        try {
+            routeToLoudspeaker()
+        } catch (e: Throwable) {
+            Log.w(TAG, "Loudspeaker routing init warning: ${e.message}")
+        }
         // Attempt early Kokoro model discovery
         try {
             initKokoro()
         } catch (e: Throwable) {
             Log.w(TAG, "Early Kokoro init warning: ${e.message}")
+        }
+    }
+
+    fun routeToLoudspeaker() {
+        try {
+            val am = audioManager ?: return
+            val isHeadsetConnected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { device ->
+                    device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                    device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                    device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    device.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                am.isWiredHeadsetOn || am.isBluetoothScoOn || am.isBluetoothA2dpOn
+            }
+
+            if (!isHeadsetConnected) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val speakerDevice = am.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                    if (speakerDevice != null) {
+                        am.setCommunicationDevice(speakerDevice)
+                    }
+                }
+                @Suppress("DEPRECATION")
+                am.isSpeakerphoneOn = true
+                Log.d(TAG, "Audio routed to loudspeaker")
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "routeToLoudspeaker error: ${e.message}")
         }
     }
 
@@ -219,14 +261,16 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                     return@Thread
                 }
 
-                // Convert float [-1.0, 1.0] samples to 16-bit mono PCM bytes
+                // Convert float [-1.0, 1.0] samples to 16-bit mono PCM bytes with gain boost for loud speaker
                 val pcm16 = ByteArray(samples.size * 2)
                 for (i in samples.indices) {
-                    val s = (samples[i].coerceIn(-1.0f, 1.0f) * 32767.0f).toInt().toShort()
+                    val boosted = (samples[i] * 1.25f).coerceIn(-1.0f, 1.0f)
+                    val s = (boosted * 32767.0f).toInt().toShort()
                     pcm16[i * 2] = (s.toInt() and 0xFF).toByte()
                     pcm16[i * 2 + 1] = ((s.toInt() shr 8) and 0xFF).toByte()
                 }
 
+                routeToLoudspeaker()
                 ensureAudioTrackPlaying()
 
                 var offset = 0
@@ -257,11 +301,12 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
 
     private fun ensureAudioTrackPlaying() {
         try {
+            routeToLoudspeaker()
             if (audioTrack == null || audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
                 audioTrack = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build()
                     )
@@ -272,9 +317,11 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                             .build()
                     )
-                    .setBufferSizeInBytes(32000)
+                    .setBufferSizeInBytes(48000)
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
+
+                audioTrack?.setVolume(1.0f)
             }
             if (audioTrack?.playState != AudioTrack.PLAYSTATE_PLAYING) {
                 audioTrack?.play()
@@ -414,12 +461,13 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                 Log.w(TAG, "AcousticEchoCanceler attachment failed: ${e.message}")
             }
 
-            // Initialize low-latency streaming AudioTrack for Kokoro TTS playback (24kHz native)
+            // Initialize low-latency streaming AudioTrack for Kokoro TTS playback (24kHz native, Media Loudspeaker)
             try {
+                audioTrack?.release()
                 audioTrack = AudioTrack.Builder()
                     .setAudioAttributes(
                         AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                             .build()
                     )
@@ -430,11 +478,13 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                             .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                             .build()
                     )
-                    .setBufferSizeInBytes(bufferSize * 4)
+                    .setBufferSizeInBytes(48000)
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
 
+                audioTrack?.setVolume(1.0f)
                 audioTrack?.play()
+                routeToLoudspeaker()
             } catch (e: Throwable) {
                 Log.w(TAG, "AudioTrack initialization warning: ${e.message}")
             }
@@ -507,6 +557,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
 
     fun enqueueAudioSamples(pcmData: ByteArray) {
         try {
+            ensureAudioTrackPlaying()
             audioTrack?.write(pcmData, 0, pcmData.size)
         } catch (e: Throwable) {
             Log.w(TAG, "enqueueAudioSamples warning: ${e.message}")

@@ -355,6 +355,11 @@ export function useOfflineInterviewEngine(options: InterviewOptions) {
     }
   };
 
+  // Loudspeaker / Speakerphone routing control
+  const setSpeakerphone = async (enable: boolean = true) => {
+    return await audioEngine.current.setSpeakerphone(enable);
+  };
+
   return {
     state,
     messages,
@@ -369,5 +374,6 @@ export function useOfflineInterviewEngine(options: InterviewOptions) {
     finishSpeakingManually,
     submitCandidateAnswer,
     simulateCandidateAnswer,
+    setSpeakerphone,
   };
 }

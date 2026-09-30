@@ -61,6 +61,11 @@ export class NativeAudioEngine {
           }
         }
         await NativeModules.AndroidVoiceAudioEngine.initializeAEC(config.sampleRate, config.bufferSize);
+        if (NativeModules.AndroidVoiceAudioEngine.setSpeakerphone) {
+          try {
+            await NativeModules.AndroidVoiceAudioEngine.setSpeakerphone(true);
+          } catch {}
+        }
       }
 
       if (nativeMod && NativeEventEmitter && !this.eventEmitter) {
@@ -234,6 +239,18 @@ export class NativeAudioEngine {
       for (const cb of this.endOfSpeechListeners) {
         cb('manual_turn.m4a');
       }
+    }
+  }
+
+  async setSpeakerphone(enable: boolean = true): Promise<boolean> {
+    try {
+      if (Platform.OS === 'android' && NativeModules.AndroidVoiceAudioEngine?.setSpeakerphone) {
+        return await NativeModules.AndroidVoiceAudioEngine.setSpeakerphone(enable);
+      }
+      return true;
+    } catch (err) {
+      console.warn('[NativeAudioEngine] setSpeakerphone error:', err);
+      return false;
     }
   }
 
