@@ -217,7 +217,7 @@ export function useOfflineInterviewEngine(options: InterviewOptions) {
 
           // Synthesize clause via Kokoro and stream to AudioTrack
           const pcmAudioSamples = await ttsService.current.synthesizeClause(clause, voiceProfile);
-          if (!isInterruptedRef.current) {
+          if (!isInterruptedRef.current && pcmAudioSamples && pcmAudioSamples.length > 0) {
             audioEngine.current.enqueueAudioSamples(pcmAudioSamples);
           }
         }
@@ -306,11 +306,12 @@ export function useOfflineInterviewEngine(options: InterviewOptions) {
     setState('AI_SPEAKING');
 
     ttsService.current.synthesizeClause(openingQuestion, voiceProfile).then((pcm) => {
-      audioEngine.current.enqueueAudioSamples(pcm);
-      const estDuration = Math.max(5000, openingQuestion.length * 70);
+      if (pcm && pcm.length > 0) {
+        audioEngine.current.enqueueAudioSamples(pcm);
+      }
       audioEngine.current.onPlaybackDrained(() => {
         startListening();
-      }, estDuration);
+      }, 45000);
     });
   };
 

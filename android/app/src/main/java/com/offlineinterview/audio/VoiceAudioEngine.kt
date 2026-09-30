@@ -48,6 +48,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     @Volatile
     private var isPlayingKokoro = false
     private var kokoroPlaybackThread: Thread? = null
+    private val currentGenerationId = java.util.concurrent.atomic.AtomicLong(0)
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var speechRecognizer: SpeechRecognizer? = null
@@ -262,23 +263,32 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
 
     private fun speakKokoro(text: String, voiceName: String?) {
         val tts = kokoroTts ?: return
+        val genId = currentGenerationId.incrementAndGet()
+        isPlayingKokoro = false
         kokoroPlaybackThread?.interrupt()
         kokoroPlaybackThread = Thread {
             try {
+                if (genId != currentGenerationId.get()) return@Thread
                 isPlayingKokoro = true
                 val sid = getSpeakerIdForPersona(voiceName)
                 val totalStartMs = System.currentTimeMillis()
                 val sentences = text.split(Regex("(?<=[.!?])\\s+")).filter { it.isNotBlank() }
-                Log.i(TAG, "Synthesizing with Kokoro-82M on-device (${sentences.size} sentences, sid=$sid, voice=$voiceName)")
+                Log.i(TAG, "Synthesizing with Kokoro-82M on-device (genId=$genId, ${sentences.size} sentences, sid=$sid, voice=$voiceName)")
 
                 routeToLoudspeaker()
                 ensureAudioTrackPlaying()
 
+                val track = audioTrack
+                val startHeadPosition = track?.playbackHeadPosition?.toLong()?.and(0xFFFFFFFFL) ?: 0L
+                var totalFramesWritten = 0L
+
                 for ((idx, sentence) in sentences.withIndex()) {
-                    if (!isPlayingKokoro) break
+                    if (genId != currentGenerationId.get() || !isPlayingKokoro) break
 
                     val sStartMs = System.currentTimeMillis()
                     val audio = tts.generate(sentence, sid, 1.0f)
+                    if (genId != currentGenerationId.get() || !isPlayingKokoro) break
+
                     val sGenMs = System.currentTimeMillis() - sStartMs
                     val samples = audio.samples
                     if (samples.isEmpty()) continue
@@ -300,29 +310,53 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
 
                     var offset = 0
                     val chunkSize = 4096
-                    while (offset < pcm16.size && isPlayingKokoro) {
+                    while (offset < pcm16.size && genId == currentGenerationId.get() && isPlayingKokoro) {
                         val writeLen = minOf(chunkSize, pcm16.size - offset)
-                        audioTrack?.write(pcm16, offset, writeLen)
+                        val written = track?.write(pcm16, offset, writeLen) ?: writeLen
+                        if (written > 0) {
+                            totalFramesWritten += (written / 2)
+                        }
                         offset += writeLen
                     }
                 }
 
-                if (isPlayingKokoro) {
-                    Thread.sleep(150)
+                // Wait for hardware AudioTrack to physically play all buffered frames
+                if (genId == currentGenerationId.get() && isPlayingKokoro) {
+                    val targetFrame = startHeadPosition + totalFramesWritten
+                    var waitedMs = 0L
+                    while (isPlayingKokoro && genId == currentGenerationId.get() && waitedMs < 12000L) {
+                        val currentHead = track?.playbackHeadPosition?.toLong()?.and(0xFFFFFFFFL) ?: targetFrame
+                        if (currentHead >= targetFrame) {
+                            break
+                        }
+                        Thread.sleep(50)
+                        waitedMs += 50
+                    }
                 }
 
-                val totalDurationMs = System.currentTimeMillis() - totalStartMs
-                Log.i(TAG, "[Latency Benchmark] Kokoro full response finished in ${totalDurationMs}ms")
-                onPlaybackFinishedCallback?.invoke()
+                if (genId == currentGenerationId.get() && isPlayingKokoro) {
+                    // Small acoustic safety pause (200ms) to ensure room reflections clear before opening mic
+                    Thread.sleep(200)
+                    val totalDurationMs = System.currentTimeMillis() - totalStartMs
+                    Log.i(TAG, "[Latency Benchmark] Kokoro full response finished in ${totalDurationMs}ms (genId=$genId)")
+                    onPlaybackFinishedCallback?.invoke()
+                }
             } catch (_: InterruptedException) {
-                Log.d(TAG, "Kokoro playback interrupted")
+                Log.d(TAG, "Kokoro playback interrupted (genId=$genId)")
             } catch (e: Throwable) {
                 Log.e(TAG, "Kokoro synthesis error: ${e.message}", e)
-                onPlaybackFinishedCallback?.invoke()
+                if (genId == currentGenerationId.get()) {
+                    onPlaybackFinishedCallback?.invoke()
+                }
             } finally {
-                isPlayingKokoro = false
+                if (genId == currentGenerationId.get()) {
+                    isPlayingKokoro = false
+                }
             }
-        }.also { it.start() }
+        }.also {
+            kokoroPlaybackThread = it
+            it.start()
+        }
     }
 
     private fun ensureAudioTrackPlaying() {
@@ -394,6 +428,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     }
 
     fun stopPlaybackAndFlush() {
+        currentGenerationId.incrementAndGet()
         isPlayingKokoro = false
         kokoroPlaybackThread?.interrupt()
         kokoroPlaybackThread = null
@@ -708,6 +743,9 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     }
 
     fun enqueueAudioSamples(pcmData: ByteArray) {
+        if (isPlayingKokoro) {
+            return
+        }
         try {
             ensureAudioTrackPlaying()
             audioTrack?.write(pcmData, 0, pcmData.size)

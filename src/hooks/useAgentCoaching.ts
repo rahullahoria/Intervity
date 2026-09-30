@@ -137,16 +137,15 @@ export function useAgentCoaching() {
 
     // Synthesize on-device via Kokoro TTS
     try {
-      const pcm = await ttsService.current.synthesizeClause(text, 'hf_alpha');
-      audioEngine.current.enqueueAudioSamples(pcm);
+      await ttsService.current.synthesizeClause(text, 'hf_alpha');
 
-      const estDuration = Math.max(3500, text.length * 68);
+      // Native audio engine fires onPlaybackFinished when Kokoro finishes hardware playback
       audioEngine.current.onPlaybackDrained(() => {
         if (!isInterruptedRef.current && isHandsFreeActive) {
           // Immediately auto-listen for candidate hands-free reply
           startListeningHandsFree();
         }
-      }, estDuration);
+      }, 45000);
     } catch (err) {
       console.warn('[useAgentCoaching] TTS error:', err);
       if (!isInterruptedRef.current && isHandsFreeActive) {

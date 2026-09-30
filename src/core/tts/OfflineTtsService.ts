@@ -70,6 +70,7 @@ export class OfflineTtsService {
       } catch (err) {
         console.warn('[OfflineTtsService] Could not invoke speakText:', err);
       }
+      return new Float32Array(0);
     } else if (Platform.OS === 'android' && NativeModules.AndroidVoiceAudioEngine?.speakText) {
       try {
         NativeModules.AndroidVoiceAudioEngine.speakText(text, voiceToUse).catch((err: any) => {
@@ -78,6 +79,7 @@ export class OfflineTtsService {
       } catch (err) {
         console.warn('[OfflineTtsService] Could not invoke Android speakText:', err);
       }
+      return new Float32Array(0);
     }
 
     if (this.ttsEngine) {

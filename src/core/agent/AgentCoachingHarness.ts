@@ -191,11 +191,27 @@ export class AgentCoachingHarness {
     this.mascot.totalTurns += 1;
 
     // 1. Entity & Career Goal Extraction
-    if (textLower.includes('staff') || textLower.includes('principal') || textLower.includes('architect') || textLower.includes('lead')) {
+    if (
+      textLower.includes('cto') ||
+      textLower.includes('city') || // STT common phonetic transcript of "CTO"
+      textLower.includes('director') ||
+      textLower.includes('vp') ||
+      textLower.includes('head of') ||
+      textLower.includes('leadership')
+    ) {
+      const roleStr = textLower.includes('director') ? 'Engineering Director' : 'Chief Technology Officer (CTO)';
+      await this.recordMemoryFact('career_goal', 'target_role', roleStr);
+      extractedFacts.push({ category: 'career_goal', key: 'target_role', value: roleStr });
+      xpEarned += 35;
+    } else if (textLower.includes('staff') || textLower.includes('principal') || textLower.includes('architect') || textLower.includes('lead')) {
       const match = userText.match(/(staff|principal|lead|architect)[^.,!]+/i);
       const roleStr = match ? match[0].trim() : 'Staff Software Architect';
       await this.recordMemoryFact('career_goal', 'target_role', roleStr);
       extractedFacts.push({ category: 'career_goal', key: 'target_role', value: roleStr });
+      xpEarned += 30;
+    } else if (textLower.includes('manager') || textLower.includes('em ')) {
+      await this.recordMemoryFact('career_goal', 'target_role', 'Engineering Manager');
+      extractedFacts.push({ category: 'career_goal', key: 'target_role', value: 'Engineering Manager' });
       xpEarned += 30;
     }
 
@@ -225,14 +241,14 @@ export class AgentCoachingHarness {
       }
     }
 
-    // 2. XP & Personality Level Up Engine
+    // 2. XP & Personality Level Up Engine (Meaningful progression milestones)
     this.mascot.xp += xpEarned;
     let didLevelUp = false;
     let newTier: string | undefined;
 
     if (this.mascot.xp >= this.mascot.xpToNextLevel) {
       this.mascot.level += 1;
-      this.mascot.xpToNextLevel = this.mascot.level * 100;
+      this.mascot.xpToNextLevel = this.mascot.level * 250; // Meaningful level scaling
       this.mascot.personalityTier = this.getTierForLevel(this.mascot.level);
       didLevelUp = true;
       newTier = this.mascot.personalityTier;
@@ -270,48 +286,62 @@ export class AgentCoachingHarness {
   ): string {
     const textLower = userText.toLowerCase();
 
-    // Level up special celebratory opener
+    // 1. Level up celebration (concise for voice synthesis speed)
     if (didLevelUp) {
-      return `Level up! I've upgraded to Level ${this.mascot.level} (${this.mascot.personalityTier}). As our partnership grows, I'm deepening our drills to match your career goals. Let's tackle your next challenge: how do you ensure zero data loss during high-volume node failovers in your target architecture?`;
+      return `Level up to Level ${this.mascot.level}! I'm elevating our technical drills. How do you ensure zero data loss during high-volume node failovers in your architecture?`;
     }
 
-    // Turn 1: Onboarding & Discovery
+    // 2. Turn 0 or Greetings
     if (turnIndex === 0 || textLower.includes('hello') || textLower.includes('hi ') || textLower.includes('start')) {
-      return `Hello! I'm Nova, your personal AI career coach. My goal is to learn about you, sharpen your technical depth, and help you reach your next career milestone. What role or level are you aiming for next, and what are you working on right now?`;
+      return `Hello! I'm Nova, your personal career coach. What role or leadership level are you aiming for next, and what are you working on right now?`;
     }
 
-    // Responding to career goal / ambition
-    if (textLower.includes('staff') || textLower.includes('architect') || textLower.includes('lead') || textLower.includes('senior')) {
-      return `That is a high-impact career goal. Stepping into that level requires moving from writing code to defending systemic trade-offs under scale. In your current projects, how did you handle data consistency and caching when traffic spiked unexpectedly?`;
+    // 3. Target Role Responses (CTO / Executive Leadership)
+    if (
+      textLower.includes('cto') ||
+      textLower.includes('city') ||
+      textLower.includes('director') ||
+      textLower.includes('vp') ||
+      textLower.includes('head of') ||
+      textLower.includes('leadership')
+    ) {
+      return `Leading as a CTO requires balancing executive technology strategy with hiring and execution. When scaling your engineering org, how do you balance technical debt against speed to market?`;
     }
 
-    // Responding to learning requests / gaps
+    // 4. Staff / Principal / Architect Responses
+    if (textLower.includes('staff') || textLower.includes('architect') || textLower.includes('principal')) {
+      return `Stepping into Staff level requires defending systemic trade-offs under scale. In your systems, how did you handle data consistency when traffic spiked unexpectedly?`;
+    }
+
+    // 5. Learning Requests
     if (textLower.includes('teach me') || textLower.includes('don\'t know') || textLower.includes('what is') || textLower.includes('explain')) {
-      return `Let's break that down simply. Think of cache stampede protection like a single VIP door pass: when a key expires, only one worker regenerates it while others read from stale memory. How would you implement that distributed lock in production?`;
+      return `Let's break that down simply. When cache keys expire under heavy traffic, how do you prevent stampedes using distributed locks or stale-while-revalidate?`;
     }
 
-    // Technical drill responses tailored to personality tier
-    if (this.mascot.level >= 3) {
-      // High-level Architectural Rigor
-      if (textLower.includes('redis') || textLower.includes('cache')) {
-        return `Interesting trade-off. But what happens if the Redis primary crashes before replication completes, causing cache desynchronization with your database? How would you design for that failure mode?`;
-      }
-      if (textLower.includes('react native') || textLower.includes('mobile') || textLower.includes('app')) {
-        return `Great point. As a Staff mobile architect, how do you prevent bridge serialization bottlenecks and ensure UI thread fluency when receiving continuous real-time socket streams?`;
-      }
-      return `Good reasoning. Now let's explore the operational cost: what specific latency metrics and telemetry would you monitor to prove that design succeeded in production?`;
-    }
-
-    // Level 1-2: Constructive & Probing Coach
+    // 6. Topic-Specific Inquiries
     if (textLower.includes('redis') || textLower.includes('cache')) {
-      return `That's a solid start regarding caching. Could you explain how you prevented cache stampedes and dog-piling when keys expired during peak sales traffic?`;
+      return `What happens if your Redis primary fails before replication finishes, causing cache desync with the database? How would you design for that failure?`;
     }
 
     if (textLower.includes('concurrency') || textLower.includes('thread') || textLower.includes('lock')) {
-      return `Concurrency hazards are critical in senior interviews. What strategy did you use to prevent deadlocks and thread starvation in that pipeline?`;
+      return `Concurrency hazards are critical in senior systems. What strategy did you use to prevent deadlocks and thread starvation in that pipeline?`;
     }
 
-    return `Understood. When deploying those services at scale, how did you manage distributed transactions and eventual consistency across multiple services?`;
+    if (textLower.includes('react native') || textLower.includes('mobile') || textLower.includes('app')) {
+      return `As a mobile architect, how do you prevent bridge serialization bottlenecks and ensure UI thread fluency with real-time socket streams?`;
+    }
+
+    // 7. Rotating Deep Architectural Questions (Never repeat identical fallbacks)
+    const questions = [
+      `Understood. How do you design your active-active database replication to prevent split-brain during sudden network partitions?`,
+      `Good point. What specific latency metrics and telemetry would you monitor to prove that design succeeded in production?`,
+      `When scaling write capacity across database shards, what strategy ensures cross-shard transactional consistency?`,
+      `If your message broker experiences a consumer lag surge under peak burst load, how do you prevent cascading downstream failures?`,
+      `How do you defend high-cost architectural refactors to non-technical executive stakeholders?`,
+    ];
+
+    const selectedQuestion = questions[turnIndex % questions.length];
+    return selectedQuestion;
   }
 
   async persistMascotState(): Promise<void> {
