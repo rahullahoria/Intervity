@@ -54,6 +54,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     @Volatile
     private var isListeningForSpeech = false
     private var lastVolumeEmitTime = 0L
+    private var lastEndOfSpeechTimestamp = 0L
 
     var onAudioBufferCallback: ((ByteArray, Float) -> Unit)? = null
     var onPlaybackFinishedCallback: (() -> Unit)? = null
@@ -266,44 +267,52 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
             try {
                 isPlayingKokoro = true
                 val sid = getSpeakerIdForPersona(voiceName)
-                Log.i(TAG, "Synthesizing with Kokoro-82M on-device (sid=$sid, voice=$voiceName): \"$text\"")
-                val startMs = System.currentTimeMillis()
-                val audio = tts.generate(text, sid, 1.0f)
-                val genMs = System.currentTimeMillis() - startMs
-                Log.i(TAG, "Kokoro generated ${audio.samples.size} samples in ${genMs}ms (${audio.sampleRate}Hz)")
-
-                val samples = audio.samples
-                if (samples.isEmpty() || !isPlayingKokoro) {
-                    onPlaybackFinishedCallback?.invoke()
-                    return@Thread
-                }
-
-                // Convert float [-1.0, 1.0] samples to 16-bit mono PCM bytes with gain boost for loud speaker
-                val pcm16 = ByteArray(samples.size * 2)
-                for (i in samples.indices) {
-                    val boosted = (samples[i] * 1.25f).coerceIn(-1.0f, 1.0f)
-                    val s = (boosted * 32767.0f).toInt().toShort()
-                    pcm16[i * 2] = (s.toInt() and 0xFF).toByte()
-                    pcm16[i * 2 + 1] = ((s.toInt() shr 8) and 0xFF).toByte()
-                }
+                val totalStartMs = System.currentTimeMillis()
+                val sentences = text.split(Regex("(?<=[.!?])\\s+")).filter { it.isNotBlank() }
+                Log.i(TAG, "Synthesizing with Kokoro-82M on-device (${sentences.size} sentences, sid=$sid, voice=$voiceName)")
 
                 routeToLoudspeaker()
                 ensureAudioTrackPlaying()
 
-                var offset = 0
-                val chunkSize = 4096
-                while (offset < pcm16.size && isPlayingKokoro) {
-                    val writeLen = minOf(chunkSize, pcm16.size - offset)
-                    audioTrack?.write(pcm16, offset, writeLen)
-                    offset += writeLen
+                for ((idx, sentence) in sentences.withIndex()) {
+                    if (!isPlayingKokoro) break
+
+                    val sStartMs = System.currentTimeMillis()
+                    val audio = tts.generate(sentence, sid, 1.0f)
+                    val sGenMs = System.currentTimeMillis() - sStartMs
+                    val samples = audio.samples
+                    if (samples.isEmpty()) continue
+
+                    val audioDurationMs = (samples.size * 1000L) / audio.sampleRate
+                    val rtf = if (audioDurationMs > 0) sGenMs.toFloat() / audioDurationMs.toFloat() else 0f
+                    if (idx == 0) {
+                        Log.i(TAG, "[Latency Benchmark] TTS Time-to-First-Audio (TTFA): ${sGenMs}ms for sentence: \"$sentence\"")
+                    }
+                    Log.i(TAG, "[Latency Benchmark] TTS Sentence ${idx + 1}/${sentences.size}: generated ${samples.size} samples (${audioDurationMs}ms audio) in ${sGenMs}ms (RTF: ${String.format(Locale.US, "%.2f", rtf)}x)")
+
+                    val pcm16 = ByteArray(samples.size * 2)
+                    for (i in samples.indices) {
+                        val boosted = (samples[i] * 1.25f).coerceIn(-1.0f, 1.0f)
+                        val s = (boosted * 32767.0f).toInt().toShort()
+                        pcm16[i * 2] = (s.toInt() and 0xFF).toByte()
+                        pcm16[i * 2 + 1] = ((s.toInt() shr 8) and 0xFF).toByte()
+                    }
+
+                    var offset = 0
+                    val chunkSize = 4096
+                    while (offset < pcm16.size && isPlayingKokoro) {
+                        val writeLen = minOf(chunkSize, pcm16.size - offset)
+                        audioTrack?.write(pcm16, offset, writeLen)
+                        offset += writeLen
+                    }
                 }
 
                 if (isPlayingKokoro) {
-                    // Small drain buffer for hardware audio output
-                    Thread.sleep(120)
+                    Thread.sleep(150)
                 }
 
-                Log.d(TAG, "Kokoro playback finished")
+                val totalDurationMs = System.currentTimeMillis() - totalStartMs
+                Log.i(TAG, "[Latency Benchmark] Kokoro full response finished in ${totalDurationMs}ms")
                 onPlaybackFinishedCallback?.invoke()
             } catch (_: InterruptedException) {
                 Log.d(TAG, "Kokoro playback interrupted")
@@ -606,6 +615,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                     override fun onBufferReceived(buffer: ByteArray?) {}
 
                     override fun onEndOfSpeech() {
+                        lastEndOfSpeechTimestamp = System.currentTimeMillis()
                         Log.d(TAG, "SpeechRecognizer: onEndOfSpeech")
                         onEndOfSpeechCallback?.invoke()
                     }
@@ -622,9 +632,10 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                     }
 
                     override fun onResults(results: Bundle?) {
+                        val sttLatencyMs = if (lastEndOfSpeechTimestamp > 0) System.currentTimeMillis() - lastEndOfSpeechTimestamp else -1
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
-                        Log.i(TAG, "SpeechRecognizer onResults: \"$text\"")
+                        Log.i(TAG, "[Latency Benchmark] STT Latency: ${sttLatencyMs}ms | Transcribed: \"$text\"")
                         if (text.isNotBlank()) {
                             isListeningForSpeech = false
                             onFinalTranscriptCallback?.invoke(text)

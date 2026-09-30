@@ -185,8 +185,11 @@ export function useAgentCoaching() {
     ]);
 
     // Process with Agent Coaching Harness
+    const llmStartTime = Date.now();
     const currentTurn = turnIndexRef.current;
     const outcome = await harness.current.processUserSpeechTurn(recognizedText, currentTurn);
+    const llmDurationMs = Date.now() - llmStartTime;
+    console.log(`[Latency Benchmark] LLM/Harness Latency: ${llmDurationMs}ms (Turn #${currentTurn})`);
 
     turnIndexRef.current += 1;
     setTurnIndex(turnIndexRef.current);
