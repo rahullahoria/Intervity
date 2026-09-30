@@ -7,7 +7,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { ModelAsset } from '../types';
 import { ModelAssetManager } from '../core/models/ModelAssetManager';
 
-const globalAssetManager = new ModelAssetManager();
+const globalAssetManager = ModelAssetManager.getInstance();
 
 export function useModelDownloads() {
   const [models, setModels] = useState<ModelAsset[]>(globalAssetManager.getModels());

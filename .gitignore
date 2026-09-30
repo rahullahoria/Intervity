@@ -1,3 +1,8 @@
+# Environment & Credentials (NEVER COMMIT SECRETS)
+.env
+.env.*
+*.env
+
 # Dependencies
 node_modules/
 .pnp

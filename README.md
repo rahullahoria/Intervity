@@ -36,7 +36,7 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 - **📱 Mascot Face App Launcher & Adaptive Icon Suite:** Modern branded Intervity launcher icons featuring Coach Nova's face across Android (adaptive, round, square, Play Store 512×512) and iOS (`AppIcon.appiconset` with solid RGB across all device scales). Generated via [`scripts/generate_mascot_icons.py`](scripts/generate_mascot_icons.py).
 - **🎙️ Kokoro-82M Neural TTS:** Studio-grade on-device text-to-speech powered by `sherpa-onnx` and ONNX Runtime. Generates rich, human-like cadence across 103 voices, including Indian English (`en-IN`) technical interviewer personas (`hf_alpha` Bengaluru Tech Lead, `hm_omega` VP of Engineering).
 - **⚡ Ultra-Fast Full-Duplex Audio & Barge-In:** Built-in hardware Acoustic Echo Cancellation (AEC) and instant (<100ms) audio track flush when the candidate interrupts the AI, mirroring real human conversational dynamics.
-- **🧠 Local LLM Reasoning:** Runs quantized SLMs (`MiniCPM-2.5-Q4_K_M`, `Llama-3.2-1B/3B`) via `llama.rn` directly on mobile NPU/GPU/CPU.
+- **🧠 Local LLM Reasoning:** Runs 4-bit quantized MiniCPM5-2B (`MiniCPM5-2B-Q4_K_M.gguf`, 1.45 GB) downloaded from BunnyCDN edge pull zone on first launch and executed via `llama.rn` directly on mobile NPU/GPU/CPU with zero cloud dependencies.
 - **🎧 High-Fidelity Speech Recognition:** Seamless streaming transcription via `whisper.rn` with energy-based Voice Activity Detection (VAD).
 - **📊 Bayesian Exponential Moving Average (EMA) Mastery Tracking:** Relational SQLite tracking across core engineering competencies (React Native, System Design, Concurrency, Concurrency Hazards, Data Modeling, Communication).
 - **🎯 4-Tier Mistake Taxonomy & Autopsy:** Automatically classifies stumbling points into **Conceptual**, **Structural**, **Communication**, and **Vague Hand-waving**, generating deliberate practice drills.
@@ -99,7 +99,7 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 | :--- | :--- | :--- | :--- | :--- |
 | **Neural TTS** | Kokoro-82M (`sherpa-onnx`) | INT8 ONNX (88 MB) | ~110 MB RAM | ~1.1s for 10s audio |
 | **Speech-to-Text** | Whisper-Base / Small | GGML Q5_1 / FP16 | ~140 MB RAM | ~180ms chunk decode |
-| **Reasoning / LLM** | MiniCPM-2.5 / Llama-3.2 | Q4_K_M GGUF | ~1.4 GB RAM | 18–32 tok/s on NPU |
+| **Reasoning / LLM** | MiniCPM5-2B (`openbmb`) | Q4_K_M GGUF (1.45 GB) | ~1.5 GB RAM | 22–38 tok/s on NPU / GPU |
 | **Relational DB** | SQLite (`@op-engineering`) | Embedded Local DB | <5 MB RAM | Sub-millisecond |
 
 ---

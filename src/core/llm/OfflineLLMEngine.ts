@@ -16,7 +16,7 @@ export class OfflineLLMEngine {
   private isLoaded = false;
   private abortSignal = false;
 
-  async loadModel(modelNameOrPath: string = 'qwen2.5-0.5b-instruct-q4_k_m.gguf'): Promise<boolean> {
+  async loadModel(modelNameOrPath: string = 'MiniCPM5-2B-Q4_K_M.gguf'): Promise<boolean> {
     if (this.isLoaded) return true;
 
     const docPath = NativeModules?.OPSQLite?.getConstants?.()?.IOS_DOCUMENT_PATH || '';

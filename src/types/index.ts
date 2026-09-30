@@ -141,7 +141,7 @@ export interface ParsedResume {
 }
 
 export interface ModelAsset {
-  id: 'whisper_turbo' | 'whisper_tiny' | 'minicpm_2b' | 'qwen_05b' | 'kokoro_tts';
+  id: 'whisper_turbo' | 'whisper_tiny' | 'minicpm_2b' | 'minicpm5_2b' | 'qwen_05b' | 'kokoro_tts';
   name: string;
   url: string;
   sizeBytes: number;

@@ -14,6 +14,7 @@ import { AgentCoachingHarness, MascotProfile, UserCareerMemory } from '../core/a
 import { NativeAudioEngine, VADEvent } from '../core/audio/NativeAudioEngine';
 import { OfflineTtsService } from '../core/tts/OfflineTtsService';
 import { OfflineSpeechToTextService } from '../core/stt/OfflineSpeechToTextService';
+import { ModelAssetManager } from '../core/models/ModelAssetManager';
 import { InterviewState } from '../types';
 
 export interface ChatMessage {
@@ -61,6 +62,13 @@ export function useAgentCoaching() {
     async function boot() {
       try {
         setState('INITIALIZING');
+
+        const assetManager = ModelAssetManager.getInstance();
+        if (!assetManager.isModelDownloaded('minicpm5_2b')) {
+          setCurrentSubtitle('Downloading MiniCPM5-2B LLM from CDN...');
+          await assetManager.ensureModelDownloaded('minicpm5_2b');
+        }
+
         setCurrentSubtitle('Waking up your AI Coach...');
 
         await harness.current.initialize();

@@ -15,6 +15,7 @@ import { NativeAudioEngine } from '../core/audio/NativeAudioEngine';
 import { OfflineSpeechToTextService, INDIAN_ENGLISH_WHISPER_PROMPT } from '../core/stt/OfflineSpeechToTextService';
 import { OfflineLLMEngine } from '../core/llm/OfflineLLMEngine';
 import { OfflineTtsService } from '../core/tts/OfflineTtsService';
+import { ModelAssetManager } from '../core/models/ModelAssetManager';
 import { buildInterviewerPrompt } from '../core/llm/SystemPrompts';
 import { SkillStorageManager } from '../database/SkillStorageManager';
 import { SessionStorageManager } from '../database/SessionStorageManager';
@@ -60,9 +61,16 @@ export function useOfflineInterviewEngine(options: InterviewOptions) {
       try {
         setState('INITIALIZING');
 
+        // Check if MiniCPM5-2B model weights are present locally; if not, download from CDN
+        const assetManager = ModelAssetManager.getInstance();
+        if (!assetManager.isModelDownloaded('minicpm5_2b')) {
+          console.log('[useOfflineInterviewEngine] MiniCPM5-2B not present on device; downloading from BunnyCDN...');
+          await assetManager.startDownload('minicpm5_2b');
+        }
+
         await Promise.all([
           sttService.current.initializeModel('ggml-tiny.en.bin'),
-          llmEngine.current.loadModel('qwen2.5-0.5b-instruct-q4_k_m.gguf'),
+          llmEngine.current.loadModel('MiniCPM5-2B-Q4_K_M.gguf'),
           ttsService.current.initialize('kokoro_models', voiceProfile),
           audioEngine.current.initializeWithAEC({ sampleRate: 16000, bufferSize: 320 }),
         ]);

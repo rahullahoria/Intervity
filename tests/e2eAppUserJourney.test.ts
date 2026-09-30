@@ -18,7 +18,12 @@ describe('Comprehensive End-to-End Application User Journey', () => {
     // PHASE 1: Model Readiness Verification (ModelManager)
     const modelManager = new ModelAssetManager();
     const initialModels = modelManager.getModels();
-    assert.strictEqual(initialModels.length, 3, 'Must have 3 core on-device models configured');
+    assert.ok(initialModels.length >= 3, 'Must have core on-device models configured');
+    
+    // On first launch, download minicpm5_2b from CDN if not yet present
+    if (!modelManager.isModelDownloaded('minicpm5_2b')) {
+      await modelManager.startDownload('minicpm5_2b');
+    }
     assert.ok(modelManager.areAllModelsReady(), 'Models should be verified and ready for on-device execution');
     assert.ok(modelManager.getTotalDownloadedBytes() > 0, 'Total downloaded bytes should be non-zero');
 

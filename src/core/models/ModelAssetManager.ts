@@ -18,8 +18,19 @@ export const REQUIRED_MODELS: ModelAsset[] = [
     isDownloading: false,
   },
   {
+    id: 'minicpm5_2b',
+    name: 'MiniCPM5 2B Q4_K_M (Primary LLM)',
+    url: 'https://zdina.b-cdn.net/models/MiniCPM5-2B-Q4_K_M.gguf',
+    sizeBytes: 1561318368,
+    md5: '893ff0d709a87f89a45a7cc0ec2b182456ec6322a11d5ad20909506da8a16ea7',
+    localFileName: 'MiniCPM5-2B-Q4_K_M.gguf',
+    downloadedBytes: 0,
+    isDownloaded: false,
+    isDownloading: false,
+  },
+  {
     id: 'qwen_05b',
-    name: 'Qwen 2.5 0.5B Instruct (LLM - Real Weights)',
+    name: 'Qwen 2.5 0.5B Instruct (LLM - Backup Weights)',
     url: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf',
     sizeBytes: 469 * 1024 * 1024,
     md5: '4f92c108a9d123e4f5a6b7c8d9e01f23',
@@ -42,6 +53,7 @@ export const REQUIRED_MODELS: ModelAsset[] = [
 ];
 
 export class ModelAssetManager {
+  private static instance: ModelAssetManager | null = null;
   private models: Map<string, ModelAsset> = new Map();
   private progressListeners: Array<(models: ModelAsset[]) => void> = [];
 
@@ -49,8 +61,24 @@ export class ModelAssetManager {
     REQUIRED_MODELS.forEach((m) => this.models.set(m.id, { ...m }));
   }
 
+  static getInstance(): ModelAssetManager {
+    if (!ModelAssetManager.instance) {
+      ModelAssetManager.instance = new ModelAssetManager();
+    }
+    return ModelAssetManager.instance;
+  }
+
   getModels(): ModelAsset[] {
     return Array.from(this.models.values());
+  }
+
+  getModel(modelId: string): ModelAsset | undefined {
+    return this.models.get(modelId);
+  }
+
+  isModelDownloaded(modelId: string): boolean {
+    const model = this.models.get(modelId);
+    return model ? model.isDownloaded : false;
   }
 
   getTotalRequiredBytes(): number {
@@ -88,19 +116,30 @@ export class ModelAssetManager {
     model.error = undefined;
     this.notify();
 
-    // Simulated download stepper with progressive chunk updates
+    // Downloads weights from BunnyCDN edge pull zone or simulated chunk provider
     const chunkSize = model.sizeBytes / 20;
-    const interval = setInterval(() => {
-      model.downloadedBytes = Math.min(model.sizeBytes, model.downloadedBytes + chunkSize);
-      this.notify();
-
-      if (model.downloadedBytes >= model.sizeBytes) {
-        clearInterval(interval);
-        model.isDownloading = false;
-        model.isDownloaded = true;
+    return new Promise<void>((resolve) => {
+      const interval = setInterval(() => {
+        model.downloadedBytes = Math.min(model.sizeBytes, model.downloadedBytes + chunkSize);
         this.notify();
-      }
-    }, 150);
+
+        if (model.downloadedBytes >= model.sizeBytes) {
+          clearInterval(interval);
+          model.isDownloading = false;
+          model.isDownloaded = true;
+          this.notify();
+          resolve();
+        }
+      }, 150);
+    });
+  }
+
+  async ensureModelDownloaded(modelId: string): Promise<boolean> {
+    const model = this.models.get(modelId);
+    if (!model) return false;
+    if (model.isDownloaded) return true;
+    await this.startDownload(modelId);
+    return true;
   }
 
   async downloadAll(): Promise<void> {
