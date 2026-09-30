@@ -20,7 +20,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   size = 280,
   onPress,
   showMascotBadge = true,
-  mascotType = 'teddy',
+  mascotType = 'coach',
   isFullScreen = false,
 }) => {
   const riveRef = useRef<RiveRef>(null);
@@ -32,6 +32,14 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   const isInterrupted = state === 'INTERRUPTED';
   const isCompleted = state === 'COMPLETED';
 
+  // Compute active animation for Coach mascot
+  const coachAnimation = isSpeaking
+    ? 'Talking'
+    : isThinking || isCompleted
+    ? 'Gestures'
+    : 'Blinking';
+
+  // 1. Handle declarative/imperative updates for state machine & animations
   useEffect(() => {
     if (!riveRef.current) return;
 
@@ -39,12 +47,13 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
       if (mascotType === 'teddy') {
         if (isSpeaking) {
           riveRef.current.setInputState('Login Machine', 'isChecking', true);
-          riveRef.current.setInputState('Login Machine', 'numLook', 50);
+          const angle = Math.round(45 + Math.sin(Date.now() / 250) * 15);
+          riveRef.current.setInputState('Login Machine', 'numLook', angle);
         } else if (isListening) {
           riveRef.current.setInputState('Login Machine', 'isChecking', true);
-          // Look reacts dynamically to candidate audio level
+          // Look reacts dynamically to candidate audio level (10 to 90 degrees)
           const lookAngle = Math.min(90, Math.max(10, 50 + (audioLevel - 0.5) * 60));
-          riveRef.current.setInputState('Login Machine', 'numLook', lookAngle);
+          riveRef.current.setInputState('Login Machine', 'numLook', Math.round(lookAngle));
         } else if (isThinking) {
           riveRef.current.setInputState('Login Machine', 'isChecking', true);
           riveRef.current.setInputState('Login Machine', 'numLook', 25);
@@ -56,16 +65,30 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
           riveRef.current.setInputState('Login Machine', 'isChecking', false);
         }
       } else {
-        if (isSpeaking) {
-          riveRef.current.play('Talking');
-        } else {
-          riveRef.current.play('Blinking');
-        }
+        // Coach mascot with expressive talking mouth & gestures
+        riveRef.current.play(coachAnimation);
       }
     } catch {
       // Ignore transition exceptions gracefully
     }
-  }, [state, isSpeaking, isListening, isThinking, isInterrupted, isCompleted, audioLevel, mascotType]);
+  }, [state, isSpeaking, isListening, isThinking, isInterrupted, isCompleted, audioLevel, mascotType, coachAnimation]);
+
+  // Periodic head/gaze motion while speaking for Teddy
+  useEffect(() => {
+    if (!isSpeaking || mascotType !== 'teddy') return;
+
+    let tick = 0;
+    const interval = setInterval(() => {
+      tick += 1;
+      const angle = Math.round(50 + Math.sin(tick * 0.7) * 16);
+      try {
+        riveRef.current?.setInputState('Login Machine', 'isChecking', true);
+        riveRef.current?.setInputState('Login Machine', 'numLook', angle);
+      } catch {}
+    }, 180);
+
+    return () => clearInterval(interval);
+  }, [isSpeaking, mascotType]);
 
   // Glow border color based on conversational state
   const stateBorderColor = isSpeaking
@@ -102,7 +125,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
               resourceName={mascotType === 'teddy' ? 'teddy' : 'mascot'}
               stateMachineName={mascotType === 'teddy' ? 'Login Machine' : undefined}
               artboardName={mascotType === 'teddy' ? 'Teddy' : 'Teacher'}
-              animationName={mascotType === 'coach' ? (isSpeaking ? 'Talking' : 'Blinking') : undefined}
+              animationName={mascotType === 'coach' ? coachAnimation : undefined}
               fit={Fit.Cover}
               alignment={Alignment.Center}
               autoplay={true}
@@ -157,7 +180,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
             resourceName={mascotType === 'teddy' ? 'teddy' : 'mascot'}
             stateMachineName={mascotType === 'teddy' ? 'Login Machine' : undefined}
             artboardName={mascotType === 'teddy' ? 'Teddy' : 'Teacher'}
-            animationName={mascotType === 'coach' ? (isSpeaking ? 'Talking' : 'Blinking') : undefined}
+            animationName={mascotType === 'coach' ? coachAnimation : undefined}
             fit={Fit.Contain}
             alignment={Alignment.Center}
             autoplay={true}

@@ -52,6 +52,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
 
   const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
   const [typedInput, setTypedInput] = useState('');
+  const [selectedMascot, setSelectedMascot] = useState<'coach' | 'teddy'>('coach');
 
   const isSpeaking = state === 'AI_SPEAKING';
   const isListening = state === 'LISTENING' || state === 'USER_SPEAKING';
@@ -78,7 +79,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         isFullScreen={true}
         state={state}
         audioLevel={audioLevel}
-        mascotType="teddy"
+        mascotType={selectedMascot}
         onPress={() => {
           if (isSpeaking) triggerBargeIn();
           else if (isReady) startSession();
@@ -104,6 +105,13 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           </View>
 
           <View style={styles.headerControls}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => setSelectedMascot((prev) => (prev === 'coach' ? 'teddy' : 'coach'))}
+            >
+              <Text style={styles.iconBtnText}>{selectedMascot === 'coach' ? '🎓' : '🐻'}</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={[
                 styles.iconBtn,
