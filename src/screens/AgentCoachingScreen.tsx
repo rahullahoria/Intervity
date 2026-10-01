@@ -75,7 +75,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
 
   const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
   const [typedInput, setTypedInput] = useState('');
-  const [selectedMascot, setSelectedMascot] = useState<'coach' | 'teddy'>('coach');
+  const [selectedMascot, setSelectedMascot] = useState<'coach' | 'teddy'>('teddy');
   const insets = useSafeAreaInsets();
 
   const isSpeaking = state === 'AI_SPEAKING';
@@ -433,14 +433,16 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
+    zIndex: 20,
+    elevation: 20,
   },
   floatingBottomContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 10,
+    zIndex: 20,
+    elevation: 20,
   },
   header: {
     flexDirection: 'row',
