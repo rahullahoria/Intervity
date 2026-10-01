@@ -285,14 +285,26 @@ export class AgentCoachingHarness {
       await this.recordMemoryFact('career_goal', 'target_role', roleStr);
       extractedFacts.push({ category: 'career_goal', key: 'target_role', value: roleStr });
       xpEarned += 35;
-    } else if (textLower.includes('staff') || textLower.includes('principal') || textLower.includes('architect') || textLower.includes('lead')) {
-      const match = userText.match(/(staff|principal|lead|architect)[^.,!]+/i);
-      let roleStr = match ? match[0].replace(/\b(next|role|level|position|soon|please|in|at)\b/gi, '').trim() : 'Staff Software Architect';
-      if (!roleStr) roleStr = 'Staff Software Architect';
+    } else if (
+      textLower.includes('staff') ||
+      textLower.includes('principal') ||
+      textLower.includes('architect') ||
+      /\b(tech|team) lead\b/i.test(userText)
+    ) {
+      let roleStr = 'Staff Software Architect';
+      if (/\bstaff\b/i.test(userText)) {
+        roleStr = 'Staff Software Architect';
+      } else if (/\bprincipal\b/i.test(userText)) {
+        roleStr = 'Principal Software Engineer';
+      } else if (/\barchitect\b/i.test(userText)) {
+        roleStr = 'Staff Software Architect';
+      } else if (/\b(tech|team) lead\b/i.test(userText)) {
+        roleStr = 'Tech Lead';
+      }
       await this.recordMemoryFact('career_goal', 'target_role', roleStr);
       extractedFacts.push({ category: 'career_goal', key: 'target_role', value: roleStr });
       xpEarned += 30;
-    } else if (textLower.includes('manager') || textLower.includes('em ')) {
+    } else if (/\b(engineering manager|manager|em)\b/i.test(userText)) {
       await this.recordMemoryFact('career_goal', 'target_role', 'Engineering Manager');
       extractedFacts.push({ category: 'career_goal', key: 'target_role', value: 'Engineering Manager' });
       xpEarned += 30;
