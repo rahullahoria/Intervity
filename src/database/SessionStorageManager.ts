@@ -5,8 +5,9 @@
 
 import { SQLiteClient } from './SQLiteClient';
 import { InterviewSession, MistakeDiagnostic, SpeechProsodyReport, TurnEvaluation } from '../types';
+import { ISessionRepository } from './repositories';
 
-export class SessionStorageManager {
+export class SessionStorageManager implements ISessionRepository {
   private client: SQLiteClient;
 
   constructor(client: SQLiteClient = SQLiteClient.getInstance()) {

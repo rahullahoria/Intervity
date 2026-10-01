@@ -5,8 +5,9 @@
 
 import { SQLiteClient } from './SQLiteClient';
 import { CandidateSkill, MasteryLevel } from '../types';
+import { ISkillRepository } from './repositories';
 
-export class SkillStorageManager {
+export class SkillStorageManager implements ISkillRepository {
   private client: SQLiteClient;
 
   constructor(client: SQLiteClient = SQLiteClient.getInstance()) {

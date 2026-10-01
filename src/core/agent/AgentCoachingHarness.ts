@@ -14,6 +14,7 @@
  */
 
 import { SQLiteClient } from '../../database/SQLiteClient';
+import { IMemoryRepository, AgentMemoryRepository } from '../../database';
 import { buildAgentCoachingSystemPrompt, CoachingPhase } from '../llm/SystemPrompts';
 import { OfflineLLMEngine } from '../llm/OfflineLLMEngine';
 import { TeddyDialogueEngine } from './TeddyDialogueEngine';
@@ -59,14 +60,20 @@ export interface TurnCoachingOutcome {
 
 export class AgentCoachingHarness {
   private db: SQLiteClient;
+  private memoryRepo: IMemoryRepository;
   private mascot: MascotProfile;
   private memory: UserCareerMemory;
   private isInitialized = false;
   private llmEngine: OfflineLLMEngine | null = null;
   private conversationHistory: Array<{ role: string; content: string }> = [];
 
-  constructor(llmEngine?: OfflineLLMEngine) {
-    this.db = SQLiteClient.getInstance();
+  constructor(
+    llmEngine?: OfflineLLMEngine,
+    memoryRepo?: IMemoryRepository,
+    db?: SQLiteClient
+  ) {
+    this.db = db || SQLiteClient.getInstance();
+    this.memoryRepo = memoryRepo || new AgentMemoryRepository(this.db);
     this.llmEngine = llmEngine || null;
     this.mascot = {
       id: 'mascot_primary',
@@ -103,50 +110,34 @@ export class AgentCoachingHarness {
     await this.db.initialize();
 
     try {
-      // 1. Load or seed Mascot state
-      const mascotRes = await this.db.execute('SELECT * FROM mascot_profile WHERE id = ?', ['mascot_primary']);
-      if (mascotRes.rows && mascotRes.rows.length > 0) {
-        const row = mascotRes.rows[0];
-        this.mascot.name = (!row.name || row.name === 'Nova') ? 'Teddy' : row.name;
-        this.mascot.level = row.level || 1;
-        this.mascot.xp = row.xp || 0;
-        this.mascot.xpToNextLevel = (row.level || 1) * 100;
-        this.mascot.personalityTier = (row.personality_tier === 'Curious Explorer' || !row.personality_tier)
+      // 1. Load or seed Mascot state via Repository
+      const storedMascot = await this.memoryRepo.getMascotProfile('mascot_primary');
+      if (storedMascot) {
+        this.mascot.name = (!storedMascot.name || storedMascot.name === 'Nova') ? 'Teddy' : storedMascot.name;
+        this.mascot.level = storedMascot.level || 1;
+        this.mascot.xp = storedMascot.xp || 0;
+        this.mascot.xpToNextLevel = (storedMascot.level || 1) * 100;
+        this.mascot.personalityTier = (storedMascot.personalityTier === 'Curious Explorer' || !storedMascot.personalityTier)
           ? this.getTierForLevel(this.mascot.level)
-          : row.personality_tier;
-        this.mascot.relationshipSummary = row.relationship_summary || this.mascot.relationshipSummary;
-        this.mascot.coachingStyle = row.coaching_style || this.mascot.coachingStyle;
+          : storedMascot.personalityTier;
+        this.mascot.relationshipSummary = storedMascot.relationshipSummary || this.mascot.relationshipSummary;
+        this.mascot.coachingStyle = storedMascot.coachingStyle || this.mascot.coachingStyle;
 
-        if (row.name === 'Nova') {
-          await this.db.execute('UPDATE mascot_profile SET name = ? WHERE id = ?', ['Teddy', 'mascot_primary']);
+        if (storedMascot.name === 'Nova') {
+          await this.memoryRepo.updateMascotProfile(this.mascot);
         }
       } else {
-        await this.db.execute(
-          `INSERT INTO mascot_profile (id, name, level, xp, personality_tier, relationship_summary, coaching_style, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            'mascot_primary',
-            this.mascot.name,
-            this.mascot.level,
-            this.mascot.xp,
-            this.mascot.personalityTier,
-            this.mascot.relationshipSummary,
-            this.mascot.coachingStyle,
-            Date.now(),
-          ]
-        );
+        await this.memoryRepo.saveMascotProfile(this.mascot);
       }
 
-      // 2. Load stored user facts
-      const factsRes = await this.db.execute('SELECT * FROM agent_user_memory ORDER BY created_at ASC');
-      if (factsRes.rows && factsRes.rows.length > 0) {
-        for (const row of factsRes.rows) {
-          this.applyMemoryFact(row.category, row.fact_key, row.fact_value);
-        }
+      // 2. Load stored user facts via Repository
+      const storedFacts = await this.memoryRepo.getAllMemoryFacts();
+      for (const fact of storedFacts) {
+        this.applyMemoryFact(fact.category, fact.factKey, fact.factValue);
       }
 
       // 3. Load enrolled user voice profile if present
-      const profileRes = await this.db.execute('SELECT * FROM user_profiles WHERE user_id = ?', ['user_primary']);
+      const profileRes = await this.db.execute('SELECT * FROM user_profiles WHERE user_id = ?;', ['user_primary']);
       if (profileRes.rows && profileRes.rows.length > 0) {
         const p = profileRes.rows[0];
         if (p.name) {
@@ -219,13 +210,8 @@ export class AgentCoachingHarness {
 
   async recordMemoryFact(category: string, key: string, value: string): Promise<void> {
     this.applyMemoryFact(category, key, value);
-    const id = `mem_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
     try {
-      await this.db.execute(
-        `INSERT OR REPLACE INTO agent_user_memory (memory_id, category, fact_key, fact_value, confidence, created_at, last_referenced_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [id, category, key, value, 1.0, Date.now(), Date.now()]
-      );
+      await this.memoryRepo.saveMemoryFact(category, key, value, 1.0);
     } catch (err) {
       console.warn('[AgentCoachingHarness] Error saving memory fact:', err);
     }
@@ -508,19 +494,7 @@ export class AgentCoachingHarness {
 
   async persistMascotState(): Promise<void> {
     try {
-      await this.db.execute(
-        `UPDATE mascot_profile 
-         SET level = ?, xp = ?, personality_tier = ?, coaching_style = ?, updated_at = ?
-         WHERE id = ?`,
-        [
-          this.mascot.level,
-          this.mascot.xp,
-          this.mascot.personalityTier,
-          this.mascot.coachingStyle,
-          Date.now(),
-          'mascot_primary',
-        ]
-      );
+      await this.memoryRepo.updateMascotProfile(this.mascot);
     } catch (err) {
       console.warn('[AgentCoachingHarness] Error updating mascot profile:', err);
     }
