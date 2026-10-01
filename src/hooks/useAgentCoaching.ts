@@ -254,6 +254,7 @@ export function useAgentCoaching() {
     const unsubPartial = audioEngine.current.onPartialTranscript((text: string) => {
       const clean = text.trim();
       if (!clean) return;
+      console.log('[useAgentCoaching] onPartialTranscript:', clean);
       userSpeechBufferRef.current = clean;
       setState((current) => (current === 'LISTENING' ? 'USER_SPEAKING' : current));
       setCurrentSubtitle(`🗣️ "${clean}"`);
@@ -262,6 +263,7 @@ export function useAgentCoaching() {
     const unsubFinal = audioEngine.current.onFinalTranscript((text: string) => {
       const clean = text.trim();
       if (clean) {
+        console.log('[useAgentCoaching] onFinalTranscript:', clean);
         userSpeechBufferRef.current = clean;
         setCurrentSubtitle(`🗣️ "${clean}"`);
         if (pendingFinalResolverRef.current) {

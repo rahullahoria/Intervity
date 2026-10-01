@@ -11,6 +11,7 @@
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
+        <package android:name="com.google.android.googlequicksearchbox" />
     </queries>
 
      <application

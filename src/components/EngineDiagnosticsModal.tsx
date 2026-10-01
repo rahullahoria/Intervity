@@ -131,6 +131,9 @@ export const EngineDiagnosticsModal: React.FC<EngineDiagnosticsModalProps> = ({
     if (isSttListening) {
       audioEngine.current.stopRecordingStream();
       setIsSttListening(false);
+      if (!sttTranscript && sttPartial) {
+        setSttTranscript(sttPartial);
+      }
       if (sttStartTimeRef.current > 0) {
         setSttLatencyMs(Date.now() - sttStartTimeRef.current);
       }

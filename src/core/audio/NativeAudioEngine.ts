@@ -1,12 +1,14 @@
 let NativeModules: any = {};
 let Platform: any = { OS: 'ios' };
 let NativeEventEmitter: any = null;
+let DeviceEventEmitter: any = null;
 let PermissionsAndroid: any = null;
 try {
   const rn = require('react-native');
   NativeModules = rn.NativeModules || {};
   Platform = rn.Platform || { OS: 'ios' };
   NativeEventEmitter = rn.NativeEventEmitter;
+  DeviceEventEmitter = rn.DeviceEventEmitter;
   PermissionsAndroid = rn.PermissionsAndroid;
 } catch {
   // Running in Node / Bun test runner environment
@@ -63,55 +65,60 @@ export class NativeAudioEngine {
         }
       }
 
-      if (nativeMod && NativeEventEmitter && !this.eventEmitter) {
+      if (!this.eventEmitter) {
         try {
-          this.eventEmitter = new NativeEventEmitter(nativeMod);
+          const emitter = (Platform.OS === 'android' && DeviceEventEmitter)
+            ? DeviceEventEmitter
+            : (nativeMod && NativeEventEmitter ? new NativeEventEmitter(nativeMod) : null);
+          this.eventEmitter = emitter;
 
-          const subVol = this.eventEmitter.addListener('onAudioVolume', (data: { volume: number }) => {
-            const vol = typeof data?.volume === 'number' ? data.volume : 0;
-            const isSpeech = vol > 0.08;
-            for (const listener of this.vadListeners) {
-              listener({ volume: vol, isSpeech });
-            }
-          });
+          if (emitter) {
+            const subVol = emitter.addListener('onAudioVolume', (data: { volume: number }) => {
+              const vol = typeof data?.volume === 'number' ? data.volume : 0;
+              const isSpeech = vol > 0.08;
+              for (const listener of this.vadListeners) {
+                listener({ volume: vol, isSpeech });
+              }
+            });
 
-          const subSpeech = this.eventEmitter.addListener('onSpeechDetected', (data: { volume: number }) => {
-            const vol = typeof data?.volume === 'number' ? data.volume : 0.2;
-            for (const listener of this.vadListeners) {
-              listener({ volume: vol, isSpeech: true });
-            }
-          });
+            const subSpeech = emitter.addListener('onSpeechDetected', (data: { volume: number }) => {
+              const vol = typeof data?.volume === 'number' ? data.volume : 0.2;
+              for (const listener of this.vadListeners) {
+                listener({ volume: vol, isSpeech: true });
+              }
+            });
 
-          const subEnd = this.eventEmitter.addListener('onEndOfSpeech', (data: { audioPath: string }) => {
-            const path = data?.audioPath || '';
-            for (const listener of this.endOfSpeechListeners) {
-              listener(path);
-            }
-          });
+            const subEnd = emitter.addListener('onEndOfSpeech', (data: { audioPath: string }) => {
+              const path = data?.audioPath || '';
+              for (const listener of this.endOfSpeechListeners) {
+                listener(path);
+              }
+            });
 
-          const subPlay = this.eventEmitter.addListener('onPlaybackFinished', () => {
-            const listeners = [...this.playbackDrainedListeners];
-            this.playbackDrainedListeners = [];
-            for (const listener of listeners) {
-              listener();
-            }
-          });
+            const subPlay = emitter.addListener('onPlaybackFinished', () => {
+              const listeners = [...this.playbackDrainedListeners];
+              this.playbackDrainedListeners = [];
+              for (const listener of listeners) {
+                listener();
+              }
+            });
 
-          const subPartial = this.eventEmitter.addListener('onPartialTranscript', (data: { text: string }) => {
-            const text = data?.text || '';
-            for (const listener of this.partialTranscriptListeners) {
-              listener(text);
-            }
-          });
+            const subPartial = emitter.addListener('onPartialTranscript', (data: { text: string }) => {
+              const text = data?.text || '';
+              for (const listener of this.partialTranscriptListeners) {
+                listener(text);
+              }
+            });
 
-          const subFinal = this.eventEmitter.addListener('onFinalTranscript', (data: { text: string }) => {
-            const text = data?.text || '';
-            for (const listener of this.finalTranscriptListeners) {
-              listener(text);
-            }
-          });
+            const subFinal = emitter.addListener('onFinalTranscript', (data: { text: string }) => {
+              const text = data?.text || '';
+              for (const listener of this.finalTranscriptListeners) {
+                listener(text);
+              }
+            });
 
-          this.nativeSubscriptions.push(subVol, subSpeech, subEnd, subPlay, subPartial, subFinal);
+            this.nativeSubscriptions.push(subVol, subSpeech, subEnd, subPlay, subPartial, subFinal);
+          }
         } catch (e) {
           console.warn('[NativeAudioEngine] NativeEventEmitter initialization notice:', e);
         }

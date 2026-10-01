@@ -60,6 +60,10 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     private var lastBargeInTimestamp = 0L
     private var lastVolumeEmitTime = 0L
     private var lastEndOfSpeechTimestamp = 0L
+    @Volatile
+    private var lastPartialTranscript = ""
+    @Volatile
+    private var accumulatedSessionTranscript = ""
 
     var onAudioBufferCallback: ((ByteArray, Float) -> Unit)? = null
     var onPlaybackFinishedCallback: (() -> Unit)? = null
@@ -610,9 +614,29 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
         }.also { it.start() }
     }
 
+    private fun createRecognitionIntent(): Intent {
+        val defaultLocale = Locale.getDefault().toLanguageTag().ifBlank { "en-IN" }
+        return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, defaultLocale)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, defaultLocale)
+            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context?.packageName ?: "com.goairm.intervity")
+            putExtra("android.speech.extra.DICTATION_MODE", true)
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1200L)
+        }
+    }
+
     fun startListeningForSpeech() {
         stopRecording()
         isContinuousListening = true
+        lastPartialTranscript = ""
+        accumulatedSessionTranscript = ""
         mainHandler.post {
             try {
                 if (speechRecognizer != null) {
@@ -682,23 +706,42 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                     }
 
                     override fun onError(error: Int) {
-                        Log.d(TAG, "SpeechRecognizer status/error: $error (continuous=$isContinuousListening)")
+                        Log.d(TAG, "SpeechRecognizer status/error: $error (continuous=$isContinuousListening, lastPartial=\"$lastPartialTranscript\")")
+                        // Salvage any partial text captured before timeout or no-match occurred
+                        if (lastPartialTranscript.isNotBlank()) {
+                            val salvaged = lastPartialTranscript.trim()
+                            lastPartialTranscript = ""
+                            accumulatedSessionTranscript = if (accumulatedSessionTranscript.isNotBlank()) {
+                                "$accumulatedSessionTranscript $salvaged"
+                            } else {
+                                salvaged
+                            }
+                            Log.i(TAG, "Salvaged partial speech on error $error: \"$accumulatedSessionTranscript\"")
+                            onFinalTranscriptCallback?.invoke(accumulatedSessionTranscript)
+                        }
+
                         if (isContinuousListening) {
                             mainHandler.postDelayed({
                                 if (isContinuousListening) {
                                     restartListeningInternal()
                                 }
-                            }, 100)
+                            }, 120)
                         }
                     }
 
                     override fun onResults(results: Bundle?) {
                         val sttLatencyMs = if (lastEndOfSpeechTimestamp > 0) System.currentTimeMillis() - lastEndOfSpeechTimestamp else -1
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        val text = matches?.firstOrNull()?.trim() ?: ""
+                        val text = matches?.firstOrNull()?.trim() ?: lastPartialTranscript
+                        lastPartialTranscript = ""
                         Log.i(TAG, "[Latency Benchmark] STT Latency: ${sttLatencyMs}ms | Transcribed: \"$text\"")
                         if (text.isNotBlank()) {
-                            onFinalTranscriptCallback?.invoke(text)
+                            accumulatedSessionTranscript = if (accumulatedSessionTranscript.isNotBlank()) {
+                                "$accumulatedSessionTranscript $text"
+                            } else {
+                                text
+                            }
+                            onFinalTranscriptCallback?.invoke(accumulatedSessionTranscript)
                         }
                         // Continuous full-duplex loop: restart listening immediately
                         if (isContinuousListening) {
@@ -714,6 +757,12 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                         val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         if (text.isNotBlank()) {
+                            lastPartialTranscript = text
+                            val fullCurrent = if (accumulatedSessionTranscript.isNotBlank()) {
+                                "$accumulatedSessionTranscript $text"
+                            } else {
+                                text
+                            }
                             if (isPlayingKokoro) {
                                 val nowMs = System.currentTimeMillis()
                                 if (nowMs - lastBargeInTimestamp > 300) {
@@ -723,25 +772,17 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                                     onSpeechDetectedCallback?.invoke()
                                 }
                             }
-                            onPartialTranscriptCallback?.invoke(text)
+                            onPartialTranscriptCallback?.invoke(fullCurrent)
                         }
                     }
 
                     override fun onEvent(eventType: Int, params: Bundle?) {}
                 })
 
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context?.packageName ?: "com.goairm.intervity")
-                    putExtra("android.speech.extra.DICTATION_MODE", true)
-                }
-
+                val intent = createRecognitionIntent()
                 isListeningForSpeech = true
                 recognizer.startListening(intent)
-                Log.i(TAG, "SpeechRecognizer started full-duplex continuous listening")
+                Log.i(TAG, "SpeechRecognizer started listening with intent locale: ${intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE)}")
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to start SpeechRecognizer: ${e.message}", e)
                 startRecording()
@@ -763,14 +804,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
             }
 
             try {
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                    putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context?.packageName ?: "com.goairm.intervity")
-                    putExtra("android.speech.extra.DICTATION_MODE", true)
-                }
+                val intent = createRecognitionIntent()
                 isListeningForSpeech = true
                 recognizer.startListening(intent)
             } catch (e: Throwable) {
@@ -787,6 +821,19 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     fun stopListeningForSpeech() {
         isContinuousListening = false
         isListeningForSpeech = false
+
+        if (lastPartialTranscript.isNotBlank()) {
+            val salvaged = lastPartialTranscript.trim()
+            lastPartialTranscript = ""
+            accumulatedSessionTranscript = if (accumulatedSessionTranscript.isNotBlank()) {
+                "$accumulatedSessionTranscript $salvaged"
+            } else {
+                salvaged
+            }
+            Log.i(TAG, "stopListeningForSpeech: Emitting final transcript: \"$accumulatedSessionTranscript\"")
+            onFinalTranscriptCallback?.invoke(accumulatedSessionTranscript)
+        }
+
         mainHandler.post {
             try {
                 speechRecognizer?.stopListening()
@@ -800,6 +847,8 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     fun cancelListeningForSpeech() {
         isContinuousListening = false
         isListeningForSpeech = false
+        lastPartialTranscript = ""
+        accumulatedSessionTranscript = ""
         mainHandler.post {
             try {
                 speechRecognizer?.cancel()
