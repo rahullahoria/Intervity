@@ -63,14 +63,14 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     audioLevel,
     messages,
     isLoudspeaker,
-    isHandsFreeActive,
     turnIndex,
     startSession,
-    triggerBargeIn,
+    startListening,
+    stopAndSend,
+    cancelListening,
+    stopMascotSpeaking,
     sendBackupTextMessage,
     toggleSpeakerphone,
-    toggleHandsFree,
-    handleUserFinishedSpeaking,
   } = useAgentCoaching();
 
   const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
@@ -83,6 +83,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
   const isThinking = state === 'THINKING';
   const isReady = state === 'READY';
   const isInitializing = state === 'INITIALIZING';
+  const hasStarted = messages.length > 0 || turnIndex > 0;
 
   const handleSendText = () => {
     if (!typedInput.trim()) return;
@@ -96,7 +97,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
 
   return (
     <View style={styles.rootContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent={true} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
 
       {/* 1. Full Screen Immersive Mascot Layer */}
       <RiveMascot
@@ -105,9 +106,9 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         audioLevel={audioLevel}
         mascotType={selectedMascot}
         onPress={() => {
-          if (isSpeaking) triggerBargeIn();
-          else if (isReady) startSession();
-          else if (isListening) handleUserFinishedSpeaking();
+          if (isSpeaking) stopMascotSpeaking();
+          else if (isReady) startListening();
+          else if (isListening) stopAndSend();
         }}
       />
 
@@ -115,7 +116,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       <View
         style={[
           styles.floatingTopContainer,
-          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 38) : 0, 42) + 6 },
+          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 38) : 0, 44) + 12 },
         ]}
         pointerEvents="box-none"
       >
@@ -224,63 +225,89 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             </View>
 
             {isSpeaking && (
-              <View style={styles.bargeInHintPill}>
-                <BoltIcon size={10} color="#FBBF24" />
-                <Text style={styles.bargeInHintText}>Tap screen to interrupt</Text>
+              <TouchableOpacity
+                style={styles.bargeInHintPill}
+                onPress={stopMascotSpeaking}
+                activeOpacity={0.7}
+              >
+                <PauseIcon size={10} color="#38BDF8" />
+                <Text style={[styles.bargeInHintText, { color: '#38BDF8' }]}>Tap to pause speech</Text>
+              </TouchableOpacity>
+            )}
+            {isListening && (
+              <View style={[styles.bargeInHintPill, { backgroundColor: 'rgba(34, 211, 238, 0.15)' }]}>
+                <Text style={[styles.bargeInHintText, { color: '#22D3EE' }]}>Tap Send when done</Text>
               </View>
             )}
           </View>
 
           <Text style={styles.subtitleText} numberOfLines={3}>
-            {currentSubtitle || 'Speak naturally into your microphone...'}
+            {currentSubtitle || (isListening ? 'Speak now into your microphone...' : 'Tap below to speak with Nova...')}
           </Text>
         </View>
 
-        {/* Bottom Hands-Free Action Bar */}
+        {/* Bottom Push-to-Talk Action Bar */}
         <View style={styles.bottomBar}>
           {isReady ? (
-            <TouchableOpacity style={styles.primaryStartBtn} onPress={startSession}>
-              <MicIcon size={18} color="#FFFFFF" />
-              <Text style={styles.primaryStartBtnText}>Begin Coaching Conversation</Text>
-            </TouchableOpacity>
-          ) : isSpeaking ? (
-            <TouchableOpacity style={styles.bargeInBtn} onPress={triggerBargeIn}>
-              <BoltIcon size={16} color="#FBBF24" />
-              <Text style={styles.bargeInBtnText}>Tap to Speak (Barge-In)</Text>
-            </TouchableOpacity>
-          ) : isListening ? (
-            <TouchableOpacity style={styles.listeningActiveBtn} onPress={() => handleUserFinishedSpeaking()}>
-              <SoundWaveBars level={audioLevel} active={true} color="#22D3EE" size={15} />
-              <Text style={styles.listeningActiveBtnText}>
-                Listening... (Pause 1s or Tap when Done)
+            <TouchableOpacity
+              style={styles.primaryStartBtn}
+              onPress={hasStarted ? startListening : startSession}
+              activeOpacity={0.8}
+            >
+              <MicIcon size={20} color="#FFFFFF" />
+              <Text style={styles.primaryStartBtnText}>
+                {hasStarted ? 'Tap to Speak' : 'Start Coaching Conversation'}
               </Text>
             </TouchableOpacity>
+          ) : isSpeaking ? (
+            <TouchableOpacity
+              style={styles.speakingActiveBtn}
+              onPress={stopMascotSpeaking}
+              activeOpacity={0.8}
+            >
+              <SoundWaveBars level={audioLevel} active={true} color="#38BDF8" size={15} />
+              <Text style={styles.speakingActiveBtnText}>Nova is speaking... (Tap to Pause)</Text>
+              <PauseIcon size={14} color="#38BDF8" />
+            </TouchableOpacity>
+          ) : isListening ? (
+            <View style={styles.recordingControlsRow}>
+              <TouchableOpacity
+                style={styles.cancelRecordBtn}
+                onPress={cancelListening}
+                activeOpacity={0.7}
+              >
+                <CloseIcon size={16} color="#94A3B8" />
+                <Text style={styles.cancelRecordText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sendRecordBtn}
+                onPress={() => stopAndSend()}
+                activeOpacity={0.8}
+              >
+                <SoundWaveBars level={audioLevel} active={true} color="#FFFFFF" size={14} />
+                <Text style={styles.sendRecordBtnText}>Send</Text>
+                <SendIcon size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
           ) : isThinking ? (
             <View style={styles.thinkingPill}>
               <BrainIcon size={16} color="#A78BFA" />
-              <Text style={styles.thinkingPillText}>Updating Career Model...</Text>
+              <Text style={styles.thinkingPillText}>Nova is thinking...</Text>
             </View>
           ) : null}
 
-          {/* Secondary Discreet Backup Option: Text Mode */}
+          {/* Secondary Controls: Push-to-Talk Indicator & Text Mode */}
           <View style={styles.secondaryControlsRow}>
-            <TouchableOpacity
-              style={[styles.handsFreeToggle, isHandsFreeActive && styles.handsFreeToggleActive]}
-              onPress={toggleHandsFree}
-            >
-              {isHandsFreeActive ? (
-                <LoopIcon size={13} color="#38BDF8" />
-              ) : (
-                <PauseIcon size={13} color="#94A3B8" />
-              )}
-              <Text style={[styles.handsFreeToggleText, isHandsFreeActive && styles.handsFreeToggleTextActive]}>
-                {isHandsFreeActive ? 'Hands-Free Loop ON' : 'Manual Tap Mode'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.modeIndicatorChip}>
+              <MicIcon size={12} color="#38BDF8" />
+              <Text style={styles.modeIndicatorText}>Push-to-Talk Mode</Text>
+            </View>
 
             <TouchableOpacity
               style={styles.textBackupBtn}
               onPress={() => setIsTextDrawerVisible(true)}
+              activeOpacity={0.8}
             >
               <ChatBubbleIcon size={13} color="#38BDF8" />
               <Text style={styles.textBackupBtnText}>Text Mode</Text>
@@ -606,36 +633,62 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  bargeInBtn: {
+  speakingActiveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
     borderWidth: 1,
-    borderColor: '#F59E0B',
+    borderColor: '#38BDF8',
     paddingVertical: 14,
     borderRadius: 14,
   },
-  bargeInBtnText: {
-    color: '#FBBF24',
+  speakingActiveBtnText: {
+    color: '#38BDF8',
     fontSize: 14,
     fontWeight: '700',
   },
-  listeningActiveBtn: {
+  recordingControlsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cancelRecordBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  cancelRecordText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sendRecordBtn: {
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(6, 182, 212, 0.15)',
-    borderWidth: 1,
-    borderColor: '#06B6D4',
+    backgroundColor: '#0284C7',
     paddingVertical: 14,
     borderRadius: 14,
+    shadowColor: '#0284C7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  listeningActiveBtnText: {
-    color: '#22D3EE',
-    fontSize: 13,
+  sendRecordBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '700',
   },
   thinkingPill: {
@@ -660,7 +713,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 4,
   },
-  handsFreeToggle: {
+  modeIndicatorChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -669,24 +722,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
   },
-  handsFreeToggleActive: {
-    borderColor: 'rgba(56, 189, 248, 0.4)',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-  },
-  handsFreeToggleText: {
-    color: '#E2E8F0',
+  modeIndicatorText: {
+    color: '#38BDF8',
     fontSize: 12,
     fontWeight: '700',
-  },
-  handsFreeToggleTextActive: {
-    color: '#38BDF8',
   },
   textBackupBtn: {
     flexDirection: 'row',

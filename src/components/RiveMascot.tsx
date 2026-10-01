@@ -140,14 +140,18 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
               stateMachineName={mascotType === 'teddy' ? 'State Machine 1' : undefined}
               artboardName={mascotType === 'teddy' ? 'Artboard' : 'Teacher'}
               animationName={mascotType === 'coach' ? coachAnimation : undefined}
-              fit={Fit.Cover}
+              fit={mascotType === 'teddy' ? Fit.Cover : Fit.Contain}
               alignment={Alignment.Center}
               autoplay={true}
               onError={(err) => {
                 console.warn('[RiveMascot Error]:', err);
                 setHasError(true);
               }}
-              style={styles.riveFullScreen}
+              style={
+                mascotType === 'coach'
+                  ? { ...styles.riveFullScreen, transform: [{ translateY: 48 }, { scale: 0.92 }] }
+                  : styles.riveFullScreen
+              }
             />
           ) : (
             <View style={styles.fallbackContainer}>
