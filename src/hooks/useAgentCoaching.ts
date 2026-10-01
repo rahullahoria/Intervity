@@ -14,6 +14,7 @@ import { AgentCoachingHarness, MascotProfile, UserCareerMemory } from '../core/a
 import { NativeAudioEngine, VADEvent } from '../core/audio/NativeAudioEngine';
 import { OfflineTtsService } from '../core/tts/OfflineTtsService';
 import { OfflineSpeechToTextService } from '../core/stt/OfflineSpeechToTextService';
+import { OfflineLLMEngine } from '../core/llm/OfflineLLMEngine';
 import { ModelAssetManager } from '../core/models/ModelAssetManager';
 import { InterviewState } from '../types';
 
@@ -46,6 +47,7 @@ export function useAgentCoaching() {
   const [turnIndex, setTurnIndex] = useState<number>(0);
 
   const harness = useRef(new AgentCoachingHarness());
+  const llmEngine = useRef(new OfflineLLMEngine());
   const audioEngine = useRef(new NativeAudioEngine());
   const ttsService = useRef(new OfflineTtsService());
   const sttService = useRef(new OfflineSpeechToTextService());
@@ -78,10 +80,12 @@ export function useAgentCoaching() {
         }
 
         await Promise.all([
+          llmEngine.current.loadModel('MiniCPM5-2B-Q4_K_M.gguf'),
           ttsService.current.initialize('kokoro_models', 'hf_alpha'),
           audioEngine.current.initializeWithAEC({ sampleRate: 16000, bufferSize: 320 }),
         ]);
 
+        harness.current.setLLMEngine(llmEngine.current);
         await audioEngine.current.setSpeakerphone(true);
         // Do NOT start recording stream on boot — mic is enabled only when user taps to speak
 
@@ -101,6 +105,7 @@ export function useAgentCoaching() {
       isMounted = false;
       audioEngine.current.terminate();
       ttsService.current.stopPlayback();
+      llmEngine.current.release();
     };
   }, []);
 
