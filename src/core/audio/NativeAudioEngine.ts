@@ -163,6 +163,23 @@ export class NativeAudioEngine {
     }
   }
 
+  cancelRecordingStream(): void {
+    this.isRecording = false;
+    if (this.mockTimer) {
+      clearInterval(this.mockTimer);
+      this.mockTimer = null;
+    }
+    if (Platform.OS === 'android' && NativeModules.AndroidVoiceAudioEngine?.cancelRecording) {
+      try {
+        NativeModules.AndroidVoiceAudioEngine.cancelRecording();
+      } catch (err) {
+        console.warn('[NativeAudioEngine] cancelRecording error:', err);
+      }
+    } else {
+      this.stopRecordingStream();
+    }
+  }
+
   enqueueAudioSamples(samples: Float32Array | Uint8Array): void {
     // In native mode, send to AudioTrack (Android) or AUVoiceIO (iOS)
     if (Platform.OS === 'ios' && NativeModules.VoiceAudioEngine) {

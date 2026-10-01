@@ -55,6 +55,7 @@ export function useAgentCoaching() {
   const isInterruptedRef = useRef(false);
   const turnIndexRef = useRef(0);
   const userSpeechBufferRef = useRef<string>('');
+  const pendingFinalResolverRef = useRef<((text: string) => void) | null>(null);
   const silenceTimerRef = useRef<any>(null);
 
   // 1. Initialize Engines & Load Long-Term Memory
@@ -83,6 +84,7 @@ export function useAgentCoaching() {
           llmEngine.current.loadModel('MiniCPM5-2B-Q4_K_M.gguf'),
           ttsService.current.initialize('kokoro_models', 'hf_alpha'),
           audioEngine.current.initializeWithAEC({ sampleRate: 16000, bufferSize: 320 }),
+          sttService.current.initializeModel('ggml-tiny.en.bin'),
         ]);
 
         harness.current.setLLMEngine(llmEngine.current);
@@ -124,7 +126,10 @@ export function useAgentCoaching() {
   }, []);
 
   const cancelListening = useCallback(() => {
-    audioEngine.current.stopRecordingStream();
+    if (pendingFinalResolverRef.current) {
+      pendingFinalResolverRef.current = null;
+    }
+    audioEngine.current.cancelRecordingStream();
     userSpeechBufferRef.current = '';
     setState('READY');
     setCurrentSubtitle('Nova is ready. Tap to Speak.');
@@ -169,10 +174,26 @@ export function useAgentCoaching() {
   }, []);
 
   const stopAndSend = useCallback(async (overrideText?: string) => {
-    // 1. Immediately shut off microphone
+    // 1. Immediately request microphone stop & finalize recognition
     audioEngine.current.stopRecordingStream();
 
-    const recognizedText = (overrideText || userSpeechBufferRef.current || '').trim();
+    let recognizedText = (overrideText || userSpeechBufferRef.current || '').trim();
+
+    // If buffer is still empty (e.g. user just finished speaking and tapped Send),
+    // wait up to 900ms for SpeechRecognizer's onFinalTranscript to arrive
+    if (!recognizedText && !overrideText) {
+      setCurrentSubtitle('⏳ Transcribing your speech...');
+      recognizedText = await new Promise<string>((resolve) => {
+        pendingFinalResolverRef.current = resolve;
+        setTimeout(() => {
+          if (pendingFinalResolverRef.current === resolve) {
+            pendingFinalResolverRef.current = null;
+            resolve((userSpeechBufferRef.current || '').trim());
+          }
+        }, 900);
+      });
+    }
+
     if (!recognizedText) {
       setState('READY');
       setCurrentSubtitle('No speech detected. Tap to Speak again.');
@@ -206,33 +227,33 @@ export function useAgentCoaching() {
     await speakMascotResponse(outcome.responseClause);
   }, [speakMascotResponse]);
 
-  // 3. Audio & Transcription Listeners
+  // 3. Audio & Transcription Listeners (Mounted once, zero dropped events)
   useEffect(() => {
     const unsubVAD = audioEngine.current.onVADEvent((event: VADEvent) => {
       setAudioLevel(event.volume);
-
-      if (state === 'LISTENING') {
-        if (event.isSpeech && event.volume > 0.05) {
-          setState('USER_SPEAKING');
-        }
+      if (event.isSpeech && event.volume > 0.05) {
+        setState((current) => (current === 'LISTENING' ? 'USER_SPEAKING' : current));
       }
     });
 
     const unsubPartial = audioEngine.current.onPartialTranscript((text: string) => {
       const clean = text.trim();
       if (!clean) return;
-      if (state === 'LISTENING' || state === 'USER_SPEAKING') {
-        userSpeechBufferRef.current = clean;
-        setState('USER_SPEAKING');
-        setCurrentSubtitle(`🗣️ "${clean}"`);
-      }
+      userSpeechBufferRef.current = clean;
+      setState((current) => (current === 'LISTENING' ? 'USER_SPEAKING' : current));
+      setCurrentSubtitle(`🗣️ "${clean}"`);
     });
 
     const unsubFinal = audioEngine.current.onFinalTranscript((text: string) => {
       const clean = text.trim();
-      if (clean && (state === 'LISTENING' || state === 'USER_SPEAKING')) {
+      if (clean) {
         userSpeechBufferRef.current = clean;
         setCurrentSubtitle(`🗣️ "${clean}"`);
+        if (pendingFinalResolverRef.current) {
+          const resolver = pendingFinalResolverRef.current;
+          pendingFinalResolverRef.current = null;
+          resolver(clean);
+        }
       }
     });
 
@@ -241,7 +262,7 @@ export function useAgentCoaching() {
       unsubPartial();
       unsubFinal();
     };
-  }, [state]);
+  }, []);
 
   const startSession = useCallback(async () => {
     const welcome = `Hello! I'm Nova, your personal AI career coach. My goal is to learn about you, sharpen your skills, and help you advance in your career. What role or level are you aiming for next, and what are you working on right now?`;

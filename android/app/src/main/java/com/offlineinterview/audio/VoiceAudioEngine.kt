@@ -790,9 +790,21 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
         mainHandler.post {
             try {
                 speechRecognizer?.stopListening()
-                speechRecognizer?.cancel()
             } catch (e: Throwable) {
                 Log.w(TAG, "stopListeningForSpeech error: ${e.message}")
+            }
+        }
+        stopRecording()
+    }
+
+    fun cancelListeningForSpeech() {
+        isContinuousListening = false
+        isListeningForSpeech = false
+        mainHandler.post {
+            try {
+                speechRecognizer?.cancel()
+            } catch (e: Throwable) {
+                Log.w(TAG, "cancelListeningForSpeech error: ${e.message}")
             }
         }
         stopRecording()

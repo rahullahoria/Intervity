@@ -120,6 +120,15 @@ class VoiceAudioEngineModule(private val reactContext: ReactApplicationContext) 
     }
 
     @ReactMethod
+    fun cancelRecording() {
+        try {
+            engine.cancelListeningForSpeech()
+        } catch (e: Exception) {
+            Log.e(TAG, "cancelRecording error: ${e.message}", e)
+        }
+    }
+
+    @ReactMethod
     fun enqueueAudioSamples(samples: ReadableArray) {
         try {
             val byteArray = ByteArray(samples.size())
