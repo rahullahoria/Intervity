@@ -1,11 +1,12 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
 import { NativeAudioEngine } from '../src/core/audio/NativeAudioEngine';
 
 describe('Native STT Lifecycle & Transcript Accumulation', () => {
   it('initializes NativeAudioEngine with AEC and subscribes to transcript events', async () => {
     const engine = new NativeAudioEngine();
     const initialized = await engine.initializeWithAEC({ sampleRate: 16000, bufferSize: 320 });
-    expect(initialized).toBe(true);
+    assert.strictEqual(initialized, true);
 
     let partialReceived = '';
     let finalReceived = '';
@@ -20,15 +21,15 @@ describe('Native STT Lifecycle & Transcript Accumulation', () => {
 
     // Simulate partial speech events
     (engine as any).partialTranscriptListeners.forEach((cb: any) => cb('I am preparing for a technical'));
-    expect(partialReceived).toBe('I am preparing for a technical');
+    assert.strictEqual(partialReceived, 'I am preparing for a technical');
 
     // Simulate subsequent partial accumulation
     (engine as any).partialTranscriptListeners.forEach((cb: any) => cb('I am preparing for a technical interview'));
-    expect(partialReceived).toBe('I am preparing for a technical interview');
+    assert.strictEqual(partialReceived, 'I am preparing for a technical interview');
 
     // Simulate final transcript arrival
     (engine as any).finalTranscriptListeners.forEach((cb: any) => cb('I am preparing for a technical interview'));
-    expect(finalReceived).toBe('I am preparing for a technical interview');
+    assert.strictEqual(finalReceived, 'I am preparing for a technical interview');
 
     unsubPartial();
     unsubFinal();
@@ -46,11 +47,11 @@ describe('Native STT Lifecycle & Transcript Accumulation', () => {
 
     // Partial speech came in
     (engine as any).partialTranscriptListeners.forEach((cb: any) => cb('hello can you hear me'));
-    expect(recognizedText).toBe('hello can you hear me');
+    assert.strictEqual(recognizedText, 'hello can you hear me');
 
     // User stops listening: partial transcript is preserved in buffer
     engine.stopRecordingStream();
-    expect(recognizedText).toBe('hello can you hear me');
+    assert.strictEqual(recognizedText, 'hello can you hear me');
 
     engine.terminate();
   });
@@ -68,9 +69,9 @@ describe('Native STT Lifecycle & Transcript Accumulation', () => {
     });
 
     const result = await engine.simulateUserSpeechTurn('Distributed cache with Redis', 400);
-    expect(result).toBe('Distributed cache with Redis');
-    expect(speechDetected).toBe(true);
-    expect(lastVolume).toBeGreaterThan(0);
+    assert.strictEqual(result, 'Distributed cache with Redis');
+    assert.strictEqual(speechDetected, true);
+    assert.strictEqual(lastVolume > 0, true);
 
     engine.terminate();
   });

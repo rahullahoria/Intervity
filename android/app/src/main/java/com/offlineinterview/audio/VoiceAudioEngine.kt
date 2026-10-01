@@ -55,8 +55,6 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     @Volatile
     private var isListeningForSpeech = false
     @Volatile
-    private var isContinuousListening = false
-    @Volatile
     private var lastBargeInTimestamp = 0L
     private var lastVolumeEmitTime = 0L
     private var lastEndOfSpeechTimestamp = 0L
@@ -615,26 +613,19 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     }
 
     private fun createRecognitionIntent(): Intent {
-        val defaultLocale = Locale.getDefault().toLanguageTag().ifBlank { "en-IN" }
         return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, defaultLocale)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, defaultLocale)
-            putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context?.packageName ?: "com.goairm.intervity")
             putExtra("android.speech.extra.DICTATION_MODE", true)
-            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1200L)
         }
     }
 
     fun startListeningForSpeech() {
         stopRecording()
-        isContinuousListening = true
+        isListeningForSpeech = true
         lastPartialTranscript = ""
         accumulatedSessionTranscript = ""
         mainHandler.post {
@@ -660,7 +651,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
 
                 recognizer.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
-                        Log.d(TAG, "SpeechRecognizer: onReadyForSpeech (continuous full-duplex)")
+                        Log.d(TAG, "SpeechRecognizer: onReadyForSpeech")
                     }
 
                     override fun onBeginningOfSpeech() {
@@ -685,7 +676,6 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                             val normalized = ((rmsdB + 2.0f) / 12.0f).coerceIn(0.0f, 1.0f)
                             onAudioVolumeCallback?.invoke(normalized)
                         }
-                        // Secondary high-RMS barge-in check
                         if (isPlayingKokoro && rmsdB > 4.5f) {
                             val nowMs = System.currentTimeMillis()
                             if (nowMs - lastBargeInTimestamp > 300) {
@@ -706,8 +696,8 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                     }
 
                     override fun onError(error: Int) {
-                        Log.d(TAG, "SpeechRecognizer status/error: $error (continuous=$isContinuousListening, lastPartial=\"$lastPartialTranscript\")")
-                        // Salvage any partial text captured before timeout or no-match occurred
+                        Log.d(TAG, "SpeechRecognizer status/error: $error (lastPartial=\"$lastPartialTranscript\")")
+                        // Salvage any partial text captured before timeout or error occurred
                         if (lastPartialTranscript.isNotBlank()) {
                             val salvaged = lastPartialTranscript.trim()
                             lastPartialTranscript = ""
@@ -719,14 +709,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                             Log.i(TAG, "Salvaged partial speech on error $error: \"$accumulatedSessionTranscript\"")
                             onFinalTranscriptCallback?.invoke(accumulatedSessionTranscript)
                         }
-
-                        if (isContinuousListening) {
-                            mainHandler.postDelayed({
-                                if (isContinuousListening) {
-                                    restartListeningInternal()
-                                }
-                            }, 120)
-                        }
+                        isListeningForSpeech = false
                     }
 
                     override fun onResults(results: Bundle?) {
@@ -743,14 +726,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                             }
                             onFinalTranscriptCallback?.invoke(accumulatedSessionTranscript)
                         }
-                        // Continuous full-duplex loop: restart listening immediately
-                        if (isContinuousListening) {
-                            mainHandler.postDelayed({
-                                if (isContinuousListening) {
-                                    restartListeningInternal()
-                                }
-                            }, 80)
-                        }
+                        isListeningForSpeech = false
                     }
 
                     override fun onPartialResults(partialResults: Bundle?) {
@@ -780,9 +756,8 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
                 })
 
                 val intent = createRecognitionIntent()
-                isListeningForSpeech = true
                 recognizer.startListening(intent)
-                Log.i(TAG, "SpeechRecognizer started listening with intent locale: ${intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE)}")
+                Log.i(TAG, "SpeechRecognizer started listening (Push-to-Talk turn)")
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to start SpeechRecognizer: ${e.message}", e)
                 startRecording()
@@ -790,36 +765,7 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
         }
     }
 
-    private fun restartListeningInternal() {
-        mainHandler.post {
-            if (!isContinuousListening) return@post
-            try {
-                speechRecognizer?.cancel()
-            } catch (_: Throwable) {}
-
-            val recognizer = speechRecognizer
-            if (recognizer == null) {
-                startListeningForSpeech()
-                return@post
-            }
-
-            try {
-                val intent = createRecognitionIntent()
-                isListeningForSpeech = true
-                recognizer.startListening(intent)
-            } catch (e: Throwable) {
-                Log.w(TAG, "restartListeningInternal retry error: ${e.message}, recreating...")
-                try {
-                    speechRecognizer?.destroy()
-                } catch (_: Throwable) {}
-                speechRecognizer = null
-                startListeningForSpeech()
-            }
-        }
-    }
-
     fun stopListeningForSpeech() {
-        isContinuousListening = false
         isListeningForSpeech = false
 
         if (lastPartialTranscript.isNotBlank()) {
@@ -845,7 +791,6 @@ class AndroidVoiceAudioEngine(private val context: Context? = null) : TextToSpee
     }
 
     fun cancelListeningForSpeech() {
-        isContinuousListening = false
         isListeningForSpeech = false
         lastPartialTranscript = ""
         accumulatedSessionTranscript = ""
