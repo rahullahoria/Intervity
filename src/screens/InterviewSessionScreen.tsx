@@ -194,6 +194,7 @@ export const InterviewSessionScreen: React.FC<InterviewSessionScreenProps> = ({
             state={state}
             audioLevel={audioLevel}
             size={240}
+            mascotType="teddy"
             onPress={state === 'AI_SPEAKING' ? triggerInterruption : undefined}
           />
         ) : (

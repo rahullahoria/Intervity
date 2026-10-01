@@ -20,7 +20,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   size = 280,
   onPress,
   showMascotBadge = true,
-  mascotType = 'coach',
+  mascotType = 'teddy',
   isFullScreen = false,
 }) => {
   const riveRef = useRef<RiveRef>(null);
@@ -32,64 +32,52 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   const isInterrupted = state === 'INTERRUPTED';
   const isCompleted = state === 'COMPLETED';
 
-  // Compute active animation for Coach mascot
-  const coachAnimation = isSpeaking
-    ? 'Talking'
-    : isThinking || isCompleted
-    ? 'Gestures'
-    : 'Blinking';
-
   // 1. Handle declarative/imperative updates for state machine & animations
   useEffect(() => {
     if (!riveRef.current) return;
 
     try {
-      if (mascotType === 'teddy') {
-        if (isSpeaking) {
-          // Teddy Talking animation: animate mouth moving
-          riveRef.current.setInputState('State Machine 1', 'Talk', true);
-          riveRef.current.setInputState('State Machine 1', 'Hear', false);
-          riveRef.current.setInputState('State Machine 1', 'Check', false);
-        } else if (isListening) {
-          // Teddy Hearing/Listening animation: attentively listening to candidate
-          riveRef.current.setInputState('State Machine 1', 'Talk', false);
-          riveRef.current.setInputState('State Machine 1', 'Hear', true);
-          riveRef.current.setInputState('State Machine 1', 'Check', false);
-          // Gaze reacts dynamically to candidate audio level (10 to 90 degrees)
-          const lookAngle = Math.min(90, Math.max(10, 50 + (audioLevel - 0.5) * 60));
-          riveRef.current.setInputState('State Machine 1', 'Look', Math.round(lookAngle));
-        } else if (isThinking) {
-          // Teddy Thinking animation: contemplative check pose
-          riveRef.current.setInputState('State Machine 1', 'Talk', false);
-          riveRef.current.setInputState('State Machine 1', 'Hear', false);
-          riveRef.current.setInputState('State Machine 1', 'Check', true);
-          riveRef.current.setInputState('State Machine 1', 'Look', 25);
-        } else if (isInterrupted) {
-          // Interrupted: puzzled / surprise trigger
-          riveRef.current.setInputState('State Machine 1', 'Talk', false);
-          riveRef.current.fireState('State Machine 1', 'fail');
-        } else if (isCompleted) {
-          // Completed: celebratory success gesture
-          riveRef.current.setInputState('State Machine 1', 'Talk', false);
-          riveRef.current.fireState('State Machine 1', 'success');
-        } else {
-          // Idle state
-          riveRef.current.setInputState('State Machine 1', 'Talk', false);
-          riveRef.current.setInputState('State Machine 1', 'Hear', false);
-          riveRef.current.setInputState('State Machine 1', 'Check', false);
-        }
+      if (isSpeaking) {
+        // Teddy Talking animation: animate mouth moving
+        riveRef.current.setInputState('State Machine 1', 'Talk', true);
+        riveRef.current.setInputState('State Machine 1', 'Hear', false);
+        riveRef.current.setInputState('State Machine 1', 'Check', false);
+      } else if (isListening) {
+        // Teddy Hearing/Listening animation: attentively listening to candidate
+        riveRef.current.setInputState('State Machine 1', 'Talk', false);
+        riveRef.current.setInputState('State Machine 1', 'Hear', true);
+        riveRef.current.setInputState('State Machine 1', 'Check', false);
+        // Gaze reacts dynamically to candidate audio level (10 to 90 degrees)
+        const lookAngle = Math.min(90, Math.max(10, 50 + (audioLevel - 0.5) * 60));
+        riveRef.current.setInputState('State Machine 1', 'Look', Math.round(lookAngle));
+      } else if (isThinking) {
+        // Teddy Thinking animation: contemplative check pose
+        riveRef.current.setInputState('State Machine 1', 'Talk', false);
+        riveRef.current.setInputState('State Machine 1', 'Hear', false);
+        riveRef.current.setInputState('State Machine 1', 'Check', true);
+        riveRef.current.setInputState('State Machine 1', 'Look', 25);
+      } else if (isInterrupted) {
+        // Interrupted: puzzled / surprise trigger
+        riveRef.current.setInputState('State Machine 1', 'Talk', false);
+        riveRef.current.fireState('State Machine 1', 'fail');
+      } else if (isCompleted) {
+        // Completed: celebratory success gesture
+        riveRef.current.setInputState('State Machine 1', 'Talk', false);
+        riveRef.current.fireState('State Machine 1', 'success');
       } else {
-        // Coach mascot with expressive talking mouth & gestures
-        riveRef.current.play(coachAnimation);
+        // Idle state
+        riveRef.current.setInputState('State Machine 1', 'Talk', false);
+        riveRef.current.setInputState('State Machine 1', 'Hear', false);
+        riveRef.current.setInputState('State Machine 1', 'Check', false);
       }
     } catch {
       // Ignore transition exceptions gracefully
     }
-  }, [state, isSpeaking, isListening, isThinking, isInterrupted, isCompleted, audioLevel, mascotType, coachAnimation]);
+  }, [state, isSpeaking, isListening, isThinking, isInterrupted, isCompleted, audioLevel, mascotType]);
 
-  // Periodic head/gaze motion while speaking for Teddy
+  // Periodic head/gaze motion while speaking
   useEffect(() => {
-    if (!isSpeaking || mascotType !== 'teddy') return;
+    if (!isSpeaking) return;
 
     let tick = 0;
     const interval = setInterval(() => {
@@ -99,10 +87,10 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
         riveRef.current?.setInputState('State Machine 1', 'Talk', true);
         riveRef.current?.setInputState('State Machine 1', 'Look', angle);
       } catch {}
-    }, 180);
+    }, 150);
 
     return () => clearInterval(interval);
-  }, [isSpeaking, mascotType]);
+  }, [isSpeaking]);
 
   // Glow border color based on conversational state
   const stateBorderColor = isSpeaking
@@ -136,10 +124,9 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
           {!hasError ? (
             <Rive
               ref={riveRef}
-              resourceName={mascotType === 'teddy' ? 'teddy' : 'mascot'}
-              stateMachineName={mascotType === 'teddy' ? 'State Machine 1' : undefined}
-              artboardName={mascotType === 'teddy' ? 'Artboard' : 'Teacher'}
-              animationName={mascotType === 'coach' ? coachAnimation : undefined}
+              resourceName={mascotType === 'coach' ? 'mascot' : 'teddy'}
+              stateMachineName="State Machine 1"
+              artboardName="Artboard"
               fit={Fit.Contain}
               alignment={Alignment.Center}
               autoplay={true}
@@ -195,10 +182,9 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
         {!hasError ? (
           <Rive
             ref={riveRef}
-            resourceName={mascotType === 'teddy' ? 'teddy' : 'mascot'}
-            stateMachineName={mascotType === 'teddy' ? 'State Machine 1' : undefined}
-            artboardName={mascotType === 'teddy' ? 'Artboard' : 'Teacher'}
-            animationName={mascotType === 'coach' ? coachAnimation : undefined}
+            resourceName={mascotType === 'coach' ? 'mascot' : 'teddy'}
+            stateMachineName="State Machine 1"
+            artboardName="Artboard"
             fit={Fit.Contain}
             alignment={Alignment.Center}
             autoplay={true}
@@ -211,8 +197,8 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
         ) : (
           // Elegant vector fallback in case Rive engine fails
           <View style={styles.fallbackContainer}>
-            <Text style={styles.fallbackEmoji}>🤖</Text>
-            <Text style={styles.fallbackName}>Vity</Text>
+            <Text style={styles.fallbackEmoji}>🐻</Text>
+            <Text style={styles.fallbackName}>Teddy</Text>
           </View>
         )}
 
