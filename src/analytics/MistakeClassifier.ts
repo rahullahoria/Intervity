@@ -10,7 +10,7 @@ export class MistakeClassifier {
     sessionId: string,
     skillId: string,
     turnIndex: number,
-    interviewerQuestion: string,
+    _interviewerQuestion: string,
     candidateAnswer: string,
     _targetLevel: string = 'Senior Engineer (L5)'
   ): MistakeDiagnostic | null {

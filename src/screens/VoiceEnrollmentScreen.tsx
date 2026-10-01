@@ -24,8 +24,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { VoiceBiometricsService, EnrollmentPrompt } from '../core/voice/VoiceBiometricsService';
 import { OfflineTtsService } from '../core/tts/OfflineTtsService';
 import { NativeAudioEngine, VADEvent } from '../core/audio/NativeAudioEngine';
-import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
 import {
   ChevronLeftIcon,
   MicIcon,
@@ -35,7 +33,6 @@ import {
   BrainIcon,
   SoundWaveBars,
 } from '../components/icons/AppIcons';
-import { UserVoiceProfile } from '../types';
 
 interface VoiceEnrollmentScreenProps {
   navigation: any;
@@ -61,13 +58,12 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
     biometrics.current.generateEnrollmentPrompts(initialName)
   );
 
-  const [existingProfile, setExistingProfile] = useState<UserVoiceProfile | null>(null);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Tap below to start calibration.');
-  const [isNovaSpeaking, setIsNovaSpeaking] = useState(false);
+  const [isTeddySpeaking, setIsTeddySpeaking] = useState(false);
 
   const calibrationFrames = useRef<number[]>([]);
   const calibrationTimer = useRef<any>(null);
@@ -83,7 +79,6 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 
       const profile = await biometrics.current.getVoiceProfile();
       if (isMounted && profile) {
-        setExistingProfile(profile);
         if (profile.name) {
           setCandidateName(profile.name);
           setPrompt(biometrics.current.generateEnrollmentPrompts(profile.name));
@@ -113,11 +108,11 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
     setPrompt(newPrompt);
   };
 
-  // 2. Nova speaks personalized greeting calling the candidate by name
-  const playNovaGreeting = async () => {
+  // 2. Teddy speaks personalized greeting calling the candidate by name
+  const playTeddyGreeting = async () => {
     try {
-      setIsNovaSpeaking(true);
-      setStatusMessage(`Nova is speaking to ${candidateName || 'you'}...`);
+      setIsTeddySpeaking(true);
+      setStatusMessage(`Teddy is speaking to ${candidateName || 'you'}...`);
       audioEngine.current.stopRecordingStream();
 
       const pcm = await ttsService.current.synthesizeClause(prompt.spokenGreeting, 'hf_alpha');
@@ -125,12 +120,12 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 
       const estDuration = Math.max(4000, prompt.spokenGreeting.length * 60);
       audioEngine.current.onPlaybackDrained(() => {
-        setIsNovaSpeaking(false);
-        setStatusMessage('Nova finished speaking. Tap the microphone to read your sentence.');
+        setIsTeddySpeaking(false);
+        setStatusMessage('Teddy finished speaking. Tap the microphone to read your sentence.');
       }, estDuration);
     } catch (err) {
       console.warn('[VoiceEnrollmentScreen] Error speaking greeting:', err);
-      setIsNovaSpeaking(false);
+      setIsTeddySpeaking(false);
     }
   };
 
@@ -150,9 +145,9 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 
   // 4. Start Calibration Flow
   const startCalibration = async () => {
-    if (isNovaSpeaking) {
+    if (isTeddySpeaking) {
       ttsService.current.stopPlayback();
-      setIsNovaSpeaking(false);
+      setIsTeddySpeaking(false);
     }
 
     setIsCalibrating(true);
@@ -194,18 +189,17 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
         prompt.calibrationSentence
       );
 
-      setExistingProfile(profile);
       setIsEnrolled(true);
       setStatusMessage(`Voice profile successfully calibrated for ${profile.name}!`);
 
-      // Nova speaks personalized confirmation calling the person by name
-      setIsNovaSpeaking(true);
+      // Teddy speaks personalized confirmation calling the person by name
+      setIsTeddySpeaking(true);
       const successPcm = await ttsService.current.synthesizeClause(prompt.spokenSuccess, 'hf_alpha');
       audioEngine.current.enqueueAudioSamples(successPcm);
 
       const estDuration = Math.max(3000, prompt.spokenSuccess.length * 60);
       audioEngine.current.onPlaybackDrained(() => {
-        setIsNovaSpeaking(false);
+        setIsTeddySpeaking(false);
       }, estDuration);
     } catch (err) {
       console.warn('[VoiceEnrollmentScreen] Error finishing calibration:', err);
@@ -216,7 +210,6 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 
   const handleResetCalibration = async () => {
     await biometrics.current.clearVoiceProfile('user_primary');
-    setExistingProfile(null);
     setIsEnrolled(false);
     setProgressPercent(0);
     setStatusMessage('Calibration reset. Tap to enroll anew.');
@@ -252,7 +245,7 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>CANDIDATE NAME</Text>
           <Text style={styles.sectionDescription}>
-            Nova will address you by this name during coaching and voice calibration.
+            Teddy will address you by this name during coaching and voice calibration.
           </Text>
           <TextInput
             style={styles.nameInput}
@@ -264,22 +257,22 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
           />
         </View>
 
-        {/* Mascot Prompt Card (Nova calls person by name) */}
+        {/* Mascot Prompt Card (Teddy calls person by name) */}
         <View style={styles.novaCard}>
           <View style={styles.novaHeaderRow}>
             <View style={styles.novaBadge}>
               <SparklesIcon size={13} color="#38BDF8" />
-              <Text style={styles.novaBadgeText}>Nova AI Career Coach</Text>
+              <Text style={styles.novaBadgeText}>Teddy AI Career Coach</Text>
             </View>
             <TouchableOpacity
               style={styles.hearBtn}
-              onPress={playNovaGreeting}
-              disabled={isNovaSpeaking}
+              onPress={playTeddyGreeting}
+              disabled={isTeddySpeaking}
               activeOpacity={0.8}
             >
               <VolumeHighIcon size={14} color="#38BDF8" />
               <Text style={styles.hearBtnText}>
-                {isNovaSpeaking ? 'Speaking...' : 'Hear Nova Speak'}
+                {isTeddySpeaking ? 'Speaking...' : 'Hear Teddy Speak'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -312,8 +305,8 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 
           <View style={styles.visualizerRow}>
             <SoundWaveBars
-              level={isCalibrating ? audioLevel : isNovaSpeaking ? 0.6 : 0.05}
-              active={isCalibrating || isNovaSpeaking}
+              level={isCalibrating ? audioLevel : isTeddySpeaking ? 0.6 : 0.05}
+              active={isCalibrating || isTeddySpeaking}
               color={isCalibrating ? '#22D3EE' : '#38BDF8'}
               size={22}
             />
@@ -371,7 +364,7 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
           activeOpacity={0.8}
         >
           <Text style={styles.continueBtnText}>
-            {isEnrolled ? `Continue Coaching with Nova 🚀` : 'Skip for Now & Continue'}
+            {isEnrolled ? `Continue Coaching with Teddy 🚀` : 'Skip for Now & Continue'}
           </Text>
         </TouchableOpacity>
       </View>

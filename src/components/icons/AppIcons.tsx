@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { StyleProp, ViewStyle } from 'react-native';
 
 export interface IconProps {
@@ -261,33 +261,6 @@ export const BoltIcon: React.FC<IconProps> = ({
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
     <Path
       d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-/**
- * Listening Ear / Waves Icon
- */
-export const EarWaveIcon: React.FC<IconProps> = ({
-  size = DEFAULT_SIZE,
-  color = DEFAULT_COLOR,
-  strokeWidth = DEFAULT_STROKE,
-  style,
-}) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-    <Path
-      d="M6 8.5C6 5.5 8.5 3 12 3C15.5 3 18 5.5 18 9C18 12 16.5 13.5 15 15C13.5 16.5 13 17.5 13 20"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M9 11C9 9.5 10.5 8 12 8C13.5 8 14.5 9.5 14.5 11C14.5 12.5 13.5 13.5 12 14"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"

@@ -52,9 +52,9 @@ export class SkillStorageManager {
   async recordTurnScore(
     sessionId: string,
     skillId: string,
-    turnIndex: number,
-    question: string,
-    answer: string,
+    _turnIndex: number,
+    _question: string,
+    _answer: string,
     score: number,
     difficulty: number = 1.0
   ): Promise<{ newScore: number; masteryLevel: MasteryLevel }> {

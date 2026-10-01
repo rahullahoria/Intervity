@@ -124,7 +124,7 @@ describe('Agent Coaching Harness & System Prompt Integration', () => {
       // Feed multiple high-impact turns to trigger level-up
       await harness.processUserSpeechTurn('I want to become Chief Technology Officer (CTO) at high growth unicorn.', 0);
       await harness.processUserSpeechTurn('I designed distributed Kafka event streams and Postgres sharding with Raft consensus.', 1);
-      const outcome = await harness.processUserSpeechTurn('Teach me how to mitigate consumer lag surges in event streams.', 2);
+      await harness.processUserSpeechTurn('Teach me how to mitigate consumer lag surges in event streams.', 2);
 
       const profile = harness.getMascotProfile();
       assert.ok(profile.level >= 2, 'Mascot should level up after multiple rich turns');

@@ -15,7 +15,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   TextInput,
@@ -27,7 +26,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { RiveMascot } from '../components/RiveMascot';
 import { useAgentCoaching } from '../hooks/useAgentCoaching';
-import { colors } from '../theme/colors';
 import {
   SparklesIcon,
   StarIcon,
@@ -38,10 +36,8 @@ import {
   SettingsIcon,
   TargetIcon,
   MicIcon,
-  BoltIcon,
   BrainIcon,
   ChatBubbleIcon,
-  LoopIcon,
   PauseIcon,
   CloseIcon,
   SendIcon,
@@ -92,7 +88,6 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
   const isListening = state === 'LISTENING' || state === 'USER_SPEAKING';
   const isThinking = state === 'THINKING';
   const isReady = state === 'READY';
-  const isInitializing = state === 'INITIALIZING';
   const hasStarted = messages.length > 0 || turnIndex > 0;
 
   const handleSendText = () => {

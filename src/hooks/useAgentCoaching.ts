@@ -59,7 +59,6 @@ export function useAgentCoaching() {
   const turnIndexRef = useRef(0);
   const userSpeechBufferRef = useRef<string>('');
   const pendingFinalResolverRef = useRef<((text: string) => void) | null>(null);
-  const silenceTimerRef = useRef<any>(null);
 
   // 1. Initialize Engines & Load Long-Term Memory
   useEffect(() => {

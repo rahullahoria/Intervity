@@ -23,21 +23,14 @@ export interface AudioEngineConfig {
 }
 
 export class NativeAudioEngine {
-  private isAECInitialized = false;
-  private isRecording = false;
   private vadListeners: Array<(event: VADEvent) => void> = [];
   private endOfSpeechListeners: Array<(audioPath: string) => void> = [];
-  private audioBufferListeners: Array<(pcmData: Uint8Array) => void> = [];
   private playbackDrainedListeners: Array<() => void> = [];
   private partialTranscriptListeners: Array<(text: string) => void> = [];
   private finalTranscriptListeners: Array<(text: string) => void> = [];
   private nativeSubscriptions: Array<{ remove: () => void }> = [];
   private eventEmitter: any = null;
-
   private mockTimer: any = null;
-  private currentSpeechFrames = 0;
-  private currentSilenceFrames = 0;
-  private activeSimulatedSpeech = false;
 
   async initializeWithAEC(config: AudioEngineConfig = { sampleRate: 16000, bufferSize: 320 }): Promise<boolean> {
     try {
@@ -123,20 +116,14 @@ export class NativeAudioEngine {
           console.warn('[NativeAudioEngine] NativeEventEmitter initialization notice:', e);
         }
       }
-      this.isAECInitialized = true;
       return true;
     } catch (err) {
       console.warn('[NativeAudioEngine] Native AEC not directly bound, using high-fidelity simulated engine:', err);
-      this.isAECInitialized = true;
       return true;
     }
   }
 
   startRecordingStream(): void {
-    this.isRecording = true;
-    this.currentSpeechFrames = 0;
-    this.currentSilenceFrames = 0;
-
     if (Platform.OS === 'ios' && NativeModules.VoiceAudioEngine) {
       NativeModules.VoiceAudioEngine.startRecording();
     } else if (Platform.OS === 'android' && NativeModules.AndroidVoiceAudioEngine) {
@@ -149,7 +136,6 @@ export class NativeAudioEngine {
   }
 
   stopRecordingStream(): void {
-    this.isRecording = false;
     if (this.mockTimer) {
       clearInterval(this.mockTimer);
       this.mockTimer = null;
@@ -164,7 +150,6 @@ export class NativeAudioEngine {
   }
 
   cancelRecordingStream(): void {
-    this.isRecording = false;
     if (this.mockTimer) {
       clearInterval(this.mockTimer);
       this.mockTimer = null;
@@ -256,7 +241,6 @@ export class NativeAudioEngine {
 
   simulateUserSpeechTurn(candidateSpeech: string, durationMs: number = 3000): Promise<string> {
     return new Promise((resolve) => {
-      this.activeSimulatedSpeech = true;
       let elapsed = 0;
       const interval = 100;
 
@@ -267,7 +251,6 @@ export class NativeAudioEngine {
           this.simulateMicInput(vol, true);
         } else {
           clearInterval(timer);
-          this.activeSimulatedSpeech = false;
           this.simulateMicInput(0.05, false);
 
           for (const cb of this.endOfSpeechListeners) {

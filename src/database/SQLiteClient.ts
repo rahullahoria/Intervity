@@ -75,7 +75,6 @@ class InMemoryDatabaseDriver {
       if (match && match[1]) {
         const table = match[1];
         const setClause = match[2];
-        const _idCol = match[3];
         const targetId = String(params[params.length - 1]);
         const tableMap = this.tables.get(table);
         if (tableMap && tableMap.has(targetId)) {

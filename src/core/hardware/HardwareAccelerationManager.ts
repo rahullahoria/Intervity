@@ -5,11 +5,9 @@
  * If a device lacks GPU or encounters driver errors, workloads gracefully route to CPU multi-threading.
  */
 
-let NativeModules: any = {};
 let Platform: any = { OS: 'ios' };
 try {
   const rn = require('react-native');
-  NativeModules = rn.NativeModules || {};
   Platform = rn.Platform || { OS: 'ios' };
 } catch {
   // Test / Node runner
