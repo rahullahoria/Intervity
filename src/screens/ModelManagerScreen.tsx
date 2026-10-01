@@ -16,8 +16,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useModelDownloads } from '../hooks/useModelDownloads';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { ChevronLeftIcon, CheckIcon } from '../components/icons/AppIcons';
+import { ChevronLeftIcon, CheckIcon, SparklesIcon } from '../components/icons/AppIcons';
 import { HardwareAccelerationManager, HardwareTelemetry } from '../core/hardware/HardwareAccelerationManager';
+import { EngineDiagnosticsModal } from '../components/EngineDiagnosticsModal';
 
 interface ModelManagerScreenProps {
   navigation: any;
@@ -25,6 +26,7 @@ interface ModelManagerScreenProps {
 
 export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const {
     models,
     totalBytes,
@@ -135,6 +137,22 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
           </Text>
         </View>
 
+        {/* Individual Engine Diagnostics Trigger */}
+        <TouchableOpacity
+          style={styles.diagnosticsBtn}
+          onPress={() => setIsDiagnosticsOpen(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.diagnosticsIconWrap}>
+            <SparklesIcon size={18} color="#38BDF8" />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.diagnosticsBtnTitle}>Test STT, LLM & TTS Individually</Text>
+            <Text style={styles.diagnosticsBtnSubtitle}>Live phone mic, token stream & speech tests</Text>
+          </View>
+          <Text style={styles.diagnosticsBtnArrow}>➔</Text>
+        </TouchableOpacity>
+
         {/* Model Asset List */}
         {models.map((model) => {
           const modelPercent = Math.round((model.downloadedBytes / model.sizeBytes) * 100);
@@ -194,6 +212,12 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Interactive Diagnostics Modal */}
+      <EngineDiagnosticsModal
+        visible={isDiagnosticsOpen}
+        onClose={() => setIsDiagnosticsOpen(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -202,6 +226,45 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  diagnosticsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    padding: 14,
+    marginBottom: 18,
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  diagnosticsIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diagnosticsBtnTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  diagnosticsBtnSubtitle: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  diagnosticsBtnArrow: {
+    fontSize: 16,
+    color: '#38BDF8',
+    fontWeight: '700',
+    marginLeft: 6,
   },
   container: {
     padding: 20,

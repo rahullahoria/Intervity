@@ -25,6 +25,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { RiveMascot } from '../components/RiveMascot';
+import { EngineDiagnosticsModal } from '../components/EngineDiagnosticsModal';
 import { useAgentCoaching } from '../hooks/useAgentCoaching';
 import {
   SparklesIcon,
@@ -80,6 +81,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
 
 
   const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
+  const [isDiagnosticsVisible, setIsDiagnosticsVisible] = useState(false);
   const [typedInput, setTypedInput] = useState('');
   const [selectedMascot, setSelectedMascot] = useState<'coach' | 'teddy'>('teddy');
   const insets = useSafeAreaInsets();
@@ -209,6 +211,16 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 ? `${voiceProfile.name} (Calibrated)`
                 : '🎙️ Enroll Voice'}
             </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.diagnosticsPillBadge}
+            onPress={() => setIsDiagnosticsVisible(true)}
+            activeOpacity={0.8}
+            accessibilityLabel="Test AI Engines"
+          >
+            <SparklesIcon size={12} color="#38BDF8" />
+            <Text style={styles.diagnosticsPillText}>🧪 Test AI Engines</Text>
           </TouchableOpacity>
 
           {userMemory?.targetRole ? (
@@ -453,6 +465,12 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* On-Device AI Engine Diagnostics & Individual Unit Tests */}
+      <EngineDiagnosticsModal
+        visible={isDiagnosticsVisible}
+        onClose={() => setIsDiagnosticsVisible(false)}
+      />
     </View>
   );
 };
@@ -595,6 +613,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
   voiceProfileText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  diagnosticsPillBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  diagnosticsPillText: {
     color: '#38BDF8',
     fontSize: 12,
     fontWeight: '700',
