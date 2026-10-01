@@ -45,8 +45,15 @@ import {
   BulbIcon,
   BriefcaseIcon,
   ArchitectureIcon,
+  DeviceMobileIcon,
+  UsersGroupIcon,
   SoundWaveBars,
 } from '../components/icons/AppIcons';
+import {
+  ConversationTrack,
+  CONVERSATION_TRACKS,
+  CONVERSATION_TRACK_LIST,
+} from '../types';
 
 interface AgentCoachingScreenProps {
   navigation: any;
@@ -58,6 +65,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     mascotProfile,
     userMemory,
     voiceProfile,
+    conversationTrack,
     refreshVoiceProfile,
     currentSubtitle,
     audioLevel,
@@ -71,6 +79,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     stopMascotSpeaking,
     sendBackupTextMessage,
     toggleSpeakerphone,
+    selectConversationTrack,
   } = useAgentCoaching();
 
   useFocusEffect(
@@ -79,9 +88,9 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     }, [refreshVoiceProfile])
   );
 
-
   const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
   const [isDiagnosticsVisible, setIsDiagnosticsVisible] = useState(false);
+  const [isTrackModalVisible, setIsTrackModalVisible] = useState(false);
   const [typedInput, setTypedInput] = useState('');
   const [selectedMascot, setSelectedMascot] = useState<'coach' | 'teddy'>('teddy');
   const insets = useSafeAreaInsets();
@@ -187,6 +196,31 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         </View>
 
         <View style={styles.topBadgesRow}>
+          <TouchableOpacity
+            style={[
+              styles.trackSelectorBadge,
+              { borderColor: CONVERSATION_TRACKS[conversationTrack]?.badgeColor || '#38BDF8' },
+            ]}
+            onPress={() => setIsTrackModalVisible(true)}
+            activeOpacity={0.8}
+            accessibilityLabel="Switch Conversation Track"
+          >
+            {conversationTrack === 'DISTRIBUTED_SYSTEMS' && <ArchitectureIcon size={12} color="#38BDF8" />}
+            {conversationTrack === 'ENGINEERING_LEADERSHIP' && <UsersGroupIcon size={12} color="#F59E0B" />}
+            {conversationTrack === 'CLIENT_PERFORMANCE' && <DeviceMobileIcon size={12} color="#10B981" />}
+            {conversationTrack === 'AI_DATA_PLATFORM' && <BrainIcon size={12} color="#8B5CF6" />}
+            {conversationTrack === 'BEHAVIORAL_LEADERSHIP' && <SparklesIcon size={12} color="#EC4899" />}
+            <Text
+              style={[
+                styles.trackSelectorText,
+                { color: CONVERSATION_TRACKS[conversationTrack]?.badgeColor || '#38BDF8' },
+              ]}
+              numberOfLines={1}
+            >
+              Track: {CONVERSATION_TRACKS[conversationTrack]?.shortTitle || 'Distributed'}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.voiceProfileBadge,
@@ -391,33 +425,22 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               </TouchableOpacity>
             </View>
 
-            {/* Quick Prompts */}
+            {/* Dynamic Quick Prompts for Active Track */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={styles.quickPromptScroll}
             >
-              <TouchableOpacity
-                style={styles.quickChip}
-                onPress={() => handleQuickPrompt("I'm currently a Senior Engineer aiming for Staff level.")}
-              >
-                <BriefcaseIcon size={13} color="#818CF8" />
-                <Text style={styles.quickChipText}>Aiming for Staff Level</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.quickChip}
-                onPress={() => handleQuickPrompt("Teach me how to prevent cache stampedes in distributed systems.")}
-              >
-                <BulbIcon size={13} color="#FBBF24" />
-                <Text style={styles.quickChipText}>Learn Cache Stampede</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.quickChip}
-                onPress={() => handleQuickPrompt("How do I structure my system design answers to pass L6?")}
-              >
-                <ArchitectureIcon size={13} color="#38BDF8" />
-                <Text style={styles.quickChipText}>System Design Framing</Text>
-              </TouchableOpacity>
+              {(CONVERSATION_TRACKS[conversationTrack]?.suggestedPrompts || []).map((prompt, idx) => (
+                <TouchableOpacity
+                  key={`track_prompt_${idx}`}
+                  style={styles.quickChip}
+                  onPress={() => handleQuickPrompt(prompt)}
+                >
+                  <BulbIcon size={13} color={CONVERSATION_TRACKS[conversationTrack]?.badgeColor || '#38BDF8'} />
+                  <Text style={styles.quickChipText}>{prompt}</Text>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
 
             {/* Conversation History */}
@@ -471,6 +494,115 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         visible={isDiagnosticsVisible}
         onClose={() => setIsDiagnosticsVisible(false)}
       />
+
+      {/* 5 Specialized Conversation Tracks Selection Modal */}
+      <Modal
+        visible={isTrackModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsTrackModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.trackModalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <TargetIcon size={18} color="#38BDF8" />
+                <View style={{ marginLeft: 8 }}>
+                  <Text style={styles.modalTitle}>5 Coaching Tracks</Text>
+                  <Text style={styles.modalSubtitle}>Pick a specialized focus for your session</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setIsTrackModalVisible(false)}
+              >
+                <CloseIcon size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.trackListScroll} showsVerticalScrollIndicator={false}>
+              {CONVERSATION_TRACK_LIST.map((track) => {
+                const isSelected = track.id === conversationTrack;
+                return (
+                  <TouchableOpacity
+                    key={track.id}
+                    style={[
+                      styles.trackCard,
+                      isSelected && {
+                        borderColor: track.badgeColor,
+                        backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                      },
+                    ]}
+                    onPress={async () => {
+                      setIsTrackModalVisible(false);
+                      await selectConversationTrack(track.id);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.trackCardTopRow}>
+                      <View
+                        style={[
+                          styles.trackIconContainer,
+                          { backgroundColor: `${track.badgeColor}22` },
+                        ]}
+                      >
+                        {track.id === 'DISTRIBUTED_SYSTEMS' && (
+                          <ArchitectureIcon size={20} color={track.badgeColor} />
+                        )}
+                        {track.id === 'ENGINEERING_LEADERSHIP' && (
+                          <UsersGroupIcon size={20} color={track.badgeColor} />
+                        )}
+                        {track.id === 'CLIENT_PERFORMANCE' && (
+                          <DeviceMobileIcon size={20} color={track.badgeColor} />
+                        )}
+                        {track.id === 'AI_DATA_PLATFORM' && (
+                          <BrainIcon size={20} color={track.badgeColor} />
+                        )}
+                        {track.id === 'BEHAVIORAL_LEADERSHIP' && (
+                          <SparklesIcon size={20} color={track.badgeColor} />
+                        )}
+                      </View>
+                      <View style={styles.trackTitleBlock}>
+                        <View style={styles.trackTitleHeaderRow}>
+                          <Text
+                            style={[
+                              styles.trackCardTitle,
+                              isSelected && { color: track.badgeColor },
+                            ]}
+                          >
+                            {track.title}
+                          </Text>
+                          {isSelected && (
+                            <View
+                              style={[
+                                styles.activeTrackPill,
+                                { backgroundColor: `${track.badgeColor}33` },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.activeTrackPillText,
+                                  { color: track.badgeColor },
+                                ]}
+                              >
+                                Active
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.trackCardSubtitle}>
+                          {track.subtitle} • {track.targetRole}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.trackSystemFocusText}>{track.systemFocus}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -591,6 +723,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 4,
     flexWrap: 'wrap',
+  },
+  trackSelectorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  trackSelectorText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   voiceProfileBadge: {
     flexDirection: 'row',
@@ -995,5 +1146,74 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  trackModalContent: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '82%',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  trackListScroll: {
+    marginTop: 12,
+  },
+  trackCard: {
+    backgroundColor: 'rgba(30, 41, 59, 0.6)',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  trackCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  trackIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackTitleBlock: {
+    flex: 1,
+  },
+  trackTitleHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  trackCardTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  activeTrackPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  activeTrackPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  trackCardSubtitle: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  trackSystemFocusText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
   },
 });

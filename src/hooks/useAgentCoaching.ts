@@ -17,7 +17,7 @@ import { OfflineSpeechToTextService } from '../core/stt/OfflineSpeechToTextServi
 import { OfflineLLMEngine } from '../core/llm/OfflineLLMEngine';
 import { ModelAssetManager } from '../core/models/ModelAssetManager';
 import { VoiceBiometricsService } from '../core/voice/VoiceBiometricsService';
-import { InterviewState, UserVoiceProfile } from '../types';
+import { InterviewState, UserVoiceProfile, ConversationTrack, CONVERSATION_TRACKS } from '../types';
 
 export interface ChatMessage {
   id: string;
@@ -28,6 +28,7 @@ export interface ChatMessage {
 
 export function useAgentCoaching() {
   const [state, setState] = useState<InterviewState>('INITIALIZING');
+  const [conversationTrack, setConversationTrackState] = useState<ConversationTrack>('DISTRIBUTED_SYSTEMS');
   const [mascotProfile, setMascotProfile] = useState<MascotProfile>({
     id: 'mascot_primary',
     name: 'Teddy',
@@ -80,6 +81,7 @@ export function useAgentCoaching() {
         if (isMounted) {
           setMascotProfile(harness.current.getMascotProfile());
           setUserMemory(harness.current.getUserMemory());
+          setConversationTrackState(harness.current.getConversationTrack());
         }
 
         const biometrics = VoiceBiometricsService.getInstance();
@@ -316,11 +318,25 @@ export function useAgentCoaching() {
     setIsHandsFreeActive((prev) => !prev);
   }, []);
 
+  const selectConversationTrack = useCallback(async (track: ConversationTrack) => {
+    setConversationTrackState(track);
+    await harness.current.setConversationTrack(track);
+    setUserMemory(harness.current.getUserMemory());
+
+    const trackInfo = CONVERSATION_TRACKS[track];
+    if (state === 'AI_SPEAKING') {
+      audioEngine.current.stopPlaybackAndClearBuffers();
+      ttsService.current.stopPlayback();
+    }
+    await speakMascotResponse(trackInfo.starterGreeting);
+  }, [speakMascotResponse, state]);
+
   return {
     state,
     mascotProfile,
     userMemory,
     voiceProfile,
+    conversationTrack,
     refreshVoiceProfile,
     currentSubtitle,
     audioLevel,
@@ -338,6 +354,7 @@ export function useAgentCoaching() {
     sendBackupTextMessage,
     toggleSpeakerphone,
     toggleHandsFree,
+    selectConversationTrack,
   };
 }
 

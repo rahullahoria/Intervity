@@ -26,6 +26,126 @@ export type InterviewerPersona =
 
 export type Dialect = 'en-IN' | 'en-US' | 'en-GB';
 
+/**
+ * 5 Distinct Conversation Varieties / Tracks
+ */
+export type ConversationTrack =
+  | 'DISTRIBUTED_SYSTEMS'
+  | 'ENGINEERING_LEADERSHIP'
+  | 'CLIENT_PERFORMANCE'
+  | 'AI_DATA_PLATFORM'
+  | 'BEHAVIORAL_LEADERSHIP';
+
+export interface ConversationTrackInfo {
+  id: ConversationTrack;
+  title: string;
+  shortTitle: string;
+  subtitle: string;
+  targetRole: string;
+  badgeColor: string;
+  accentColor: string;
+  iconName: 'ArchitectureIcon' | 'UsersGroupIcon' | 'DeviceMobileIcon' | 'BrainIcon' | 'SparklesIcon';
+  suggestedPrompts: string[];
+  systemFocus: string;
+  starterGreeting: string;
+}
+
+export const CONVERSATION_TRACKS: Record<ConversationTrack, ConversationTrackInfo> = {
+  DISTRIBUTED_SYSTEMS: {
+    id: 'DISTRIBUTED_SYSTEMS',
+    title: 'High-Scale Distributed Systems',
+    shortTitle: 'Distributed',
+    subtitle: 'Staff / Principal Architect',
+    targetRole: 'Staff Software Architect',
+    badgeColor: '#38BDF8',
+    accentColor: '#0284C7',
+    iconName: 'ArchitectureIcon',
+    suggestedPrompts: [
+      "I'm designing a 50k orders/min dispatch service.",
+      "How do I prevent cache stampedes during flash sales?",
+      "Justify async Kafka event streams over synchronous gRPC.",
+    ],
+    systemFocus: 'Kafka, Redis clusters, database sharding, PACELC consistency, and p99 SLA defense.',
+    starterGreeting: "Welcome to the Distributed Systems track! I'm ready to dive into high-throughput architectures, Kafka partitioning, Redis caching, and Staff-level trade-offs. What scale problem or distributed challenge would you like to explore?",
+  },
+  ENGINEERING_LEADERSHIP: {
+    id: 'ENGINEERING_LEADERSHIP',
+    title: 'Engineering Leadership & Management',
+    shortTitle: 'Leadership',
+    subtitle: 'EM / Director / CTO',
+    targetRole: 'Engineering Director / CTO',
+    badgeColor: '#F59E0B',
+    accentColor: '#D97706',
+    iconName: 'UsersGroupIcon',
+    suggestedPrompts: [
+      "How do I defend technical debt refactoring to business executives?",
+      "I'm stepping up as Incident Commander during a critical outage.",
+      "How do I balance autonomy with architectural alignment across squads?",
+    ],
+    systemFocus: 'Tech debt vs feature velocity, executive alignment, incident command, team autonomy, and career mentorship.',
+    starterGreeting: "Welcome to the Engineering Leadership track! Great engineering leadership turns technical excellence into organizational impact. Are you looking to discuss defending tech debt to executives, running incident command, or coaching your team?",
+  },
+  CLIENT_PERFORMANCE: {
+    id: 'CLIENT_PERFORMANCE',
+    title: 'Client Architecture & Mobile Performance',
+    shortTitle: 'Client & Mobile',
+    subtitle: 'Staff Mobile / Frontend Architect',
+    targetRole: 'Staff Mobile Architect',
+    badgeColor: '#10B981',
+    accentColor: '#059669',
+    iconName: 'DeviceMobileIcon',
+    suggestedPrompts: [
+      "How do I eliminate frame drops and keep React Native at 60 FPS?",
+      "Explain JSI memory sharing versus the legacy bridge.",
+      "How should I design an offline-first SQLite sync architecture?",
+    ],
+    systemFocus: '60/120 FPS render pipelines, JSI memory sharing, TurboModules, offline-first SQLite sync, and Hermes engine memory profiling.',
+    starterGreeting: "Welcome to the Client Architecture and Mobile Performance track! Let's talk butter-smooth 60 FPS frame rates, JSI memory sharing, TurboModules, and offline-first local SQLite sync. What client performance frontier are we conquering today?",
+  },
+  AI_DATA_PLATFORM: {
+    id: 'AI_DATA_PLATFORM',
+    title: 'AI Platform & Machine Learning Systems',
+    shortTitle: 'AI Platform',
+    subtitle: 'AI/ML Systems Architect',
+    targetRole: 'AI Platform Architect',
+    badgeColor: '#8B5CF6',
+    accentColor: '#7C3AED',
+    iconName: 'BrainIcon',
+    suggestedPrompts: [
+      "How do on-device 4-bit quantized LLMs optimize memory bandwidth?",
+      "Compare HNSW and IVF index structures for vector similarity search.",
+      "How do you detect feature drift in streaming ML pipelines?",
+    ],
+    systemFocus: 'On-device GGUF/ONNX quantization, vector search (HNSW/IVF), streaming feature stores, RAG architectures, and model drift telemetry.',
+    starterGreeting: "Welcome to the AI Platform and ML Systems track! From on-device quantized LLM inference to HNSW vector search and streaming feature stores, this is where AI meets high-performance systems. What AI infrastructure challenge should we pressure-test?",
+  },
+  BEHAVIORAL_LEADERSHIP: {
+    id: 'BEHAVIORAL_LEADERSHIP',
+    title: 'Behavioral, STAR & Culture Leadership',
+    shortTitle: 'Behavioral & STAR',
+    subtitle: 'Conflict, Empathy & Growth',
+    targetRole: 'Principal Lead / Culture Champion',
+    badgeColor: '#EC4899',
+    accentColor: '#DB2777',
+    iconName: 'SparklesIcon',
+    suggestedPrompts: [
+      "How do I structure a STAR story about resolving a cross-team conflict?",
+      "I'm feeling impostor syndrome stepping into a higher level.",
+      "How do I turn around a failing project and rally team morale?",
+    ],
+    systemFocus: 'STAR storytelling with quantified business impact, cross-team conflict resolution without ego, project turnarounds, and psychological safety.',
+    starterGreeting: "Welcome to the Behavioral and Culture Leadership track! Technical brilliance only shines when paired with deep empathy, ownership, and compelling storytelling. Tell me, what high-stakes leadership or team situation would you like to practice today?",
+  },
+};
+
+export const CONVERSATION_TRACK_LIST: ConversationTrackInfo[] = [
+  CONVERSATION_TRACKS.DISTRIBUTED_SYSTEMS,
+  CONVERSATION_TRACKS.ENGINEERING_LEADERSHIP,
+  CONVERSATION_TRACKS.CLIENT_PERFORMANCE,
+  CONVERSATION_TRACKS.AI_DATA_PLATFORM,
+  CONVERSATION_TRACKS.BEHAVIORAL_LEADERSHIP,
+];
+
 export type SkillCategory =
   | 'framework'
   | 'system_design'

@@ -19,11 +19,7 @@ export class AnalogicalTeachingStrategy implements IDialogueStrategy {
       (inputLower.includes('deadlocks') && inputLower.includes('concurrency')) ||
       inputLower.includes('jsi') ||
       (inputLower.includes('react native') && inputLower.includes('bridge')) ||
-      inputLower.includes('memory sharing') ||
-      inputLower.includes('star') ||
-      (inputLower.includes('conflict') && inputLower.includes('leadership')) ||
-      inputLower.includes('cross-team') ||
-      inputLower.includes('cross team')
+      inputLower.includes('memory sharing')
     );
   }
 
@@ -69,7 +65,7 @@ export class AnalogicalTeachingStrategy implements IDialogueStrategy {
       return `${levelUpPrefix}Here is a super cool intuition! Think of JSI like a direct phone call between JavaScript and C++, instead of sending paper letters across an old bridge. It lets JavaScript hold direct memory pointers to C++ host objects with zero serialization overhead. What kind of native performance gains have you seen with JSI?`;
     }
 
-    // 5. STAR Method & Behavioral Leadership Conflicts (Structured Trade-Offs)
-    return `${levelUpPrefix}I love that you are preparing for this, buddy! Frame cross-team conflicts around competing technical trade-offs rather than egos. Dedicate half your answer to your Action driving consensus through benchmarks and SLAs, and twenty percent to measurable business results. How does that structure feel to you?`;
+    // 5. Distributed Systems Transit Analogy
+    return `${levelUpPrefix}Here is a fun intuition, buddy! Think of complex distributed systems like a bustling city transit network where traffic signals and roundabouts prevent gridlock. What part of your architecture feels like the biggest potential traffic jam right now?`;
   }
 }

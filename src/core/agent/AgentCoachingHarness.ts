@@ -18,6 +18,7 @@ import { IMemoryRepository, AgentMemoryRepository } from '../../database';
 import { buildAgentCoachingSystemPrompt, CoachingPhase } from '../llm/SystemPrompts';
 import { OfflineLLMEngine } from '../llm/OfflineLLMEngine';
 import { TeddyDialogueEngine } from './TeddyDialogueEngine';
+import { ConversationTrack, CONVERSATION_TRACKS } from '../../types';
 
 export type { CoachingPhase };
 
@@ -45,6 +46,7 @@ export interface UserCareerMemory {
   recentTopics: string[];
   validatedSkills: string[];
   currentPhase: CoachingPhase;
+  conversationTrack?: ConversationTrack;
 }
 
 export interface TurnCoachingOutcome {
@@ -63,6 +65,7 @@ export class AgentCoachingHarness {
   private memoryRepo: IMemoryRepository;
   private mascot: MascotProfile;
   private memory: UserCareerMemory;
+  private activeTrack: ConversationTrack = 'DISTRIBUTED_SYSTEMS';
   private isInitialized = false;
   private llmEngine: OfflineLLMEngine | null = null;
   private conversationHistory: Array<{ role: string; content: string }> = [];
@@ -98,6 +101,7 @@ export class AgentCoachingHarness {
       recentTopics: [],
       validatedSkills: [],
       currentPhase: 'DISCOVERY',
+      conversationTrack: 'DISTRIBUTED_SYSTEMS',
     };
   }
 
@@ -163,6 +167,21 @@ export class AgentCoachingHarness {
     return { ...this.memory };
   }
 
+  getConversationTrack(): ConversationTrack {
+    return this.activeTrack;
+  }
+
+  async setConversationTrack(track: ConversationTrack): Promise<void> {
+    this.activeTrack = track;
+    this.memory.conversationTrack = track;
+    const trackInfo = CONVERSATION_TRACKS[track];
+    if (trackInfo && (!this.memory.targetRole || this.memory.targetRole === 'Software Engineer' || this.memory.targetRole.includes('Staff') || this.memory.targetRole.includes('Director') || this.memory.targetRole.includes('Architect') || this.memory.targetRole.includes('Lead'))) {
+      this.memory.targetRole = trackInfo.targetRole;
+      await this.recordMemoryFact('career_goal', 'target_role', trackInfo.targetRole);
+    }
+    await this.recordMemoryFact('career_goal', 'conversation_track', track);
+  }
+
   getTierForLevel(level: number): string {
     if (level >= 5) return 'Lifelong Partner & Champion';
     if (level === 4) return 'Career Co-Pilot & Confidant';
@@ -172,7 +191,12 @@ export class AgentCoachingHarness {
   }
 
   private applyMemoryFact(category: string, key: string, value: string): void {
-    if (category === 'career_goal' || key === 'target_role') {
+    if (category === 'career_goal' && (key === 'conversation_track' || key === 'track')) {
+      if (['DISTRIBUTED_SYSTEMS', 'ENGINEERING_LEADERSHIP', 'CLIENT_PERFORMANCE', 'AI_DATA_PLATFORM', 'BEHAVIORAL_LEADERSHIP'].includes(value)) {
+        this.activeTrack = value as ConversationTrack;
+        this.memory.conversationTrack = this.activeTrack;
+      }
+    } else if (category === 'career_goal' || key === 'target_role') {
       this.memory.targetRole = value;
     } else if (category === 'current_role' || key === 'current_role') {
       this.memory.currentRole = value;
@@ -257,6 +281,63 @@ export class AgentCoachingHarness {
 
     this.memory.currentPhase = determinedPhase;
     await this.recordMemoryFact('system_state', 'current_phase', determinedPhase);
+
+    // 1b. Dynamic Conversation Track Alignment
+    if (
+      textLower.includes('leadership') ||
+      textLower.includes('engineering manager') ||
+      textLower.includes('director track') ||
+      textLower.includes('cto track') ||
+      textLower.includes('tech debt') ||
+      textLower.includes('incident commander')
+    ) {
+      if (this.activeTrack !== 'ENGINEERING_LEADERSHIP' && !textLower.includes('react native')) {
+        this.activeTrack = 'ENGINEERING_LEADERSHIP';
+        this.memory.conversationTrack = 'ENGINEERING_LEADERSHIP';
+        await this.recordMemoryFact('career_goal', 'conversation_track', 'ENGINEERING_LEADERSHIP');
+      }
+    } else if (
+      textLower.includes('client performance') ||
+      textLower.includes('mobile performance') ||
+      textLower.includes('60 fps') ||
+      textLower.includes('turbomodule') ||
+      textLower.includes('fabric') ||
+      textLower.includes('offline-first')
+    ) {
+      this.activeTrack = 'CLIENT_PERFORMANCE';
+      this.memory.conversationTrack = 'CLIENT_PERFORMANCE';
+      await this.recordMemoryFact('career_goal', 'conversation_track', 'CLIENT_PERFORMANCE');
+    } else if (
+      textLower.includes('ai platform') ||
+      textLower.includes('ml systems') ||
+      textLower.includes('vector search') ||
+      textLower.includes('hnsw') ||
+      textLower.includes('feature store') ||
+      textLower.includes('model drift') ||
+      textLower.includes('4-bit') ||
+      textLower.includes('quantization')
+    ) {
+      this.activeTrack = 'AI_DATA_PLATFORM';
+      this.memory.conversationTrack = 'AI_DATA_PLATFORM';
+      await this.recordMemoryFact('career_goal', 'conversation_track', 'AI_DATA_PLATFORM');
+    } else if (
+      textLower.includes('star story') ||
+      textLower.includes('behavioral') ||
+      textLower.includes('impostor syndrome') ||
+      textLower.includes('cross-team conflict') ||
+      textLower.includes('failing project')
+    ) {
+      this.activeTrack = 'BEHAVIORAL_LEADERSHIP';
+      this.memory.conversationTrack = 'BEHAVIORAL_LEADERSHIP';
+      await this.recordMemoryFact('career_goal', 'conversation_track', 'BEHAVIORAL_LEADERSHIP');
+    } else if (
+      textLower.includes('distributed systems') ||
+      textLower.includes('distributed track')
+    ) {
+      this.activeTrack = 'DISTRIBUTED_SYSTEMS';
+      this.memory.conversationTrack = 'DISTRIBUTED_SYSTEMS';
+      await this.recordMemoryFact('career_goal', 'conversation_track', 'DISTRIBUTED_SYSTEMS');
+    }
 
     // 2. Entity & Career Goal Extraction (DISCOVERY Pillar)
     if (
@@ -478,6 +559,7 @@ export class AgentCoachingHarness {
       mascotTier: this.mascot.personalityTier,
       recentTopics: this.memory.recentTopics,
       didLevelUp,
+      conversationTrack: this.activeTrack,
     });
   }
 

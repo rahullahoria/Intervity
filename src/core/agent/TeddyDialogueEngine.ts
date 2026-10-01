@@ -17,11 +17,16 @@ import {
   AnalogicalTeachingStrategy,
   StaffElevationStrategy,
   HighScaleValidationStrategy,
+  EngineeringLeadershipStrategy,
+  ClientPerformanceStrategy,
+  AiPlatformStrategy,
+  BehavioralLeadershipStrategy,
   ProjectDiscoveryStrategy,
   GreetingStrategy,
   MascotLevelUpFallbackStrategy,
   RotatingCurriculumFallbackStrategy,
 } from './strategies';
+import { ConversationTrack } from '../../types';
 
 export interface TeddyDialogueContext {
   candidateName?: string;
@@ -38,6 +43,7 @@ export interface TeddyDialogueContext {
   mascotTier?: string;
   recentTopics?: string[];
   didLevelUp?: boolean;
+  conversationTrack?: ConversationTrack;
 }
 
 export class TeddyDialogueEngine {
@@ -47,6 +53,10 @@ export class TeddyDialogueEngine {
     new AnalogicalTeachingStrategy(),
     new StaffElevationStrategy(),
     new HighScaleValidationStrategy(),
+    new EngineeringLeadershipStrategy(),
+    new ClientPerformanceStrategy(),
+    new AiPlatformStrategy(),
+    new BehavioralLeadershipStrategy(),
     new ProjectDiscoveryStrategy(),
     new GreetingStrategy(),
     new MascotLevelUpFallbackStrategy(),
@@ -78,6 +88,10 @@ export class TeddyDialogueEngine {
       new AnalogicalTeachingStrategy(),
       new StaffElevationStrategy(),
       new HighScaleValidationStrategy(),
+      new EngineeringLeadershipStrategy(),
+      new ClientPerformanceStrategy(),
+      new AiPlatformStrategy(),
+      new BehavioralLeadershipStrategy(),
       new ProjectDiscoveryStrategy(),
       new GreetingStrategy(),
       new MascotLevelUpFallbackStrategy(),

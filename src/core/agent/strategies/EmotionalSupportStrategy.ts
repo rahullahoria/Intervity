@@ -27,6 +27,10 @@ export class EmotionalSupportStrategy implements IDialogueStrategy {
       ? `, ${context.candidateName}`
       : '';
 
+    if (inputLower.includes('impostor') || inputLower.includes('imposter')) {
+      return `${levelUpPrefix}I hear you so deeply on that, and I want you to know you are not alone! Every great engineer and leader I know has wrestled with impostor feelings when stepping into broader scope or higher levels. Those feelings simply mean you care deeply about doing great work. What new challenge or responsibility has been stretching you the most lately?`;
+    }
+
     if (
       inputLower.includes('failure mode') ||
       inputLower.includes('system design') ||
