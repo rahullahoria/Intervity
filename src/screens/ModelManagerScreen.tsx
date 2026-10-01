@@ -3,7 +3,7 @@
  * Manages downloading, checksum verification, and local disk persistence for quantized on-device models
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,16 +12,19 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useModelDownloads } from '../hooks/useModelDownloads';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 import { ChevronLeftIcon, CheckIcon } from '../components/icons/AppIcons';
+import { HardwareAccelerationManager, HardwareTelemetry } from '../core/hardware/HardwareAccelerationManager';
 
 interface ModelManagerScreenProps {
   navigation: any;
 }
 
 export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const {
     models,
     totalBytes,
@@ -33,11 +36,22 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
     clearStorage,
   } = useModelDownloads();
 
+  const [telemetry, setTelemetry] = useState<HardwareTelemetry>(() =>
+    HardwareAccelerationManager.getInstance().getTelemetry()
+  );
+
+  useEffect(() => {
+    HardwareAccelerationManager.getInstance()
+      .probeHardwareCapabilities()
+      .then((t) => setTelemetry(t))
+      .catch(() => {});
+  }, []);
+
   const formatMB = (bytes: number) => Math.round(bytes / (1024 * 1024));
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
         {/* Top Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -66,6 +80,58 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
 
           <Text style={typography.caption}>
             {formatMB(downloadedBytes)} MB of {formatMB(totalBytes)} MB downloaded to DocumentDirectory
+          </Text>
+        </View>
+
+        {/* Hardware Acceleration & Compute Status Card */}
+        <View style={styles.hardwareCard}>
+          <View style={styles.hardwareHeaderRow}>
+            <Text style={styles.hardwareCardTitle}>HARDWARE COMPUTE ENGINE</Text>
+            <View style={[
+              styles.hardwareBadge,
+              telemetry.gpuAvailable ? styles.gpuBadgeActive : styles.cpuBadgeActive
+            ]}>
+              <Text style={styles.hardwareBadgeText}>
+                {telemetry.gpuAvailable ? 'GPU ACCELERATED' : 'CPU MULTI-THREADED'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.hardwareGrid}>
+            <View style={styles.hardwareGridItem}>
+              <Text style={styles.hardwareLabel}>LLM Engine (MiniCPM5)</Text>
+              <Text style={styles.hardwareValue}>
+                {telemetry.activeLlmMode === 'gpu'
+                  ? 'GPU (99 Layers Offloaded)'
+                  : telemetry.activeLlmMode === 'cpu'
+                  ? 'CPU Fallback (NEON SIMD)'
+                  : 'Auto GPU / CPU Fallback'}
+              </Text>
+            </View>
+            <View style={styles.hardwareGridItem}>
+              <Text style={styles.hardwareLabel}>Whisper STT</Text>
+              <Text style={styles.hardwareValue}>
+                {telemetry.activeSttMode === 'gpu'
+                  ? 'GPU / CoreML (Low-Latency)'
+                  : telemetry.activeSttMode === 'cpu'
+                  ? 'CPU Fallback (4 Threads)'
+                  : 'Auto GPU / CPU Fallback'}
+              </Text>
+            </View>
+            <View style={styles.hardwareGridItem}>
+              <Text style={styles.hardwareLabel}>Mascot & UI Rendering</Text>
+              <Text style={styles.hardwareValue}>GPU Hardware Compositor</Text>
+            </View>
+            <View style={styles.hardwareGridItem}>
+              <Text style={styles.hardwareLabel}>Architecture</Text>
+              <Text style={styles.hardwareValue}>
+                {telemetry.platform === 'ios' ? 'Apple Metal & Neural' : 'Android OpenCL / ARM NEON'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.hardwareNote}>
+            Zero-Crash Architecture: Devices without dedicated GPU automatically route tensor workloads to CPU multi-threading.
           </Text>
         </View>
 
@@ -195,6 +261,77 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.listeningCyan,
+  },
+  hardwareCard: {
+    backgroundColor: colors.elevatedBackground,
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    marginBottom: 16,
+  },
+  hardwareHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  hardwareCardTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: '#38BDF8',
+  },
+  hardwareBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  gpuBadgeActive: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  cpuBadgeActive: {
+    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  hardwareBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#E0E7FF',
+  },
+  hardwareGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  hardwareGridItem: {
+    width: '48%',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  hardwareLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textTertiary,
+    marginBottom: 4,
+    textTransform: 'uppercase',
+  },
+  hardwareValue: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  hardwareNote: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    lineHeight: 15,
   },
   modelCard: {
     backgroundColor: colors.cardBackground,

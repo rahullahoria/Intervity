@@ -11,10 +11,21 @@ try {
   // Node / Bun test runner
 }
 
+import { HardwareAccelerationManager, HardwareAccelerationMode } from '../hardware/HardwareAccelerationManager';
+
 export class OfflineLLMEngine {
   private llamaContext: any = null;
   private isLoaded = false;
   private abortSignal = false;
+  private accelerationMode: HardwareAccelerationMode = 'simulated';
+
+  getAccelerationMode(): HardwareAccelerationMode {
+    return this.accelerationMode;
+  }
+
+  getLlamaContext(): any {
+    return this.llamaContext;
+  }
 
   async loadModel(modelNameOrPath: string = 'MiniCPM5-2B-Q4_K_M.gguf'): Promise<boolean> {
     if (this.isLoaded) return true;
@@ -28,22 +39,66 @@ export class OfflineLLMEngine {
       // @ts-ignore
       const llamaModule = await import('llama.rn').catch(() => null);
       if (llamaModule && llamaModule.initLlama) {
-        this.llamaContext = await llamaModule.initLlama({
-          model: resolvedPath,
-          use_mlock: false,
-          n_ctx: 2048,
-          n_gpu_layers: 0,
-          n_threads: 4,
-          n_batch: 512,
-        });
-        console.log('[OfflineLLMEngine] llama.rn initialized with real weights:', resolvedPath);
-        this.isLoaded = true;
-        return true;
+        const hwManager = HardwareAccelerationManager.getInstance();
+        await hwManager.probeHardwareCapabilities();
+
+        // 1. Attempt GPU Acceleration first (Metal on iOS, OpenCL/Vulkan on Android)
+        const gpuConfig = hwManager.getOptimalLlmConfig(true);
+        try {
+          console.log('[OfflineLLMEngine] Attempting GPU-accelerated initialization (n_gpu_layers=99)...');
+          this.llamaContext = await llamaModule.initLlama({
+            model: resolvedPath,
+            ...gpuConfig,
+          });
+
+          const isGpu = !!this.llamaContext.gpu;
+          const devices = this.llamaContext.devices || [];
+          const reasonNoGPU = this.llamaContext.reasonNoGPU || '';
+
+          if (isGpu) {
+            console.log('[OfflineLLMEngine] Successfully initialized with GPU acceleration! Devices:', devices);
+            hwManager.updateLlmStatus('gpu', {
+              gpuLayers: 99,
+              deviceName: devices.join(', ') || 'Native GPU',
+            });
+            this.accelerationMode = 'gpu';
+          } else {
+            console.log(`[OfflineLLMEngine] Device initialized in CPU mode (reason: ${reasonNoGPU || 'No GPU backend'})`);
+            hwManager.updateLlmStatus('cpu', {
+              gpuLayers: 0,
+              fallbackReason: reasonNoGPU || 'Device hardware has no GPU backend',
+            });
+            this.accelerationMode = 'cpu';
+          }
+
+          this.isLoaded = true;
+          return true;
+        } catch (gpuErr: any) {
+          console.warn('[OfflineLLMEngine] GPU init failed or unsupported; initiating CPU fallback:', gpuErr?.message || gpuErr);
+
+          // 2. Safe CPU-Only Multi-Threaded Fallback
+          const cpuConfig = hwManager.getOptimalLlmConfig(false);
+          this.llamaContext = await llamaModule.initLlama({
+            model: resolvedPath,
+            ...cpuConfig,
+          });
+
+          console.log('[OfflineLLMEngine] Initialized successfully in CPU fallback mode');
+          hwManager.updateLlmStatus('cpu', {
+            gpuLayers: 0,
+            fallbackReason: gpuErr?.message || 'GPU allocation failed, routed to CPU',
+          });
+          this.accelerationMode = 'cpu';
+          this.isLoaded = true;
+          return true;
+        }
       }
     } catch (err) {
       console.warn('[OfflineLLMEngine] react-native-llama native initialization failed; falling back to simulated engine:', err);
     }
 
+    HardwareAccelerationManager.getInstance().updateLlmStatus('simulated');
+    this.accelerationMode = 'simulated';
     this.isLoaded = true;
     return true;
   }

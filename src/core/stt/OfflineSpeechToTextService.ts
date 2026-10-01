@@ -25,10 +25,21 @@ export interface WhisperTranscriptionOptions {
   temperature?: number;
 }
 
+import { HardwareAccelerationManager, HardwareAccelerationMode } from '../hardware/HardwareAccelerationManager';
+
 export class OfflineSpeechToTextService {
   private isModelLoaded = false;
   private whisperContext: any = null;
   private simulatedNextTranscript: string | null = null;
+  private accelerationMode: HardwareAccelerationMode = 'simulated';
+
+  getAccelerationMode(): HardwareAccelerationMode {
+    return this.accelerationMode;
+  }
+
+  getWhisperContext(): any {
+    return this.whisperContext;
+  }
 
   async initializeModel(modelNameOrPath: string = 'ggml-tiny.en.bin'): Promise<boolean> {
     if (this.isModelLoaded) return true;
@@ -43,19 +54,62 @@ export class OfflineSpeechToTextService {
       // @ts-ignore
       const whisperModule = await import('whisper.rn').catch(() => null);
       if (whisperModule && whisperModule.initWhisper) {
-        this.whisperContext = await whisperModule.initWhisper({
-          filePath: resolvedPath,
-          useCoreMLIos: false,
-          useGpu: false,
-        });
-        console.log('[OfflineSpeechToTextService] whisper.rn initialized with real weights:', resolvedPath);
-        this.isModelLoaded = true;
-        return true;
+        const hwManager = HardwareAccelerationManager.getInstance();
+        await hwManager.probeHardwareCapabilities();
+
+        // 1. Attempt GPU Acceleration first (CoreML on iOS, GPU on supported Android)
+        const gpuConfig = hwManager.getOptimalSttConfig(true);
+        try {
+          console.log('[OfflineSpeechToTextService] Attempting GPU-accelerated Whisper initialization...');
+          this.whisperContext = await whisperModule.initWhisper({
+            filePath: resolvedPath,
+            ...gpuConfig,
+          });
+
+          const isGpu = !!this.whisperContext.gpu;
+          const reasonNoGPU = this.whisperContext.reasonNoGPU || '';
+
+          if (isGpu) {
+            console.log('[OfflineSpeechToTextService] Whisper initialized with GPU acceleration!');
+            hwManager.updateSttStatus('gpu', {
+              deviceName: 'Native Whisper GPU / CoreML',
+            });
+            this.accelerationMode = 'gpu';
+          } else {
+            console.log(`[OfflineSpeechToTextService] Whisper initialized in CPU mode (reason: ${reasonNoGPU || 'Device hardware fallback'})`);
+            hwManager.updateSttStatus('cpu', {
+              fallbackReason: reasonNoGPU || 'Device hardware has no GPU backend for Whisper',
+            });
+            this.accelerationMode = 'cpu';
+          }
+
+          this.isModelLoaded = true;
+          return true;
+        } catch (gpuErr: any) {
+          console.warn('[OfflineSpeechToTextService] Whisper GPU init failed, initiating CPU fallback:', gpuErr?.message || gpuErr);
+
+          // 2. Safe CPU-Only Fallback
+          const cpuConfig = hwManager.getOptimalSttConfig(false);
+          this.whisperContext = await whisperModule.initWhisper({
+            filePath: resolvedPath,
+            ...cpuConfig,
+          });
+
+          console.log('[OfflineSpeechToTextService] Whisper initialized successfully in CPU fallback mode');
+          hwManager.updateSttStatus('cpu', {
+            fallbackReason: gpuErr?.message || 'GPU allocation failed, routed to CPU',
+          });
+          this.accelerationMode = 'cpu';
+          this.isModelLoaded = true;
+          return true;
+        }
       }
     } catch (err) {
       console.warn('[OfflineSpeechToTextService] whisper.rn native initialization failed:', err);
     }
 
+    HardwareAccelerationManager.getInstance().updateSttStatus('simulated');
+    this.accelerationMode = 'simulated';
     // High-fidelity fallback for interactive testing
     this.isModelLoaded = true;
     return true;
@@ -74,10 +128,11 @@ export class OfflineSpeechToTextService {
     }
 
     if (this.whisperContext) {
+      const optimalThreads = this.accelerationMode === 'gpu' ? 2 : 4;
       const { promise } = this.whisperContext.transcribe(pcmFilePath, {
         language: 'en', // Explicitly locked to English to prevent regional script flips
         prompt: initialPrompt, // Primes decoder for Indian English phonetics & tech jargon
-        maxThreads: 4,
+        maxThreads: optimalThreads,
         beamSize: 1, // Greedy decoding for ultra-low latency (<120ms)
         temperature: 0.0,
         suppressNonSpeechTokens: true,
