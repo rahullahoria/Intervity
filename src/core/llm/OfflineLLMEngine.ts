@@ -12,6 +12,7 @@ try {
 }
 
 import { HardwareAccelerationManager, HardwareAccelerationMode } from '../hardware/HardwareAccelerationManager';
+import { TeddyDialogueEngine } from '../agent/TeddyDialogueEngine';
 
 export class OfflineLLMEngine {
   private llamaContext: any = null;
@@ -151,15 +152,18 @@ export class OfflineLLMEngine {
       return fullResponse;
     }
 
-    // High-fidelity simulated responses for offline testing
-    const simulatedAnswers = [
-      "That is an interesting trade-off regarding Redis caching. Could you explain how you prevented cache stampedes and dog-piling when keys expired during peak sales traffic?",
-      "Understood. When deploying microservices at scale, how did you manage distributed transactions and eventual consistency across those services?",
-      "Good point. In React Native, how did you profile frame drops and optimize the JS-native bridge to maintain 60 FPS during heavy list renders?",
-      "Thanks for clarifying that. What specific metrics did you track to verify the latency improvement after introducing Kafka into that architecture?"
-    ];
+    // High-fidelity connected friend responses via TeddyDialogueEngine for offline testing & fallback
+    const lastUserMsg = [...conversation].reverse().find((m) => m.role === 'user')?.content || '';
+    const systemMsg = conversation.find((m) => m.role === 'system')?.content || '';
 
-    const chosenResponse = simulatedAnswers[Math.floor(Math.random() * simulatedAnswers.length)];
+    // Extract target role from system message if present
+    const roleMatch = systemMsg.match(/Target Dream Role:\s*([^\n\r]+)/i) || systemMsg.match(/Target Next Role:\s*([^\n\r]+)/i);
+    const targetRole = roleMatch ? roleMatch[1].trim() : 'Staff Software Architect';
+
+    const chosenResponse = TeddyDialogueEngine.generateConnectedResponse(lastUserMsg, {
+      targetRole,
+      turnIndex: conversation.filter((m) => m.role === 'user').length - 1,
+    });
     const words = chosenResponse.split(' ');
 
     for (let i = 0; i < words.length; i++) {

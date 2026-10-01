@@ -62,7 +62,7 @@ class InMemoryDatabaseDriver {
           }
         });
 
-        const id = row.turn_id || row.eval_id || row.mistake_id || row.soft_skill_id || row.metric_id || row.history_id || row.skill_id || row.session_id || params[0] || (this.autoIncrements.get(table) ?? 1);
+        const id = row.user_id || row.turn_id || row.eval_id || row.mistake_id || row.soft_skill_id || row.metric_id || row.history_id || row.skill_id || row.session_id || params[0] || (this.autoIncrements.get(table) ?? 1);
         this.autoIncrements.set(table, (this.autoIncrements.get(table) ?? 1) + 1);
         tableMap.set(String(id), row);
         return { rows: [], rowsAffected: 1, insertId: typeof id === 'number' ? id : undefined };
@@ -74,12 +74,12 @@ class InMemoryDatabaseDriver {
       const match = trimmed.match(/UPDATE ([a-zA-Z0-9_]+)\s+SET\s+(.+?)\s+WHERE\s+([a-zA-Z0-9_]+)\s*=\s*\?/i);
       if (match && match[1]) {
         const table = match[1];
+        const setClause = match[2];
         const _idCol = match[3];
         const targetId = String(params[params.length - 1]);
         const tableMap = this.tables.get(table);
         if (tableMap && tableMap.has(targetId)) {
           const row = tableMap.get(targetId);
-          // Simple assignment
           if (table === 'candidate_skills') {
             row.current_score = params[0];
             row.mastery_level = params[1];
@@ -88,27 +88,66 @@ class InMemoryDatabaseDriver {
           } else if (table === 'mistake_diagnostics') {
             row.is_drilled = 1;
             row.drilled_score = params[0];
+          } else {
+            const assignments = setClause.split(',').map(s => s.trim());
+            let pIdx = 0;
+            for (const assignment of assignments) {
+              const col = assignment.split('=')[0]?.trim();
+              if (col && pIdx < params.length - 1) {
+                row[col] = params[pIdx++];
+              }
+            }
           }
           return { rows: [], rowsAffected: 1 };
         }
       }
     }
 
+    // Delete
+    if (trimmed.toUpperCase().startsWith('DELETE')) {
+      const tableMatch = trimmed.match(/FROM\s+([a-zA-Z0-9_]+)/i);
+      if (tableMatch && tableMatch[1]) {
+        const table = tableMatch[1];
+        const tableMap = this.tables.get(table);
+        if (tableMap) {
+          const whereMatch = trimmed.match(/WHERE\s+([a-zA-Z0-9_]+)\s*=\s*\?/i);
+          if (whereMatch && whereMatch[1] && params.length > 0) {
+            const col = whereMatch[1];
+            const targetVal = String(params[0]);
+            let deletedCount = 0;
+            for (const [key, row] of tableMap.entries()) {
+              if (String(row[col]) === targetVal || key === targetVal) {
+                tableMap.delete(key);
+                deletedCount++;
+              }
+            }
+            return { rows: [], rowsAffected: deletedCount };
+          } else {
+            const count = tableMap.size;
+            tableMap.clear();
+            return { rows: [], rowsAffected: count };
+          }
+        }
+      }
+      return { rows: [], rowsAffected: 0 };
+    }
+
     // Select
     if (trimmed.toUpperCase().startsWith('SELECT')) {
+
       const tableMatch = trimmed.match(/FROM\s+([a-zA-Z0-9_]+)/i);
       if (tableMatch && tableMatch[1]) {
         const table = tableMatch[1];
         const tableMap = this.tables.get(table);
         let list = tableMap ? Array.from(tableMap.values()) : [];
 
-        // WHERE skill_id = ?
-        if (trimmed.includes('WHERE skill_id = ?') && params.length > 0) {
-          list = list.filter(r => r.skill_id === params[0]);
+        // WHERE col = ?
+        const whereMatch = trimmed.match(/WHERE\s+([a-zA-Z0-9_]+)\s*=\s*\?/i);
+        if (whereMatch && whereMatch[1] && params.length > 0) {
+          const col = whereMatch[1];
+          list = list.filter(r => String(r[col]) === String(params[0]));
         }
-        if (trimmed.includes('WHERE session_id = ?') && params.length > 0) {
-          list = list.filter(r => r.session_id === params[0]);
-        }
+
 
         // ORDER BY current_score ASC
         if (trimmed.includes('ORDER BY current_score ASC')) {

@@ -16,6 +16,7 @@
 import { SQLiteClient } from '../../database/SQLiteClient';
 import { buildAgentCoachingSystemPrompt, CoachingPhase } from '../llm/SystemPrompts';
 import { OfflineLLMEngine } from '../llm/OfflineLLMEngine';
+import { TeddyDialogueEngine } from './TeddyDialogueEngine';
 
 export type { CoachingPhase };
 
@@ -69,17 +70,17 @@ export class AgentCoachingHarness {
     this.llmEngine = llmEngine || null;
     this.mascot = {
       id: 'mascot_primary',
-      name: 'Nova',
+      name: 'Teddy',
       level: 1,
       xp: 0,
       xpToNextLevel: 100,
-      personalityTier: 'Curious Explorer',
-      relationshipSummary: 'Getting to know your technical background and career goals.',
-      coachingStyle: 'Socratic & Encouraging',
+      personalityTier: 'Warm Friend & Coding Buddy',
+      relationshipSummary: 'A warm, supportive friendship learning together and reaching your career goals.',
+      coachingStyle: 'Warm, Socratic & Conversational Growth',
       totalTurns: 0,
     };
     this.memory = {
-      candidateName: 'Candidate',
+      candidateName: 'Friend',
       currentRole: 'Software Engineer',
       targetRole: 'Staff Software Architect',
       targetCompany: 'Tier-1 Tech',
@@ -106,13 +107,19 @@ export class AgentCoachingHarness {
       const mascotRes = await this.db.execute('SELECT * FROM mascot_profile WHERE id = ?', ['mascot_primary']);
       if (mascotRes.rows && mascotRes.rows.length > 0) {
         const row = mascotRes.rows[0];
-        this.mascot.name = row.name || 'Nova';
+        this.mascot.name = (!row.name || row.name === 'Nova') ? 'Teddy' : row.name;
         this.mascot.level = row.level || 1;
         this.mascot.xp = row.xp || 0;
         this.mascot.xpToNextLevel = (row.level || 1) * 100;
-        this.mascot.personalityTier = row.personality_tier || this.getTierForLevel(this.mascot.level);
+        this.mascot.personalityTier = (row.personality_tier === 'Curious Explorer' || !row.personality_tier)
+          ? this.getTierForLevel(this.mascot.level)
+          : row.personality_tier;
         this.mascot.relationshipSummary = row.relationship_summary || this.mascot.relationshipSummary;
         this.mascot.coachingStyle = row.coaching_style || this.mascot.coachingStyle;
+
+        if (row.name === 'Nova') {
+          await this.db.execute('UPDATE mascot_profile SET name = ? WHERE id = ?', ['Teddy', 'mascot_primary']);
+        }
       } else {
         await this.db.execute(
           `INSERT INTO mascot_profile (id, name, level, xp, personality_tier, relationship_summary, coaching_style, updated_at)
@@ -137,12 +144,25 @@ export class AgentCoachingHarness {
           this.applyMemoryFact(row.category, row.fact_key, row.fact_value);
         }
       }
+
+      // 3. Load enrolled user voice profile if present
+      const profileRes = await this.db.execute('SELECT * FROM user_profiles WHERE user_id = ?', ['user_primary']);
+      if (profileRes.rows && profileRes.rows.length > 0) {
+        const p = profileRes.rows[0];
+        if (p.name) {
+          this.memory.candidateName = p.name;
+        }
+        if (p.target_role) {
+          this.memory.targetRole = p.target_role;
+        }
+      }
     } catch (err) {
       console.warn('[AgentCoachingHarness] Error loading state from SQLite:', err);
     }
 
     this.isInitialized = true;
   }
+
 
   getMascotProfile(): MascotProfile {
     return { ...this.mascot };
@@ -153,11 +173,11 @@ export class AgentCoachingHarness {
   }
 
   getTierForLevel(level: number): string {
-    if (level >= 5) return 'Distinguished Fellow Companion';
-    if (level === 4) return 'Staff Engineering Partner';
-    if (level === 3) return 'Technical Strategist';
-    if (level === 2) return 'Dedicated Coach';
-    return 'Curious Explorer';
+    if (level >= 5) return 'Lifelong Partner & Champion';
+    if (level === 4) return 'Career Co-Pilot & Confidant';
+    if (level === 3) return 'Trusted Ally & Tech Mentor';
+    if (level === 2) return 'Close Friend & Pair Partner';
+    return 'Warm Friend & Coding Buddy';
   }
 
   private applyMemoryFact(category: string, key: string, value: string): void {
@@ -372,8 +392,8 @@ export class AgentCoachingHarness {
 
   /**
    * Generates intelligent, role-advancing coaching dialogue:
-   * Uses MiniCPM5-2B via OfflineLLMEngine when active,
-   * with high-fidelity pedagogical fallbacks across all 3 coaching pillars.
+   * Uses MiniCPM5-2B via OfflineLLMEngine when active with native LlamaContext,
+   * with high-fidelity pedagogical friend dialogue across all 3 coaching pillars.
    */
   private async generateCoachingResponse(
     userText: string,
@@ -381,8 +401,8 @@ export class AgentCoachingHarness {
     didLevelUp: boolean,
     phase: CoachingPhase
   ): Promise<string> {
-    // 1. If LLM engine is loaded and operational, use system prompt to query MiniCPM5-2B
-    if (this.llmEngine) {
+    // 1. If LLM engine has native llamaContext loaded, stream from MiniCPM5-2B
+    if (this.llmEngine && this.llmEngine.getLlamaContext()) {
       try {
         const systemPrompt = buildAgentCoachingSystemPrompt({
           mascotName: this.mascot.name,
@@ -421,20 +441,23 @@ export class AgentCoachingHarness {
           return cleanResponse;
         }
       } catch (err) {
-        console.warn('[AgentCoachingHarness] LLM generation error, falling back to smart pedagogical engine:', err);
+        console.warn('[AgentCoachingHarness] LLM generation error, falling back to TeddyDialogueEngine:', err);
       }
     }
 
-    // 2. High-Fidelity Smart Pedagogical Engine (Fallback & Offline Execution)
-    return this.generateSmartPedagogicalResponse(userText, turnIndex, didLevelUp, phase);
+    // 2. High-Fidelity Smart Pedagogical Engine (Connected Friend Dialogue)
+    const fallbackResponse = this.generateSmartPedagogicalResponse(userText, turnIndex, didLevelUp, phase);
+    this.conversationHistory.push({ role: 'user', content: userText });
+    this.conversationHistory.push({ role: 'assistant', content: fallbackResponse });
+    return fallbackResponse;
   }
 
   /**
-   * Pedagogical Response Synthesizer covering:
-   * 1. Discovery (Learn about user & aspirations)
-   * 2. Skill Validation (Verify production readiness for next role)
-   * 3. Skill Improvement (Break L4 ceiling, elevate to Staff/Leadership)
-   * 4. Skill Learning (Teach new concepts from first principles)
+   * Pedagogical Response Synthesizer via TeddyDialogueEngine covering:
+   * 1. Warm friendship persona & emotional relationship building
+   * 2. Connected conversations ONLY (every turn acknowledges & connects to user speech)
+   * 3. 3-pillar learning (Validation, Improvement, Learning) with intuitive analogies
+   * 4. Strict Kokoro-82M TTS voice constraints
    */
   private generateSmartPedagogicalResponse(
     userText: string,
@@ -442,76 +465,22 @@ export class AgentCoachingHarness {
     didLevelUp: boolean,
     phase: CoachingPhase
   ): string {
-    const textLower = userText.toLowerCase();
-
-    // Level up milestone response
-    if (didLevelUp) {
-      return `Level up to Level ${this.mascot.level}! I'm elevating our technical drills for your ${this.memory.targetRole} target. How do you ensure zero data loss during high-volume node failovers in your architecture?`;
-    }
-
-    // 1. PHASE: DISCOVERY (Learning about the candidate)
-    if (phase === 'DISCOVERY' || turnIndex === 0 || textLower.includes('hello') || textLower.includes('hi ') || textLower.includes('start')) {
-      if (this.memory.targetRole && this.memory.targetRole !== 'Software Engineer' && this.memory.targetRole !== 'Staff Software Architect') {
-        return `Targeting ${this.memory.targetRole} is an ambitious and impactful goal. Tell me about the core technical stack and scale of systems you are currently engineering.`;
-      }
-      return `Hello! I'm Nova, your personal career coach. What role or leadership level are you aiming for next, and what are you working on right now?`;
-    }
-
-    // 2. PHASE: SKILL LEARNING (Teaching new concepts & filling gaps)
-    if (phase === 'LEARNING' || textLower.includes('teach me') || textLower.includes('don\'t know') || textLower.includes('dont know') || textLower.includes('what is') || textLower.includes('explain')) {
-      if (textLower.includes('cache stampede') || textLower.includes('redis') || textLower.includes('cache')) {
-        return `Let's break down cache stampedes simply. When a hot key expires under heavy traffic, all requests hit the database simultaneously. To prevent this, use probabilistic early expiration or a distributed Redis lock so only one worker rebuilds the cache. How would you handle stale reads while that lock is held?`;
-      }
-      if (textLower.includes('consensus') || textLower.includes('raft') || textLower.includes('split brain')) {
-        return `In distributed systems, consensus ensures multiple nodes agree on state even if some fail. Raft achieves this through leader election and replicated write logs. If a network partition isolates the leader with a minority of nodes, how does Raft prevent split-brain writes?`;
-      }
-      if (textLower.includes('concurrency') || textLower.includes('lock') || textLower.includes('deadlock')) {
-        return `Let's break down concurrency simply. Deadlocks happen when multiple threads hold locks while waiting on each other in a cyclic dependency. To prevent this, always acquire locks in a globally defined order or use lock-free atomic primitives. How would you detect lock contention in production?`;
-      }
-      return `Let's break that down from first principles. When designing scalable architectures, you trade off immediate consistency for high availability. What strategy would you use to reconcile eventual consistency across microservice boundaries?`;
-    }
-
-    // 3. PHASE: SKILL IMPROVEMENT (Elevating past the L4 ceiling to Staff/Leadership)
-    if (phase === 'IMPROVEMENT') {
-      const isLeadership =
-        this.memory.targetRole.includes('Manager') ||
-        this.memory.targetRole.includes('Director') ||
-        this.memory.targetRole.includes('VP') ||
-        this.memory.targetRole.includes('CTO');
-
-      if (isLeadership) {
-        return `Leading as a ${this.memory.targetRole} requires balancing executive technology strategy with hiring and execution. When scaling your engineering org, how do you balance technical debt against speed to market?`;
-      }
-
-      return `Stepping into ${this.memory.targetRole} requires defending systemic trade-offs under scale. In your systems, how did you handle data consistency and telemetry when traffic spiked unexpectedly?`;
-    }
-
-    // 4. PHASE: SKILL VALIDATION (Probing claimed skills with production scenarios)
-    if (textLower.includes('redis') || textLower.includes('cache')) {
-      return `What happens if your Redis primary fails before replication finishes, causing cache desync with the database? How would you design for that failure?`;
-    }
-
-    if (textLower.includes('concurrency') || textLower.includes('thread') || textLower.includes('lock')) {
-      return `Concurrency hazards are critical at ${this.memory.targetRole} level. What strategy did you use to prevent deadlocks and thread starvation in that pipeline?`;
-    }
-
-    if (textLower.includes('react native') || textLower.includes('mobile') || textLower.includes('app')) {
-      return `As a mobile architect, how do you prevent bridge serialization bottlenecks and ensure UI thread fluency with real-time socket streams?`;
-    }
-
-    if (textLower.includes('kafka') || textLower.includes('event') || textLower.includes('stream')) {
-      return `If your Kafka message broker experiences a consumer lag surge under peak burst load, how do you prevent cascading downstream failures?`;
-    }
-
-    // Rotating Deep Scenario Probes
-    const scenarioDrills = [
-      `Understood. How do you design your active-active database replication to prevent split-brain during sudden network partitions?`,
-      `Good point. What specific latency metrics and telemetry would you monitor to prove that design succeeded in production?`,
-      `When scaling write capacity across database shards, what strategy ensures cross-shard transactional consistency?`,
-      `How do you defend high-cost architectural refactors to non-technical executive stakeholders?`,
-    ];
-
-    return scenarioDrills[turnIndex % scenarioDrills.length];
+    return TeddyDialogueEngine.generateConnectedResponse(userText, {
+      candidateName: this.memory.candidateName,
+      currentRole: this.memory.currentRole,
+      targetRole: this.memory.targetRole,
+      targetCompany: this.memory.targetCompany,
+      strengths: this.memory.strengths,
+      validatedSkills: this.memory.validatedSkills,
+      skillsToSharpen: this.memory.skillsToSharpen,
+      newSkillsToLearn: this.memory.newSkillsToLearn,
+      currentPhase: phase,
+      turnIndex,
+      mascotLevel: this.mascot.level,
+      mascotTier: this.mascot.personalityTier,
+      recentTopics: this.memory.recentTopics,
+      didLevelUp,
+    });
   }
 
   private cleanForVoiceTTS(text: string): string {

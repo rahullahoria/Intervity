@@ -100,12 +100,12 @@ CREATE TABLE IF NOT EXISTS soft_skill_turn_evaluations (
 -- 9. Mascot Profile & Personality State
 CREATE TABLE IF NOT EXISTS mascot_profile (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL DEFAULT 'Nova',
+    name TEXT NOT NULL DEFAULT 'Teddy',
     level INTEGER NOT NULL DEFAULT 1,
     xp INTEGER NOT NULL DEFAULT 0,
-    personality_tier TEXT NOT NULL DEFAULT 'Curious Explorer',
+    personality_tier TEXT NOT NULL DEFAULT 'Warm Friend & Coding Buddy',
     relationship_summary TEXT,
-    coaching_style TEXT DEFAULT 'Socratic',
+    coaching_style TEXT DEFAULT 'Warm, Socratic & Conversational Growth',
     updated_at INTEGER NOT NULL
 );
 
@@ -119,4 +119,19 @@ CREATE TABLE IF NOT EXISTS agent_user_memory (
     created_at INTEGER NOT NULL,
     last_referenced_at INTEGER NOT NULL
 );
+
+-- 11. User Profiles & Voice Biometrics (On-Device Voiceprint)
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    target_role TEXT,
+    years_of_experience REAL DEFAULT 0,
+    voice_enrolled INTEGER DEFAULT 0, -- 1 if biometric voice profile is enrolled
+    voice_embedding_json TEXT,         -- 192-dimensional normalized biometric vector stored as JSON
+    sample_text TEXT,                  -- Sentence spoken during calibration
+    average_pitch_hz REAL DEFAULT 0,   -- Acoustic baseline pitch
+    enrolled_at INTEGER NOT NULL,
+    last_verified_at INTEGER
+);
 `;
+

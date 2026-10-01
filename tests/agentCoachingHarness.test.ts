@@ -8,15 +8,19 @@ describe('Agent Coaching Harness & System Prompt Integration', () => {
   beforeEach(async () => {
     const db = SQLiteClient.getInstance();
     await db.initialize();
+    await db.execute('DELETE FROM mascot_profile');
+    await db.execute('DELETE FROM agent_user_memory');
+    await db.execute('DELETE FROM user_profiles');
   });
+
 
   describe('Harness-Based System Prompt Construction', () => {
     it('builds comprehensive system prompt anchored to candidate memory and target role', () => {
       const prompt = buildAgentCoachingSystemPrompt({
-        mascotName: 'Nova',
+        mascotName: 'Teddy',
         mascotLevel: 3,
-        personalityTier: 'Technical Strategist',
-        coachingStyle: 'Architectural Socratic Rigor',
+        personalityTier: 'Trusted Ally & Tech Mentor',
+        coachingStyle: 'Warm, Socratic & Conversational Growth',
         candidateName: 'Rahul',
         currentRole: 'Senior Software Engineer',
         targetRole: 'Staff Software Architect',
@@ -30,8 +34,10 @@ describe('Agent Coaching Harness & System Prompt Integration', () => {
         recentTopics: ['Distributed Caching'],
       });
 
-      // Verification of Core Mission
-      assert.ok(prompt.includes('You are Nova'), 'Must identify coach');
+      // Verification of Core Mission & Friend Persona
+      assert.ok(prompt.includes('You are Teddy'), 'Must identify mascot as Teddy');
+      assert.ok(prompt.includes('TALK LIKE A REAL FRIEND'), 'Must include friend persona instructions');
+      assert.ok(prompt.includes('CONNECTED CONVERSATIONS ONLY'), 'Must enforce strictly connected conversations');
       assert.ok(prompt.includes('Staff Software Architect'), 'Must anchor to target role');
       assert.ok(prompt.includes('SKILL VALIDATION'), 'Must include validation pillar');
       assert.ok(prompt.includes('SKILL IMPROVEMENT'), 'Must include improvement pillar');
@@ -42,7 +48,7 @@ describe('Agent Coaching Harness & System Prompt Integration', () => {
       assert.ok(prompt.includes('STRICT KOKORO-82M TTS VOICE RULES'), 'Must enforce TTS voice constraints');
       assert.ok(prompt.includes('ABSOLUTELY NO MARKDOWN'), 'Must strictly forbid markdown');
       assert.ok(prompt.includes('NO EMOJIS'), 'Must strictly forbid emojis');
-      assert.ok(prompt.includes('ONE clear, provocative question'), 'Must enforce single question per turn');
+      assert.ok(prompt.includes('ONE warm, connected question'), 'Must enforce single warm question per turn');
     });
 
     it('adapts coaching guidance for Engineering Leadership (EM/Director/CTO)', () => {
@@ -124,6 +130,52 @@ describe('Agent Coaching Harness & System Prompt Integration', () => {
       assert.ok(profile.level >= 2, 'Mascot should level up after multiple rich turns');
       assert.ok(profile.xpToNextLevel > 100, 'Threshold scales with level');
       assert.notStrictEqual(profile.personalityTier, 'Curious Explorer');
+    });
+  });
+
+  describe('Teddy Friend Persona & Connected Conversations', () => {
+    it('maintains strictly connected conversations when candidate speaks about their projects', async () => {
+      const harness = new AgentCoachingHarness();
+      await harness.initialize();
+
+      const outcome = await harness.processUserSpeechTurn('I am working on AI app', 0);
+      assert.ok(outcome.responseClause.toLowerCase().includes('ai app'), 'Must connect to AI app');
+      assert.ok(
+        outcome.responseClause.toLowerCase().includes('cool') ||
+        outcome.responseClause.toLowerCase().includes('love') ||
+        outcome.responseClause.toLowerCase().includes('amazing'),
+        'Must talk like an encouraging friend'
+      );
+    });
+
+    it('responds with empathy and relationship validation when user feels nervous', async () => {
+      const harness = new AgentCoachingHarness();
+      await harness.initialize();
+
+      const outcome = await harness.processUserSpeechTurn('I am feeling nervous about my upcoming interview', 1);
+      assert.ok(
+        outcome.responseClause.toLowerCase().includes('normal') ||
+        outcome.responseClause.toLowerCase().includes('corner') ||
+        outcome.responseClause.toLowerCase().includes('breath'),
+        'Must validate emotions like a friend'
+      );
+    });
+
+    it('teaches technical concepts through friendly, intuitive analogies', async () => {
+      const harness = new AgentCoachingHarness();
+      await harness.initialize();
+
+      const outcome = await harness.processUserSpeechTurn('What is a cache stampede? Explain it to me.', 2);
+      assert.ok(
+        outcome.responseClause.toLowerCase().includes('bakery') ||
+        outcome.responseClause.toLowerCase().includes('rush'),
+        'Must use intuitive analogy'
+      );
+      assert.ok(
+        outcome.responseClause.toLowerCase().includes('lock') ||
+        outcome.responseClause.toLowerCase().includes('worker'),
+        'Must teach real engineering solution'
+      );
     });
   });
 });

@@ -16,7 +16,8 @@ import { OfflineTtsService } from '../core/tts/OfflineTtsService';
 import { OfflineSpeechToTextService } from '../core/stt/OfflineSpeechToTextService';
 import { OfflineLLMEngine } from '../core/llm/OfflineLLMEngine';
 import { ModelAssetManager } from '../core/models/ModelAssetManager';
-import { InterviewState } from '../types';
+import { VoiceBiometricsService } from '../core/voice/VoiceBiometricsService';
+import { InterviewState, UserVoiceProfile } from '../types';
 
 export interface ChatMessage {
   id: string;
@@ -29,22 +30,24 @@ export function useAgentCoaching() {
   const [state, setState] = useState<InterviewState>('INITIALIZING');
   const [mascotProfile, setMascotProfile] = useState<MascotProfile>({
     id: 'mascot_primary',
-    name: 'Nova',
+    name: 'Teddy',
     level: 1,
     xp: 0,
     xpToNextLevel: 100,
-    personalityTier: 'Curious Explorer',
-    relationshipSummary: 'Getting to know your technical background and career goals.',
-    coachingStyle: 'Socratic & Encouraging',
+    personalityTier: 'Warm Friend & Coding Buddy',
+    relationshipSummary: 'A warm, supportive friendship learning together and reaching your career goals.',
+    coachingStyle: 'Warm, Socratic & Conversational Growth',
     totalTurns: 0,
   });
   const [userMemory, setUserMemory] = useState<UserCareerMemory | null>(null);
+  const [voiceProfile, setVoiceProfile] = useState<UserVoiceProfile | null>(null);
   const [currentSubtitle, setCurrentSubtitle] = useState<string>('');
   const [audioLevel, setAudioLevel] = useState<number>(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoudspeaker, setIsLoudspeaker] = useState<boolean>(true);
   const [isHandsFreeActive, setIsHandsFreeActive] = useState<boolean>(true);
   const [turnIndex, setTurnIndex] = useState<number>(0);
+
 
   const harness = useRef(new AgentCoachingHarness());
   const llmEngine = useRef(new OfflineLLMEngine());
@@ -80,6 +83,16 @@ export function useAgentCoaching() {
           setUserMemory(harness.current.getUserMemory());
         }
 
+        const biometrics = VoiceBiometricsService.getInstance();
+        const enrolledProfile = await biometrics.getVoiceProfile();
+        if (isMounted && enrolledProfile) {
+          setVoiceProfile(enrolledProfile);
+          if (enrolledProfile.name) {
+            await harness.current.recordMemoryFact('candidate_name', 'name', enrolledProfile.name);
+            setUserMemory(harness.current.getUserMemory());
+          }
+        }
+
         await Promise.all([
           llmEngine.current.loadModel('MiniCPM5-2B-Q4_K_M.gguf'),
           ttsService.current.initialize('kokoro_models', 'hf_alpha'),
@@ -93,12 +106,13 @@ export function useAgentCoaching() {
 
         if (isMounted) {
           setState('READY');
-          setCurrentSubtitle('Nova is ready. Tap to Speak to begin.');
+          setCurrentSubtitle('Teddy is ready. Tap to Speak to begin.');
         }
       } catch (err) {
         console.warn('[useAgentCoaching] Init error:', err);
         if (isMounted) setState('READY');
       }
+
     }
 
     boot();
@@ -132,7 +146,7 @@ export function useAgentCoaching() {
     audioEngine.current.cancelRecordingStream();
     userSpeechBufferRef.current = '';
     setState('READY');
-    setCurrentSubtitle('Nova is ready. Tap to Speak.');
+    setCurrentSubtitle('Teddy is ready. Tap to Speak.');
   }, []);
 
   const stopMascotSpeaking = useCallback(() => {
@@ -265,9 +279,22 @@ export function useAgentCoaching() {
   }, []);
 
   const startSession = useCallback(async () => {
-    const welcome = `Hello! I'm Nova, your personal AI career coach. My goal is to learn about you, sharpen your skills, and help you advance in your career. What role or level are you aiming for next, and what are you working on right now?`;
+    const memory = harness.current.getUserMemory();
+    const candidateName = voiceProfile?.name || (memory?.candidateName !== 'Candidate' ? memory?.candidateName : '');
+    const nameCall = candidateName ? `, ${candidateName}` : '';
+    const welcome = `Hey there${nameCall}! I'm Teddy, your coding buddy and friend. I'm so excited to hang out with you! Tell me, what are you working on right now, or what is a dream role you've got your eyes on?`;
     await speakMascotResponse(welcome);
-  }, [speakMascotResponse]);
+  }, [speakMascotResponse, voiceProfile]);
+
+  const refreshVoiceProfile = useCallback(async () => {
+    const biometrics = VoiceBiometricsService.getInstance();
+    const profile = await biometrics.getVoiceProfile();
+    setVoiceProfile(profile);
+    if (profile?.name) {
+      await harness.current.recordMemoryFact('candidate_name', 'name', profile.name);
+      setUserMemory(harness.current.getUserMemory());
+    }
+  }, []);
 
   // Secondary Backup Text Input: Send typed text when candidate cannot talk
   const sendBackupTextMessage = useCallback(async (typedText: string) => {
@@ -294,6 +321,8 @@ export function useAgentCoaching() {
     state,
     mascotProfile,
     userMemory,
+    voiceProfile,
+    refreshVoiceProfile,
     currentSubtitle,
     audioLevel,
     messages,
@@ -312,3 +341,4 @@ export function useAgentCoaching() {
     toggleHandsFree,
   };
 }
+

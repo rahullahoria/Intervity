@@ -24,6 +24,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { RiveMascot } from '../components/RiveMascot';
 import { useAgentCoaching } from '../hooks/useAgentCoaching';
 import { colors } from '../theme/colors';
@@ -59,6 +60,8 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     state,
     mascotProfile,
     userMemory,
+    voiceProfile,
+    refreshVoiceProfile,
     currentSubtitle,
     audioLevel,
     messages,
@@ -72,6 +75,13 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     sendBackupTextMessage,
     toggleSpeakerphone,
   } = useAgentCoaching();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshVoiceProfile();
+    }, [refreshVoiceProfile])
+  );
+
 
   const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
   const [typedInput, setTypedInput] = useState('');
@@ -179,15 +189,44 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           </View>
         </View>
 
-        {userMemory?.targetRole ? (
-          <View style={styles.targetRoleBadge}>
-            <TargetIcon size={13} color="#818CF8" />
-            <Text style={styles.targetRoleText}>
-              Target: {userMemory.targetRole}
+        <View style={styles.topBadgesRow}>
+          <TouchableOpacity
+            style={[
+              styles.voiceProfileBadge,
+              voiceProfile?.voiceEnrolled && styles.voiceProfileBadgeActive,
+            ]}
+            onPress={() =>
+              navigation.navigate('VoiceEnrollment', {
+                candidateName: voiceProfile?.name || userMemory?.candidateName || 'Rahul',
+              })
+            }
+            activeOpacity={0.8}
+            accessibilityLabel="Voice Profile Calibration"
+          >
+            <MicIcon size={12} color={voiceProfile?.voiceEnrolled ? '#10B981' : '#38BDF8'} />
+            <Text
+              style={[
+                styles.voiceProfileText,
+                voiceProfile?.voiceEnrolled && { color: '#6EE7B7' },
+              ]}
+            >
+              {voiceProfile?.voiceEnrolled
+                ? `${voiceProfile.name} (Calibrated)`
+                : '🎙️ Enroll Voice'}
             </Text>
-          </View>
-        ) : null}
+          </TouchableOpacity>
+
+          {userMemory?.targetRole ? (
+            <View style={styles.targetRoleBadge}>
+              <TargetIcon size={12} color="#818CF8" />
+              <Text style={styles.targetRoleText} numberOfLines={1}>
+                Target: {userMemory.targetRole}
+              </Text>
+            </View>
+          ) : null}
+        </View>
       </View>
+
 
       {/* 3. Floating Bottom HUD (Subtitles & Primary Action Controls) */}
       <View
@@ -204,7 +243,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               {isSpeaking ? (
                 <>
                   <SoundWaveBars level={audioLevel} active={true} color="#38BDF8" size={14} />
-                  <Text style={[styles.subtitleSpeaker, { color: '#38BDF8' }]}>Nova (AI Coach)</Text>
+                  <Text style={[styles.subtitleSpeaker, { color: '#38BDF8' }]}>Teddy (AI Buddy & Coach)</Text>
                 </>
               ) : isListening ? (
                 <>
@@ -219,7 +258,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               ) : (
                 <>
                   <SparklesIcon size={13} color="#94A3B8" />
-                  <Text style={styles.subtitleSpeaker}>AI Mentor Ready</Text>
+                  <Text style={styles.subtitleSpeaker}>Teddy Ready</Text>
                 </>
               )}
             </View>
@@ -242,7 +281,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           </View>
 
           <Text style={styles.subtitleText} numberOfLines={3}>
-            {currentSubtitle || (isListening ? 'Speak now into your microphone...' : 'Tap below to speak with Nova...')}
+            {currentSubtitle || (isListening ? 'Speak now into your microphone...' : 'Tap below to chat with Teddy...')}
           </Text>
         </View>
 
@@ -266,7 +305,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               activeOpacity={0.8}
             >
               <SoundWaveBars level={audioLevel} active={true} color="#38BDF8" size={15} />
-              <Text style={styles.speakingActiveBtnText}>Nova is speaking... (Tap to Pause)</Text>
+              <Text style={styles.speakingActiveBtnText}>Teddy is speaking... (Tap to Pause)</Text>
               <PauseIcon size={14} color="#38BDF8" />
             </TouchableOpacity>
           ) : isListening ? (
@@ -293,7 +332,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           ) : isThinking ? (
             <View style={styles.thinkingPill}>
               <BrainIcon size={16} color="#A78BFA" />
-              <Text style={styles.thinkingPillText}>Nova is thinking...</Text>
+              <Text style={styles.thinkingPillText}>Teddy is thinking...</Text>
             </View>
           ) : null}
 
@@ -388,7 +427,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                     ]}
                   >
                     <Text style={styles.bubbleAuthor}>
-                      {msg.sender === 'user' ? 'You' : `Nova (Lv.${mascotProfile.level})`}
+                      {msg.sender === 'user' ? 'You' : `Teddy (Lv.${mascotProfile.level})`}
                     </Text>
                     <Text style={styles.bubbleText}>{msg.text}</Text>
                   </View>
@@ -532,13 +571,43 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#38BDF8',
   },
+  topBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  voiceProfileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  voiceProfileBadgeActive: {
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
+  voiceProfileText: {
+    color: '#38BDF8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   targetRoleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    alignSelf: 'flex-start',
-    marginLeft: 16,
-    marginTop: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -556,6 +625,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+
   subtitleCard: {
     marginHorizontal: 16,
     backgroundColor: 'rgba(15, 23, 42, 0.90)',

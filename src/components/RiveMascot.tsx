@@ -156,7 +156,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
           ) : (
             <View style={styles.fallbackContainer}>
               <Text style={styles.fallbackEmoji}>🐻</Text>
-              <Text style={styles.fallbackName}>Nova</Text>
+              <Text style={styles.fallbackName}>Teddy</Text>
             </View>
           )}
 

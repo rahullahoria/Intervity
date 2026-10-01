@@ -153,6 +153,29 @@ export interface ModelAsset {
   error?: string;
 }
 
+export interface UserVoiceProfile {
+  userId: string;
+  name: string;
+  targetRole?: string;
+  yearsOfExperience?: number;
+  voiceEnrolled: boolean;
+  voiceEmbedding: number[]; // 192-dimensional normalized biometric vector
+  sampleText?: string;
+  averagePitchHz?: number;
+  enrolledAt: number;
+  lastVerifiedAt?: number;
+}
+
+export interface VoiceEnrollmentState {
+  isCalibrating: boolean;
+  progressPercent: number;
+  candidateName: string;
+  statusText: string;
+  audioLevel: number;
+  isCompleted: boolean;
+  error?: string;
+}
+
 export interface InterviewOptions {
   resume: ParsedResume;
   targetRole: string;
@@ -161,3 +184,4 @@ export interface InterviewOptions {
   interviewerPersona?: InterviewerPersona;
   targetLevel?: string;
 }
+

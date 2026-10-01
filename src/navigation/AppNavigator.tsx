@@ -13,6 +13,7 @@ import { InterviewSessionScreen } from '../screens/InterviewSessionScreen';
 import { SessionSummaryScreen } from '../screens/SessionSummaryScreen';
 import { MistakeDrillScreen } from '../screens/MistakeDrillScreen';
 import { ModelManagerScreen } from '../screens/ModelManagerScreen';
+import { VoiceEnrollmentScreen } from '../screens/VoiceEnrollmentScreen';
 import { colors } from '../theme/colors';
 
 const Stack = createNativeStackNavigator();
@@ -29,6 +30,7 @@ export const AppNavigator: React.FC = () => {
         }}
       >
         <Stack.Screen name="AgentCoaching" component={AgentCoachingScreen as any} />
+        <Stack.Screen name="VoiceEnrollment" component={VoiceEnrollmentScreen as any} />
         <Stack.Screen name="Dashboard" component={DashboardScreen as any} />
         <Stack.Screen name="ResumeSetup" component={ResumeSetupScreen as any} />
         <Stack.Screen name="InterviewSession" component={InterviewSessionScreen as any} />
@@ -39,3 +41,4 @@ export const AppNavigator: React.FC = () => {
     </NavigationContainer>
   );
 };
+
