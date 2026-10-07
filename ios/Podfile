@@ -37,5 +37,15 @@ target 'OfflineInterviewApp' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+    installer.aggregate_targets.each do |target|
+      target.xcconfigs.each do |config_name, config_file|
+        toolchain_swift = '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/${PLATFORM_NAME}'
+        config_file.attributes['LIBRARY_SEARCH_PATHS'] ||= '$(inherited)'
+        unless config_file.attributes['LIBRARY_SEARCH_PATHS'].include?(toolchain_swift)
+          config_file.attributes['LIBRARY_SEARCH_PATHS'] = "#{config_file.attributes['LIBRARY_SEARCH_PATHS']} \"#{toolchain_swift}\""
+          config_file.save_as(Pathname.new(File.join(installer.config.project_pods_root, target.xcconfig_relative_path(config_name))))
+        end
+      end
+    end
   end
 end

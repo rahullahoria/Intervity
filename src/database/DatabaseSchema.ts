@@ -133,5 +133,33 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     enrolled_at INTEGER NOT NULL,
     last_verified_at INTEGER
 );
+
+-- 12. QBL Skill Sessions
+CREATE TABLE IF NOT EXISTS qbl_skill_sessions (
+    session_id TEXT PRIMARY KEY,
+    topic_name TEXT NOT NULL,
+    subtopics_json TEXT NOT NULL,
+    current_subtopic_index INTEGER DEFAULT 0,
+    total_subtopics INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'IN_PROGRESS',
+    overall_mastery_percentage REAL DEFAULT 0.0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+-- 13. QBL Session Turns (Questions, Choices & Feedback)
+CREATE TABLE IF NOT EXISTS qbl_session_turns (
+    turn_id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES qbl_skill_sessions(session_id),
+    subtopic_id TEXT NOT NULL,
+    concept_title TEXT,
+    question_text TEXT NOT NULL,
+    options_json TEXT NOT NULL,
+    user_selected_option_id TEXT,
+    is_correct INTEGER,
+    feedback_text TEXT,
+    created_at INTEGER NOT NULL
+);
 `;
+
 

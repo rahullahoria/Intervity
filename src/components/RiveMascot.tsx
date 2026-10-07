@@ -5,7 +5,8 @@ import { colors } from '../theme/colors';
 import { InterviewState } from '../types';
 
 interface RiveMascotProps {
-  state: InterviewState;
+  state?: InterviewState;
+  emotion?: 'idle' | 'speaking' | 'thinking' | 'celebrating' | 'puzzled';
   audioLevel?: number;
   size?: number;
   onPress?: () => void;
@@ -15,7 +16,8 @@ interface RiveMascotProps {
 }
 
 export const RiveMascot: React.FC<RiveMascotProps> = ({
-  state,
+  state = 'READY',
+  emotion,
   audioLevel = 0,
   size = 280,
   onPress,
@@ -25,72 +27,93 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
 }) => {
   const riveRef = useRef<RiveRef>(null);
   const [hasError, setHasError] = useState(false);
+  const [isRiveReady, setIsRiveReady] = useState(false);
 
-  const isSpeaking = state === 'AI_SPEAKING';
+  const isSpeaking = emotion ? emotion === 'speaking' : state === 'AI_SPEAKING';
   const isListening = state === 'LISTENING' || state === 'USER_SPEAKING';
-  const isThinking = state === 'THINKING';
-  const isInterrupted = state === 'INTERRUPTED';
-  const isCompleted = state === 'COMPLETED';
+  const isThinking = emotion ? emotion === 'thinking' : state === 'THINKING';
+  const isInterrupted = emotion ? emotion === 'puzzled' : state === 'INTERRUPTED';
+  const isCompleted = emotion ? emotion === 'celebrating' : state === 'COMPLETED';
 
   // 1. Handle declarative/imperative updates for state machine & animations
   useEffect(() => {
-    if (!riveRef.current) return;
+    if (!isRiveReady || !riveRef.current) return;
 
-    try {
-      if (isSpeaking) {
-        // Teddy Talking animation: animate mouth moving
-        riveRef.current.setInputState('State Machine 1', 'Talk', true);
-        riveRef.current.setInputState('State Machine 1', 'Hear', false);
-        riveRef.current.setInputState('State Machine 1', 'Check', false);
-      } else if (isListening) {
-        // Teddy Hearing/Listening animation: attentively listening to candidate
-        riveRef.current.setInputState('State Machine 1', 'Talk', false);
-        riveRef.current.setInputState('State Machine 1', 'Hear', true);
-        riveRef.current.setInputState('State Machine 1', 'Check', false);
-        // Gaze reacts dynamically to candidate audio level (10 to 90 degrees)
-        const lookAngle = Math.min(90, Math.max(10, 50 + (audioLevel - 0.5) * 60));
-        riveRef.current.setInputState('State Machine 1', 'Look', Math.round(lookAngle));
-      } else if (isThinking) {
-        // Teddy Thinking animation: contemplative check pose
-        riveRef.current.setInputState('State Machine 1', 'Talk', false);
-        riveRef.current.setInputState('State Machine 1', 'Hear', false);
-        riveRef.current.setInputState('State Machine 1', 'Check', true);
-        riveRef.current.setInputState('State Machine 1', 'Look', 25);
-      } else if (isInterrupted) {
-        // Interrupted: puzzled / surprise trigger
-        riveRef.current.setInputState('State Machine 1', 'Talk', false);
-        riveRef.current.fireState('State Machine 1', 'fail');
-      } else if (isCompleted) {
-        // Completed: celebratory success gesture
-        riveRef.current.setInputState('State Machine 1', 'Talk', false);
-        riveRef.current.fireState('State Machine 1', 'success');
-      } else {
-        // Idle state
-        riveRef.current.setInputState('State Machine 1', 'Talk', false);
-        riveRef.current.setInputState('State Machine 1', 'Hear', false);
-        riveRef.current.setInputState('State Machine 1', 'Check', false);
+    const timer = setTimeout(() => {
+      if (!riveRef.current) return;
+      try {
+        const tag = riveRef.current.viewTag ? riveRef.current.viewTag() : null;
+        if (tag === null) return;
+
+        if (isSpeaking) {
+          // Teddy Talking animation: animate mouth moving
+          riveRef.current.setInputState('State Machine 1', 'Talk', true);
+          riveRef.current.setInputState('State Machine 1', 'Hear', false);
+          riveRef.current.setInputState('State Machine 1', 'Check', false);
+        } else if (isListening) {
+          // Teddy Hearing/Listening animation: attentively listening to candidate
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.setInputState('State Machine 1', 'Hear', true);
+          riveRef.current.setInputState('State Machine 1', 'Check', false);
+          // Gaze reacts dynamically to candidate audio level (10 to 90 degrees)
+          const lookAngle = Math.min(90, Math.max(10, 50 + (audioLevel - 0.5) * 60));
+          riveRef.current.setInputState('State Machine 1', 'Look', Math.round(lookAngle));
+        } else if (isThinking) {
+          // Teddy Thinking animation: contemplative check pose
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.setInputState('State Machine 1', 'Hear', false);
+          riveRef.current.setInputState('State Machine 1', 'Check', true);
+          riveRef.current.setInputState('State Machine 1', 'Look', 25);
+        } else if (isInterrupted) {
+          // Interrupted: puzzled / surprise trigger
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.fireState('State Machine 1', 'fail');
+        } else if (isCompleted) {
+          // Completed: celebratory success gesture
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.fireState('State Machine 1', 'success');
+        } else {
+          // Idle state
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+          riveRef.current.setInputState('State Machine 1', 'Hear', false);
+          riveRef.current.setInputState('State Machine 1', 'Check', false);
+        }
+      } catch {
+        // Ignore transition exceptions gracefully
       }
-    } catch {
-      // Ignore transition exceptions gracefully
-    }
-  }, [state, isSpeaking, isListening, isThinking, isInterrupted, isCompleted, audioLevel, mascotType]);
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [isRiveReady, state, isSpeaking, isListening, isThinking, isInterrupted, isCompleted, audioLevel, mascotType]);
 
   // Periodic head/gaze motion while speaking
   useEffect(() => {
-    if (!isSpeaking) return;
+    if (!isRiveReady || !isSpeaking) return;
 
     let tick = 0;
     const interval = setInterval(() => {
       tick += 1;
       const angle = Math.round(50 + Math.sin(tick * 0.7) * 16);
       try {
-        riveRef.current?.setInputState('State Machine 1', 'Talk', true);
-        riveRef.current?.setInputState('State Machine 1', 'Look', angle);
-      } catch {}
-    }, 150);
+        if (!riveRef.current) return;
+        const tag = riveRef.current.viewTag ? riveRef.current.viewTag() : null;
+        if (tag === null) return;
+        riveRef.current.setInputState('State Machine 1', 'Talk', true);
+        riveRef.current.setInputState('State Machine 1', 'Look', angle);
+      } catch (_e) {
+        // Ignore Rive input state sync errors
+      }
+    }, 200);
 
-    return () => clearInterval(interval);
-  }, [isSpeaking]);
+    return () => {
+      clearInterval(interval);
+      try {
+        if (riveRef.current && riveRef.current.viewTag && riveRef.current.viewTag() !== null) {
+          riveRef.current.setInputState('State Machine 1', 'Talk', false);
+        }
+      } catch {}
+    };
+  }, [isRiveReady, isSpeaking]);
 
   // Glow border color based on conversational state
   const stateBorderColor = isSpeaking
@@ -130,6 +153,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
               fit={Fit.Contain}
               alignment={Alignment.Center}
               autoplay={true}
+              onPlay={() => setIsRiveReady(true)}
               onError={(err) => {
                 console.warn('[RiveMascot Error]:', err);
                 setHasError(true);
@@ -188,6 +212,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
             fit={Fit.Contain}
             alignment={Alignment.Center}
             autoplay={true}
+            onPlay={() => setIsRiveReady(true)}
             onError={(err) => {
               console.warn('[RiveMascot Error]:', err);
               setHasError(true);

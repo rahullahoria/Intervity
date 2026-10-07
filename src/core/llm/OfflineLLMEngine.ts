@@ -13,6 +13,7 @@ try {
 
 import { HardwareAccelerationManager, HardwareAccelerationMode } from '../hardware/HardwareAccelerationManager';
 import { TeddyDialogueEngine } from '../agent/TeddyDialogueEngine';
+import { getCatalogQuestion } from '../qbl/QBLQuestionCatalog';
 
 export class OfflineLLMEngine {
   private llamaContext: any = null;
@@ -195,6 +196,103 @@ export class OfflineLLMEngine {
     return fullResponse;
   }
 
+  async generateCompletion(prompt: string, systemPrompt?: string): Promise<string> {
+    if (!this.isLoaded) {
+      await this.loadModel('MiniCPM5-2B-Q4_K_M.gguf');
+    }
+    this.abortSignal = false;
+
+    if (this.llamaContext && typeof this.llamaContext.completion === 'function') {
+      return new Promise<string>((resolve, reject) => {
+        let full = '';
+        this.llamaContext.completion(
+          {
+            messages: [
+              ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+              { role: 'user', content: prompt },
+            ],
+            n_predict: 1024,
+            temperature: 0.3,
+            top_p: 0.9,
+            stop: ['<|im_end|>', '<|endoftext|>'],
+          },
+          (data: { token: string }) => {
+            if (this.abortSignal) return;
+            full += data.token;
+          }
+        ).then(() => resolve(full.trim())).catch(reject);
+      });
+    }
+
+    if (process.env.NODE_ENV !== 'test') {
+      // Natural conversational pacing while LLM generates output so candidate sees Teddy talking
+      await new Promise((r) => setTimeout(r, 650));
+    }
+
+    return this.generateSimulatedCompletion(prompt, systemPrompt);
+  }
+
+  private generateSimulatedCompletion(prompt: string, _systemPrompt?: string): string {
+    const promptLower = prompt.toLowerCase();
+
+    // 1. Sub-topic Planning Request (JSON array of 5+ items)
+    if (promptLower.includes('plan 5') || promptLower.includes('sub-topics') || promptLower.includes('subtopics')) {
+      const topicMatch = prompt.match(/topic[:\s"']+([^"\n]+)/i);
+      const rawTopic = topicMatch ? topicMatch[1].trim() : 'Software Engineering';
+
+      return JSON.stringify([
+        {
+          id: 'sub_1',
+          title: `Core Fundamentals & Mental Models of ${rawTopic}`,
+          description: `Master foundational principles, architectural trade-offs, and design primitives of ${rawTopic}.`,
+        },
+        {
+          id: 'sub_2',
+          title: `Internal Mechanisms & Engine Architecture`,
+          description: `Understand the low-level lifecycle, concurrency control, and storage/runtime mechanisms.`,
+        },
+        {
+          id: 'sub_3',
+          title: `Failure Modes, Edge Cases & Bottlenecks`,
+          description: `Diagnose high-throughput stress, network partitions, memory leaks, and cascading failures.`,
+        },
+        {
+          id: 'sub_4',
+          title: `High-Scale Production Optimizations`,
+          description: `Implement advanced tuning, p99 latency guarantees, batching strategies, and caching patterns.`,
+        },
+        {
+          id: 'sub_5',
+          title: `Staff-Level Architectural Trade-offs & Leadership`,
+          description: `Evaluate cost vs velocity vs complexity trade-offs and drive resilient engineering decisions.`,
+        },
+      ]);
+    }
+
+    // 2. Question Generation Request (JSON object with 4 options)
+    if (promptLower.includes('multiple-choice') || promptLower.includes('qbl question') || promptLower.includes('options')) {
+      const topicMatch = prompt.match(/topic[:\s"']+([^"\n]+)/i);
+      const rawTopic = topicMatch ? topicMatch[1].trim() : 'Software Engineering';
+
+      const subtopicMatch = prompt.match(/sub-topic[:\s"']+([^"\n(]+)/i);
+      const rawSubtopic = subtopicMatch ? subtopicMatch[1].trim() : 'Core Fundamentals';
+
+      const conceptMatch = prompt.match(/concept\s*#?(\d+)/i);
+      const conceptIndex = conceptMatch ? parseInt(conceptMatch[1], 10) : 1;
+
+      const isReinforcement = promptLower.includes('reinforce') || promptLower.includes('reinforcement');
+
+      const question = getCatalogQuestion(rawTopic, rawSubtopic, conceptIndex, isReinforcement);
+      return JSON.stringify(question);
+    }
+
+    // 3. Conversational Feedback / Teddy Speech
+    return TeddyDialogueEngine.generateConnectedResponse(prompt, {
+      turnIndex: 0,
+      targetRole: 'Staff Software Architect',
+    });
+  }
+
   stopGeneration(): void {
     this.abortSignal = true;
     if (this.llamaContext && this.llamaContext.stopCompletion) {
@@ -210,3 +308,4 @@ export class OfflineLLMEngine {
     this.isLoaded = false;
   }
 }
+

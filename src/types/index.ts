@@ -305,3 +305,62 @@ export interface InterviewOptions {
   targetLevel?: string;
 }
 
+/**
+ * Question-Driven Learning (QBL) Domain Types
+ */
+export interface QBLOption {
+  id: string; // 'A' | 'B' | 'C' | 'D'
+  text: string;
+  isCorrect: boolean;
+  explanation: string;
+}
+
+export interface QBLQuestion {
+  id: string;
+  conceptTitle: string;
+  conceptIndex: number; // 1, 2, or 3
+  questionText: string;
+  options: QBLOption[];
+  explanation: string;
+  coachingTip?: string;
+  isReinforcement?: boolean;
+}
+
+export interface QBLSubtopic {
+  id: string;
+  title: string;
+  description: string;
+  conceptsMastered: number; // 0 to 3
+  totalConcepts: number; // default 3
+  masteryPercentage: number; // 0 to 100%
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+}
+
+export interface QBLSession {
+  sessionId: string;
+  topicName: string;
+  subtopics: QBLSubtopic[];
+  currentSubtopicIndex: number;
+  totalSubtopics: number;
+  status: 'IN_PROGRESS' | 'COMPLETED';
+  overallMasteryPercentage: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface QBLTurnResult {
+  turnId: string;
+  isCorrect: boolean;
+  selectedOption: QBLOption;
+  correctOption: QBLOption;
+  teddyEmotion: 'celebrating' | 'puzzled' | 'thinking' | 'speaking' | 'idle';
+  feedbackText: string;
+  subtopicMastery: number;
+  isSubtopicCompleted: boolean;
+  isSessionCompleted: boolean;
+  xpAwarded: number;
+  didLevelUp?: boolean;
+  newLevel?: number;
+}
+
+

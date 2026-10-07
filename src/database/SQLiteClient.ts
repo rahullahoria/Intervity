@@ -148,19 +148,28 @@ class InMemoryDatabaseDriver {
         }
 
 
-        // ORDER BY current_score ASC
-        if (trimmed.includes('ORDER BY current_score ASC')) {
-          list.sort((a, b) => (a.current_score || 0) - (b.current_score || 0));
-        }
-        if (trimmed.includes('ORDER BY turn_index ASC')) {
-          list.sort((a, b) => (a.turn_index || 0) - (b.turn_index || 0));
+        // ORDER BY [col] [ASC|DESC]
+        const orderMatch = trimmed.match(/ORDER BY\s+([a-zA-Z0-9_]+)(?:\s+(ASC|DESC))?/i);
+        if (orderMatch) {
+          const col = orderMatch[1];
+          const direction = (orderMatch[2] || 'ASC').toUpperCase();
+          list.sort((a, b) => {
+            const valA = a[col] ?? 0;
+            const valB = b[col] ?? 0;
+            if (direction === 'DESC') {
+              return valB > valA ? 1 : valB < valA ? -1 : 0;
+            }
+            return valA > valB ? 1 : valA < valB ? -1 : 0;
+          });
         }
 
-        // LIMIT ?
-        if (trimmed.includes('LIMIT ?') && params.length > 0) {
-          const limit = params[params.length - 1];
-          list = list.slice(0, Number(limit));
+        // LIMIT
+        const limitMatch = trimmed.match(/LIMIT\s+(\?|\d+)/i);
+        if (limitMatch) {
+          const limitVal = limitMatch[1] === '?' ? params[params.length - 1] : Number(limitMatch[1]);
+          list = list.slice(0, Number(limitVal));
         }
+
 
         return { rows: list, rowsAffected: list.length };
       }

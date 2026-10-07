@@ -273,7 +273,9 @@ export class VoiceBiometricsService {
           `UPDATE user_profiles SET last_verified_at = ? WHERE user_id = ?`,
           [Date.now(), userId]
         );
-      } catch {}
+      } catch (_e) {
+        // Ignore DB update failures during non-blocking profile verification
+      }
     }
 
     return {

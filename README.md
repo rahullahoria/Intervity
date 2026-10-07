@@ -29,19 +29,83 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 
 ## 🚀 Key Features
 
-- **🧠 Autonomous Agent Coaching Harness & Evolving Mascot:** The Mascot (Nova) has an adaptive personality that levels up (from *Curious Explorer* to *Distinguished Fellow*) as it learns from you. It maintains persistent long-term SQLite memory of your career aspirations, company targets, and technical blind spots, dynamically alternating between discovering your background, probing deep architecture trade-offs, and teaching brand-new skills with the Feynman technique.
-- **🎨 Interactive Rive AI Mascot with Lip-Sync & Avatar Switcher:** Expressive on-device vector mascot driven by Rive State Machines (`rive-react-native`). Synchronizes mouth animation (`Talking`) directly with on-device Kokoro TTS PCM audio playback, reacts with attentive listening eye tracking, and features a one-tap dynamic avatar toggle between Coach Nova and Teddy Bear.
-- **🎙️ Zero-Friction Hands-Free Voice Experience:** Clean, distraction-free interface where the Mascot talks out loud via Kokoro-82M on the loudspeaker, listens attentively, and loops back-and-forth hands-free with energy VAD silence detection. Includes a secondary backup text drawer when speech or audio is inconvenient.
-- **✨ Unified Vector Icon Design System & Modern UI:** Replaced raw platform emojis with a cohesive, high-performance vector icon suite in `src/components/icons/AppIcons.tsx` built with `react-native-svg`. Styled with a modern cyan (`#38BDF8`), indigo (`#818CF8`), and slate palette, featuring real-time audio waveform activity visualizers (`SoundWaveBars`) in the live teleprompter, safe-area notch and status-bar clearance via `SafeAreaProvider`, and responsive HUD layout.
+- **💡 Question-Driven Learning (QBL) — Master Engineering Through Deep Questions:** Pure text-first, active recall learning flow. Candidates explore high-impact engineering topics (or input arbitrary custom skills), where the agent plans structured 5+ sub-topic roadmaps. Teddy presents concepts one-by-one through deep 4-option architectural challenges, celebrating breakthroughs, explaining why wrong options fail, and deploying reinforcement drills to ensure 100% concept mastery.
+- **🧠 Autonomous Agent Coaching Harness & Evolving Mascot:** The Mascot (Nova / Teddy) has an adaptive personality that levels up (from *Curious Explorer* to *Distinguished Fellow*) as it learns from you. It maintains persistent long-term SQLite memory of your career aspirations, company targets, and technical blind spots, dynamically alternating between discovering your background, probing deep architecture trade-offs, and teaching brand-new skills with the Feynman technique.
+- **🎨 Interactive Rive AI Mascot with Emotions & State Control:** Expressive on-device vector mascot driven by Rive State Machines (`rive-react-native`). Mascot talks strictly while the LLM is formulating/generating responses, celebrates (`🎉`) upon selecting the correct pattern, and shows thoughtful puzzle diagnostics (`🤔`) on tricky traps.
 - **📱 Mascot Face App Launcher & Adaptive Icon Suite:** Modern branded Intervity launcher icons featuring Coach Nova's face across Android (adaptive, round, square, Play Store 512×512) and iOS (`AppIcon.appiconset` with solid RGB across all device scales). Generated via [`scripts/generate_mascot_icons.py`](scripts/generate_mascot_icons.py).
-- **🎙️ Kokoro-82M Neural TTS:** Studio-grade on-device text-to-speech powered by `sherpa-onnx` and ONNX Runtime. Generates rich, human-like cadence across 103 voices, including Indian English (`en-IN`) technical interviewer personas (`hf_alpha` Bengaluru Tech Lead, `hm_omega` VP of Engineering).
-- **⚡ Ultra-Fast Full-Duplex Audio & Barge-In:** Built-in hardware Acoustic Echo Cancellation (AEC) and instant (<100ms) audio track flush when the candidate interrupts the AI, mirroring real human conversational dynamics.
+- **✨ Unified Vector Icon Design System & Modern UI:** Replaced raw platform emojis with a cohesive, high-performance vector icon suite in `src/components/icons/AppIcons.tsx` built with `react-native-svg`. Styled with a modern cyan (`#38BDF8`), indigo (`#818CF8`), and slate palette, featuring smooth auto-scrolling, safe-area notch and status-bar clearance via `SafeAreaProvider`, and responsive HUD layout.
 - **🧠 Local LLM Reasoning:** Runs 4-bit quantized MiniCPM5-2B (`MiniCPM5-2B-Q4_K_M.gguf`, 1.45 GB) downloaded from BunnyCDN edge pull zone on first launch and executed via `llama.rn` directly on mobile NPU/GPU/CPU with zero cloud dependencies.
-- **🎧 High-Fidelity Speech Recognition:** Seamless streaming transcription via `whisper.rn` with energy-based Voice Activity Detection (VAD).
 - **📊 Bayesian Exponential Moving Average (EMA) Mastery Tracking:** Relational SQLite tracking across core engineering competencies (React Native, System Design, Concurrency, Concurrency Hazards, Data Modeling, Communication).
 - **🎯 4-Tier Mistake Taxonomy & Autopsy:** Automatically classifies stumbling points into **Conceptual**, **Structural**, **Communication**, and **Vague Hand-waving**, generating deliberate practice drills.
 - **⚡ STAR Method Scoring:** Real-time extraction and verification of **S**ituation, **T**ask, **A**ction, and **R**esult narratives with quantified ownership metrics.
-- **🧘 Zero-Filler Biofeedback Drills:** Real-time cadence and filler-word detection (`um`, `uh`, `like`, `you know`, `actually`, `basically`) with visual pacing biofeedback.
+- **🎙️ Future Full-Duplex Voice Engine (STT & TTS):** Architecture ready for voice sessions with Kokoro-82M neural TTS and Whisper STT with hardware echo cancellation (AEC).
+
+---
+
+## 🎯 Question-Driven Learning (QBL) Workflow
+
+Intervity puts active recall and Socratic learning front and center via the **Question-Driven Learning (QBL)** engine:
+
+```
+                      ┌──────────────────────────────────────┐
+                      │              App Launch              │
+                      │  Teddy greets & asks: Resume session │
+                      │       or start a new skill?          │
+                      └──────────────────┬───────────────────┘
+                                         │
+                                         ▼
+                      ┌──────────────────────────────────────┐
+                      │        Topic / Skill Selection       │
+                      │  - Masterclass Track (SQL, Kafka,    │
+                      │    React Native, Dist. Systems, etc.)│
+                      │  - Or type any custom topic          │
+                      └──────────────────┬───────────────────┘
+                                         │
+                                         ▼
+                      ┌──────────────────────────────────────┐
+                      │      Autonomous Sub-Topic Planner    │
+                      │  Plans 5+ structured sub-topics with │
+                      │  gated prerequisites & 0-100% mastery│
+                      └──────────────────┬───────────────────┘
+                                         │
+                                         ▼
+                      ┌──────────────────────────────────────┐
+                      │    One-by-One Concept Presentation   │
+                      │  Presents 4-option architectural     │
+                      │  trade-off questions per concept     │
+                      └──────────────────┬───────────────────┘
+                                         │
+                         ┌───────────────┴───────────────┐
+                         ▼                               ▼
+                 [Correct Answer]                 [Wrong Answer]
+                 - +25 XP awarded                 - +5 Learning XP
+                 - Teddy celebrates (🎉)          - Teddy diagnostics (🤔)
+                 - Detailed architectural why     - Explains why chosen option failed
+                 - Advances concept count (33%)   - Reveals correct pattern rationale
+                         │                        - Queues targeted reinforcement drill
+                         │                               │
+                         └───────────────┬───────────────┘
+                                         │
+                                         ▼
+                      ┌──────────────────────────────────────┐
+                      │       Sub-Topic Mastery Gate         │
+                      │  Requires 100% concept mastery       │
+                      │  before unlocking next sub-topic     │
+                      └──────────────────┬───────────────────┘
+                                         │
+                                         ▼
+                      ┌──────────────────────────────────────┐
+                      │   SQLite Local Session Persistence   │
+                      │  Full turn-by-turn history, resume   │
+                      │  any session right where you paused  │
+                      └──────────────────────────────────────┘
+```
+
+### Key QBL Capabilities:
+1. **Zero Duplicate Questions**: Concept #1, Concept #2, Concept #3, and Reinforcement drills deliver distinct, rigorous technical trade-offs across storage engines, event pipelines, distributed consensus, and mobile architectures.
+2. **Procedural Question Synthesis**: Any custom topic entered by the candidate (e.g., *"PostgreSQL WAL"*, *"GraphQL"*, *"Docker Containerization"*) dynamically generates specialized multi-option question sets and sub-topic roadmaps.
+3. **Mascot Animation Coordination**: Teddy displays talk animations exclusively when the local LLM is actively streaming/generating output, ensuring natural, non-distracting conversation flow.
+4. **Focused Vertical Viewport**: Auto-scrolls cleanly to the active question card and hides completed clutter so candidates can focus directly on architectural reasoning.
 
 ---
 
@@ -149,7 +213,7 @@ npx react-native run-ios
 ```
 
 ### 4. Running Tests
-Intervity includes an extensive unit and end-to-end test suite covering the conversational state machine, resume parsing, Bayesian EMA mastery math, and STAR scoring:
+Intervity includes an extensive unit and end-to-end test suite (87+ automated tests across 16 files) covering Question-Driven Learning (QBL) roadmap planning, question distinctness & diversity, conversational state machines, resume parsing, Bayesian EMA mastery math, and STAR scoring:
 
 ```bash
 bun test
@@ -201,15 +265,16 @@ Intervity/
 │   │   ├── agent/             # Autonomous Coaching Harness & SQLite memory
 │   │   ├── audio/             # Full-duplex audio state machine & AEC logic
 │   │   ├── llm/               # Local Llama / MiniCPM prompt & generation orchestrator
+│   │   ├── qbl/               # QBLEngine & QBLQuestionCatalog (Question-Driven Learning)
 │   │   ├── resume/            # Fast on-device regex & heuristic resume parser
 │   │   ├── stt/               # Whisper speech-to-text service
 │   │   └── tts/               # Kokoro TTS service interface
-│   ├── database/              # SQLite schema, migrations & Bayesian EMA skill store
-│   ├── hooks/                 # Custom React hooks (interview engine, agent coaching, mastery, drills)
+│   ├── database/              # SQLite schema, QBLStorageManager & Bayesian EMA skill store
+│   ├── hooks/                 # useQBLSession, useAgentCoaching, useMasteryProgression
 │   ├── navigation/            # React Navigation stack with SafeAreaProvider
-│   ├── screens/               # AgentCoaching, ModelManager, Dashboard, Drills
+│   ├── screens/               # AgentCoachingScreen, ModelManagerScreen, DashboardScreen
 │   └── theme/                 # Dark aesthetic design system & color tokens
-├── tests/                     # 23+ unit & E2E integration test suites
+├── tests/                     # 87+ unit & E2E integration test suites across 16 files
 └── scripts/                   # Model downloaders, device provisioning & icon generators
 ```
 

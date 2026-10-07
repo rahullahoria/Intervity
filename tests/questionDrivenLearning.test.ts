@@ -1,0 +1,238 @@
+/**
+ * Question-Driven Learning (QBL) Test Suite
+ * 
+ * Verifies:
+ * 1. Sub-topic planning (5+ comprehensive sub-topics)
+ * 2. 4-Option multiple-choice generation with explanations
+ * 3. Correct answer flow: +33% mastery per concept, celebrating emotion, XP award
+ * 4. Wrong answer flow: explains why chosen answer is wrong & what the right answer is,
+ *    puzzled emotion, and delivers reinforcement question
+ * 5. 100% subtopic mastery gate and progression to next subtopic
+ * 6. SQLite persistence and session resumption
+ */
+
+import { describe, it, beforeEach } from 'node:test';
+import assert from 'node:assert';
+import { SQLiteClient } from '../src/database/SQLiteClient';
+import { QBLStorageManager } from '../src/database/QBLStorageManager';
+import { QBLEngine } from '../src/core/qbl/QBLEngine';
+import { OfflineLLMEngine } from '../src/core/llm/OfflineLLMEngine';
+
+describe('Question-Driven Learning (QBL) Core Engine & Flow', () => {
+  let db: SQLiteClient;
+  let storage: QBLStorageManager;
+  let llmEngine: OfflineLLMEngine;
+  let qblEngine: QBLEngine;
+
+  beforeEach(async () => {
+    db = SQLiteClient.getInstance();
+    await db.initialize();
+    await db.execute('DELETE FROM qbl_skill_sessions;');
+    await db.execute('DELETE FROM qbl_session_turns;');
+    storage = new QBLStorageManager(db);
+    llmEngine = new OfflineLLMEngine();
+    await llmEngine.loadModel('MiniCPM5-2B-Q4_K_M.gguf');
+    qblEngine = new QBLEngine(llmEngine, storage);
+  });
+
+
+  describe('Sub-topic Planning (5+ Comprehensive Roadmap)', () => {
+    it('plans at least 5 logically structured sub-topics for any given skill topic', async () => {
+      const subtopics = await qblEngine.planSubtopics('Kafka & Event Streaming');
+      assert.ok(Array.isArray(subtopics));
+      assert.ok(subtopics.length >= 5, `Expected >= 5 subtopics, got ${subtopics.length}`);
+
+      // Verify structure of each subtopic
+      subtopics.forEach((sub, idx) => {
+        assert.ok(sub.id, `Subtopic ${idx} must have an id`);
+        assert.ok(sub.title && sub.title.length > 5, `Subtopic ${idx} must have a descriptive title`);
+        assert.ok(sub.description && sub.description.length > 10, `Subtopic ${idx} must have a description`);
+        assert.strictEqual(sub.conceptsMastered, 0);
+        assert.strictEqual(sub.totalConcepts, 3);
+        assert.strictEqual(sub.masteryPercentage, 0);
+        assert.strictEqual(sub.status, idx === 0 ? 'IN_PROGRESS' : 'PENDING');
+      });
+    });
+  });
+
+  describe('4-Option Question Generation', () => {
+    it('generates a multiple-choice question with 4 options and valid explanations', async () => {
+      const subtopics = await qblEngine.planSubtopics('Distributed Systems');
+      const question = await qblEngine.generateQuestion('Distributed Systems', subtopics[0], 1, false);
+
+      assert.ok(question.id);
+      assert.ok(question.questionText && question.questionText.length > 15);
+      assert.strictEqual(question.options.length, 4);
+
+      // Exactly one option must be marked correct
+      const correctOptions = question.options.filter((o) => o.isCorrect);
+      assert.strictEqual(correctOptions.length, 1, 'Must have exactly one correct option');
+
+      // Verify labels A, B, C, D and explanations
+      const ids = question.options.map((o) => o.id);
+      assert.deepStrictEqual(ids, ['A', 'B', 'C', 'D']);
+      question.options.forEach((opt) => {
+        assert.ok(opt.text.length > 0);
+        assert.ok(opt.explanation.length > 0, `Option ${opt.id} must explain why it is right or wrong`);
+      });
+    });
+  });
+
+  describe('Correct Answer Flow & Mastery Tracking', () => {
+    it('awards +33% mastery on correct answer, triggers celebrating emotion and awards XP', async () => {
+      const session = await qblEngine.createNewSession('Distributed Systems');
+      const currentSub = session.subtopics[0];
+      const question = await qblEngine.generateQuestion(session.topicName, currentSub, 1, false);
+
+      const correctOpt = question.options.find((o) => o.isCorrect)!;
+      const result = await qblEngine.evaluateAnswer(session, currentSub, question, correctOpt.id);
+
+      assert.strictEqual(result.isCorrect, true);
+      assert.strictEqual(result.teddyEmotion, 'celebrating');
+      assert.strictEqual(result.xpAwarded, 25);
+      assert.strictEqual(currentSub.conceptsMastered, 1);
+      assert.strictEqual(currentSub.masteryPercentage, 33);
+      assert.ok(result.feedbackText.includes('Spot on') || result.feedbackText.includes('right'));
+      assert.ok(result.feedbackText.includes(correctOpt.explanation));
+    });
+
+    it('advances subtopic to 100% and COMPLETED after 3 correct concepts', async () => {
+      const session = await qblEngine.createNewSession('Distributed Systems');
+      const currentSub = session.subtopics[0];
+
+      for (let conceptIdx = 1; conceptIdx <= 3; conceptIdx++) {
+        const question = await qblEngine.generateQuestion(session.topicName, currentSub, conceptIdx, false);
+        const correctOpt = question.options.find((o) => o.isCorrect)!;
+        await qblEngine.evaluateAnswer(session, currentSub, question, correctOpt.id);
+      }
+
+      assert.strictEqual(currentSub.conceptsMastered, 3);
+      assert.strictEqual(currentSub.masteryPercentage, 100);
+      assert.strictEqual(currentSub.status, 'COMPLETED');
+    });
+  });
+
+  describe('Wrong Answer Flow: Diagnostics & Reinforcement', () => {
+    it('explains why selected option is wrong, reveals correct answer, and queues reinforcement', async () => {
+      const session = await qblEngine.createNewSession('Kafka');
+      const currentSub = session.subtopics[0];
+      const question = await qblEngine.generateQuestion(session.topicName, currentSub, 1, false);
+
+      const wrongOpt = question.options.find((o) => !o.isCorrect)!;
+      const correctOpt = question.options.find((o) => o.isCorrect)!;
+
+      const result = await qblEngine.evaluateAnswer(session, currentSub, question, wrongOpt.id);
+
+      assert.strictEqual(result.isCorrect, false);
+      assert.strictEqual(result.teddyEmotion, 'puzzled');
+      assert.strictEqual(result.xpAwarded, 5); // Learning from mistakes XP
+      assert.strictEqual(currentSub.conceptsMastered, 0); // Not incremented
+      assert.strictEqual(currentSub.masteryPercentage, 0);
+
+      // Verify diagnostics in feedback text
+      assert.ok(result.feedbackText.includes(`Option ${wrongOpt.id} is incorrect`));
+      assert.ok(result.feedbackText.includes(wrongOpt.explanation));
+      assert.ok(result.feedbackText.includes(`Option ${correctOpt.id}`));
+      assert.ok(result.feedbackText.includes(correctOpt.text));
+
+      // Generate reinforcement question
+      const reinforceQ = await qblEngine.generateQuestion(
+        session.topicName,
+        currentSub,
+        1,
+        true,
+        wrongOpt.text
+      );
+      assert.strictEqual(reinforceQ.isReinforcement, true);
+      assert.strictEqual(reinforceQ.options.length, 4);
+    });
+  });
+
+  describe('Session Persistence & Resumption', () => {
+    it('persists session and turns in SQLite and restores accurately on resume', async () => {
+      const created = await qblEngine.createNewSession('React Native Architecture');
+      assert.ok(created.sessionId);
+
+      // Answer 1 question correctly
+      const sub0 = created.subtopics[0];
+      const q = await qblEngine.generateQuestion(created.topicName, sub0, 1, false);
+      const correctOpt = q.options.find((o) => o.isCorrect)!;
+      await qblEngine.evaluateAnswer(created, sub0, q, correctOpt.id);
+
+      // Resume session from database
+      const resumed = await qblEngine.resumeSession(created.sessionId);
+      assert.ok(resumed);
+      assert.strictEqual(resumed.sessionId, created.sessionId);
+      assert.strictEqual(resumed.topicName, 'React Native Architecture');
+      assert.strictEqual(resumed.subtopics.length, created.subtopics.length);
+      assert.strictEqual(resumed.subtopics[0].conceptsMastered, 1);
+      assert.strictEqual(resumed.subtopics[0].masteryPercentage, 33);
+
+      // Verify latest session query
+      const latest = await qblEngine.getLatestSession();
+      assert.ok(latest);
+      assert.strictEqual(latest.sessionId, created.sessionId);
+
+      // Verify recorded turn
+      const turns = await storage.getTurnsForSession(created.sessionId);
+      assert.strictEqual(turns.length, 1);
+      assert.strictEqual(turns[0].isCorrect, true);
+      assert.strictEqual(turns[0].userSelectedOptionId, correctOpt.id);
+    });
+  });
+
+  describe('Teddy Mascot Emotion Lifecycle (Talking ONLY during LLM Output Generation)', () => {
+    it('guarantees evaluateAnswer never sets emotion to speaking (only celebrating or puzzled)', async () => {
+      const session = await qblEngine.createNewSession('System Design');
+      const sub = session.subtopics[0];
+      const q = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+
+      const correctOpt = q.options.find((o) => o.isCorrect)!;
+      const wrongOpt = q.options.find((o) => !o.isCorrect)!;
+
+      const correctResult = await qblEngine.evaluateAnswer(session, sub, q, correctOpt.id);
+      assert.strictEqual(correctResult.teddyEmotion, 'celebrating');
+      assert.notStrictEqual(correctResult.teddyEmotion, 'speaking');
+
+      const wrongResult = await qblEngine.evaluateAnswer(session, sub, q, wrongOpt.id);
+      assert.strictEqual(wrongResult.teddyEmotion, 'puzzled');
+      assert.notStrictEqual(wrongResult.teddyEmotion, 'speaking');
+    });
+  });
+
+  describe('Question Distinctness & Diversity (Zero Duplication Between Concepts)', () => {
+    it('generates strictly distinct questions across Concept 1, Concept 2, Concept 3 and Reinforcement for a track', async () => {
+      const session = await qblEngine.createNewSession('SQL Indexing & Sharding');
+      const sub = session.subtopics[0];
+
+      const q1 = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+      const q2 = await qblEngine.generateQuestion(session.topicName, sub, 2, false);
+      const q3 = await qblEngine.generateQuestion(session.topicName, sub, 3, false);
+      const qReinforce = await qblEngine.generateQuestion(session.topicName, sub, 1, true, 'Composite indexes');
+
+      const questions = [q1.questionText, q2.questionText, q3.questionText, qReinforce.questionText];
+      const uniqueQuestions = new Set(questions);
+
+      assert.strictEqual(uniqueQuestions.size, 4, 'All 4 questions must have distinct question texts');
+      assert.notStrictEqual(q1.questionText, q2.questionText);
+      assert.notStrictEqual(q2.questionText, q3.questionText);
+      assert.notStrictEqual(q1.questionText, q3.questionText);
+    });
+
+    it('generates distinct questions for different tracks and arbitrary custom topics', async () => {
+      const kafkaSession = await qblEngine.createNewSession('Kafka & Event Streaming');
+      const rnSession = await qblEngine.createNewSession('React Native Architecture');
+      const customSession = await qblEngine.createNewSession('Docker & Kubernetes Containerization');
+
+      const qKafka = await qblEngine.generateQuestion(kafkaSession.topicName, kafkaSession.subtopics[0], 1, false);
+      const qRN = await qblEngine.generateQuestion(rnSession.topicName, rnSession.subtopics[0], 1, false);
+      const qCustom = await qblEngine.generateQuestion(customSession.topicName, customSession.subtopics[0], 1, false);
+
+      assert.notStrictEqual(qKafka.questionText, qRN.questionText);
+      assert.notStrictEqual(qKafka.questionText, qCustom.questionText);
+      assert.notStrictEqual(qRN.questionText, qCustom.questionText);
+      assert.ok(qCustom.questionText.includes('Docker') || qCustom.questionText.includes('Containerization'));
+    });
+  });
+});
+

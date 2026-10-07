@@ -61,7 +61,9 @@ export class NativeAudioEngine {
         if (NativeModules.AndroidVoiceAudioEngine.setSpeakerphone) {
           try {
             await NativeModules.AndroidVoiceAudioEngine.setSpeakerphone(true);
-          } catch {}
+          } catch (_e) {
+            // Ignore speakerphone initialization error
+          }
         }
       }
 

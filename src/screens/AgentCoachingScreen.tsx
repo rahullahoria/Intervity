@@ -1,15 +1,18 @@
 /**
- * Agent Coaching Screen (Minimalist Hands-Free Voice Space)
+ * Agent Coaching Screen: Question-Driven Learning (QBL) Masterclass
  * 
- * Design Philosophy:
- * - Zero Clutter / No Fancy bloat
- * - Mascot front-and-center talking with on-device Kokoro-82M TTS
- * - Hands-Free Voice-First continuous conversation loop
- * - Evolving Mascot personality & level progress as it learns from the user
- * - Secondary backup text input/output for quiet environments
+ * Premium UI/UX Edition:
+ * - High-end dark aesthetic (#07090E / #0F1420) with electric cyan, purple, and emerald accents
+ * - Teddy Organic Companion Card: Avatar halo, dynamic speech bubble, expressive Rive states
+ * - Masterclass Track Cards: 5 core engineering tracks with category badges and deep technical scope
+ * - Tactical QBL Question Card: Concept counter, 4 high-contrast tactile option buttons (A, B, C, D)
+ * - Deep Diagnostics Feedback: Crystal-clear separation of "Why it's a trap" vs "Correct answer & mental model"
+ * - Sub-topic Mastery Indicators: Concept step dots (● ● ○), 100% mastery gate
+ * - Interactive Sub-topic Roadmap Sheet & Past Sessions Drawer
+ * - Modern floating glassmorphism input dock for free-form queries & hints
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,1017 +24,1626 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 import { RiveMascot } from '../components/RiveMascot';
-import { EngineDiagnosticsModal } from '../components/EngineDiagnosticsModal';
-import { useAgentCoaching } from '../hooks/useAgentCoaching';
+import { useQBLSession } from '../hooks/useQBLSession';
 import {
-  SparklesIcon,
   StarIcon,
-  CoachIcon,
-  BearIcon,
-  VolumeHighIcon,
-  VolumeLowIcon,
-  SettingsIcon,
-  TargetIcon,
-  MicIcon,
-  BrainIcon,
-  ChatBubbleIcon,
-  PauseIcon,
-  CloseIcon,
+  SparklesIcon,
   SendIcon,
-  BulbIcon,
-  BriefcaseIcon,
-  ArchitectureIcon,
-  DeviceMobileIcon,
-  UsersGroupIcon,
-  SoundWaveBars,
+  CloseIcon,
+  TargetIcon,
+  BrainIcon,
+  SettingsIcon,
 } from '../components/icons/AppIcons';
-import {
-  ConversationTrack,
-  CONVERSATION_TRACKS,
-  CONVERSATION_TRACK_LIST,
-} from '../types';
+
+import { colors } from '../theme/colors';
 
 interface AgentCoachingScreenProps {
   navigation: any;
 }
 
+interface MasterclassTrack {
+  id: string;
+  title: string;
+  badge: string;
+  description: string;
+  accentColor: string;
+  tag: string;
+}
+
+const MASTERCLASS_TRACKS: MasterclassTrack[] = [
+  {
+    id: 'Distributed Systems',
+    title: 'High-Scale Distributed Systems',
+    badge: 'Staff / L6',
+    description: 'PACELC trade-offs, Raft consensus, Byzantine resilience & p99 SLA defense',
+    accentColor: '#38BDF8',
+    tag: 'CONSENSUS & SCALE',
+  },
+  {
+    id: 'Kafka & Event Streaming',
+    title: 'Kafka & Event Streaming',
+    badge: 'Data Platform',
+    description: 'Partition ISR quorums, consumer rebalancing & exactly-once semantics',
+    accentColor: '#A855F7',
+    tag: 'EVENT ARCHITECTURE',
+  },
+  {
+    id: 'React Native Architecture',
+    title: 'React Native & Mobile Performance',
+    badge: '60 FPS JSI',
+    description: 'Fabric renderer, TurboModules, Hermes bytecode & offline SQLite sync',
+    accentColor: '#10B981',
+    tag: 'CLIENT ARCHITECTURE',
+  },
+  {
+    id: 'SQL Indexing & Sharding',
+    title: 'SQL Indexing & Sharding',
+    badge: 'Deep DB',
+    description: 'B+Tree access paths, write-ahead logs (WAL), composite indexes & locks',
+    accentColor: '#F59E0B',
+    tag: 'STORAGE ENGINES',
+  },
+  {
+    id: 'System Design & Microservices',
+    title: 'System Design at Scale',
+    badge: 'Principal',
+    description: 'Probabilistic caching (XFetch), idempotence, rate limiting & circuit breakers',
+    accentColor: '#F43F5E',
+    tag: 'MICROSERVICES',
+  },
+];
+
 export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ navigation }) => {
-  const {
-    state,
-    mascotProfile,
-    userMemory,
-    voiceProfile,
-    conversationTrack,
-    refreshVoiceProfile,
-    currentSubtitle,
-    audioLevel,
-    messages,
-    isLoudspeaker,
-    turnIndex,
-    startSession,
-    startListening,
-    stopAndSend,
-    cancelListening,
-    stopMascotSpeaking,
-    sendBackupTextMessage,
-    toggleSpeakerphone,
-    selectConversationTrack,
-  } = useAgentCoaching();
-
-  useFocusEffect(
-    React.useCallback(() => {
-      refreshVoiceProfile();
-    }, [refreshVoiceProfile])
-  );
-
-  const [isTextDrawerVisible, setIsTextDrawerVisible] = useState(false);
-  const [isDiagnosticsVisible, setIsDiagnosticsVisible] = useState(false);
-  const [isTrackModalVisible, setIsTrackModalVisible] = useState(false);
-  const [typedInput, setTypedInput] = useState('');
-  const [selectedMascot, setSelectedMascot] = useState<'coach' | 'teddy'>('teddy');
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  const isSpeaking = state === 'AI_SPEAKING';
-  const isListening = state === 'LISTENING' || state === 'USER_SPEAKING';
-  const isThinking = state === 'THINKING';
-  const isReady = state === 'READY';
-  const hasStarted = messages.length > 0 || turnIndex > 0;
+  const {
+    session,
+    pastSessions,
+    currentSubtopic,
+    currentQuestion,
+    teddyEmotion,
+    chatMessages,
+    isThinking,
+    isInitializing,
+    latestSessionToResume,
+    modelStatus,
+    mascotLevel,
+    mascotXp,
+    mascotTier,
+    startNewTopic,
+    resumeSession,
+    selectOption,
+    advanceToNextQuestion,
+    currentTurnResult,
+    selectedOptionId,
+    sendChatMessage,
+  } = useQBLSession();
 
-  const handleSendText = () => {
-    if (!typedInput.trim()) return;
-    sendBackupTextMessage(typedInput);
-    setTypedInput('');
+  const [inputText, setInputText] = useState('');
+  const [isRoadmapVisible, setIsRoadmapVisible] = useState(false);
+  const [isSessionsModalVisible, setIsSessionsModalVisible] = useState(false);
+
+  // When a new question arrives, ALWAYS scroll to top (y: 0) so the question text is 100% visible and not covered!
+  useEffect(() => {
+    if (currentQuestion) {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [currentQuestion?.id]);
+
+  // When turn is evaluated (feedback arrives), gently scroll down to reveal the feedback and Continue button!
+  useEffect(() => {
+    if (currentTurnResult) {
+      const timer = setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [currentTurnResult]);
+
+  // Auto-scroll on free-form chat messages if no active question
+  useEffect(() => {
+    if (!currentQuestion && chatMessages.length > 0) {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [chatMessages.length, currentQuestion]);
+
+  const handleSend = () => {
+    if (!inputText.trim() || isThinking) return;
+    const text = inputText.trim();
+    setInputText('');
+    sendChatMessage(text);
   };
 
-  const handleQuickPrompt = (prompt: string) => {
-    sendBackupTextMessage(prompt);
+  const handleOptionPress = (optionId: string) => {
+    if (isThinking || selectedOptionId) return;
+    selectOption(optionId);
   };
+
 
   return (
-    <View style={styles.rootContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+    <KeyboardAvoidingView
+      style={styles.rootContainer}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar barStyle="light-content" backgroundColor="#07090E" translucent={true} />
 
-      {/* 1. Full Screen Immersive Mascot Layer */}
-      <RiveMascot
-        isFullScreen={true}
-        state={state}
-        audioLevel={audioLevel}
-        mascotType={selectedMascot}
-        onPress={() => {
-          if (isSpeaking) stopMascotSpeaking();
-          else if (isReady) startListening();
-          else if (isListening) stopAndSend();
-        }}
-      />
-
-      {/* 2. Floating Top Header & Career Goals */}
+      {/* 1. Header HUD */}
       <View
         style={[
-          styles.floatingTopContainer,
-          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 38) : 0, 44) + 12 },
+          styles.topHeader,
+          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0, 44) + 6 },
         ]}
-        pointerEvents="box-none"
       >
-        <View style={styles.header}>
-          <View style={styles.mascotLevelChip}>
-            <View style={styles.mascotLevelHeaderRow}>
-              <View style={styles.levelBadge}>
-                <StarIcon size={11} color="#38BDF8" />
-                <Text style={styles.levelBadgeText}>Lv.{mascotProfile.level}</Text>
+        <View style={styles.headerRow}>
+          {/* Level Badge with Star & XP Progress */}
+          <View style={styles.levelCard}>
+            <View style={styles.levelBadgeRow}>
+              <View style={styles.starBadge}>
+                <StarIcon size={12} color="#38BDF8" />
+                <Text style={styles.starBadgeText}>Lv.{mascotLevel}</Text>
               </View>
-              <Text style={styles.mascotPersonalityText} numberOfLines={1}>
-                {mascotProfile.personalityTier}
+              <Text style={styles.personalityTierText} numberOfLines={1}>
+                {mascotTier}
               </Text>
+              <Text style={styles.xpFractionText}>{mascotXp % 100}/100 XP</Text>
             </View>
-            <View style={styles.xpBarTrack}>
+            <View style={styles.xpTrack}>
               <View
                 style={[
-                  styles.xpBarFill,
-                  { width: `${Math.min(100, (mascotProfile.xp / mascotProfile.xpToNextLevel) * 100)}%` },
+                  styles.xpFill,
+                  { width: `${Math.min(100, (mascotXp % 100))}%` },
                 ]}
               />
             </View>
           </View>
 
-          <View style={styles.headerControls}>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => setSelectedMascot((prev) => (prev === 'coach' ? 'teddy' : 'coach'))}
-              accessibilityLabel="Switch Avatar"
-            >
-              {selectedMascot === 'coach' ? (
-                <CoachIcon size={18} color="#38BDF8" />
-              ) : (
-                <BearIcon size={18} color="#38BDF8" />
-              )}
-            </TouchableOpacity>
+          {/* Action Pills */}
+          <View style={styles.headerActions}>
+            {session && (
+              <TouchableOpacity
+                style={styles.roadmapBtn}
+                onPress={() => setIsRoadmapVisible(true)}
+                activeOpacity={0.8}
+                accessibilityLabel="View Roadmap"
+              >
+                <TargetIcon size={14} color="#38BDF8" />
+                <Text style={styles.roadmapBtnText}>Roadmap</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
-              style={[
-                styles.iconBtn,
-                isLoudspeaker && styles.iconBtnActive,
-              ]}
-              onPress={toggleSpeakerphone}
-              accessibilityLabel="Toggle Loudspeaker"
+              style={styles.sessionsBtn}
+              onPress={() => setIsSessionsModalVisible(true)}
+              activeOpacity={0.8}
+              accessibilityLabel="Past Sessions"
             >
-              {isLoudspeaker ? (
-                <VolumeHighIcon size={18} color="#38BDF8" />
-              ) : (
-                <VolumeLowIcon size={18} color="#94A3B8" />
-              )}
+              <BrainIcon size={15} color="#94A3B8" />
+              <Text style={styles.sessionsBtnText}>Sessions</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.iconBtn}
               onPress={() => navigation.navigate('ModelManager')}
+              activeOpacity={0.8}
               accessibilityLabel="Settings"
             >
-              <SettingsIcon size={18} color="#94A3B8" />
+              <SettingsIcon size={16} color="#94A3B8" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.topBadgesRow}>
-          <TouchableOpacity
-            style={[
-              styles.trackSelectorBadge,
-              { borderColor: CONVERSATION_TRACKS[conversationTrack]?.badgeColor || '#38BDF8' },
-            ]}
-            onPress={() => setIsTrackModalVisible(true)}
-            activeOpacity={0.8}
-            accessibilityLabel="Switch Conversation Track"
-          >
-            {conversationTrack === 'DISTRIBUTED_SYSTEMS' && <ArchitectureIcon size={12} color="#38BDF8" />}
-            {conversationTrack === 'ENGINEERING_LEADERSHIP' && <UsersGroupIcon size={12} color="#F59E0B" />}
-            {conversationTrack === 'CLIENT_PERFORMANCE' && <DeviceMobileIcon size={12} color="#10B981" />}
-            {conversationTrack === 'AI_DATA_PLATFORM' && <BrainIcon size={12} color="#8B5CF6" />}
-            {conversationTrack === 'BEHAVIORAL_LEADERSHIP' && <SparklesIcon size={12} color="#EC4899" />}
-            <Text
-              style={[
-                styles.trackSelectorText,
-                { color: CONVERSATION_TRACKS[conversationTrack]?.badgeColor || '#38BDF8' },
-              ]}
-              numberOfLines={1}
-            >
-              Track: {CONVERSATION_TRACKS[conversationTrack]?.shortTitle || 'Distributed'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.voiceProfileBadge,
-              voiceProfile?.voiceEnrolled && styles.voiceProfileBadgeActive,
-            ]}
-            onPress={() =>
-              navigation.navigate('VoiceEnrollment', {
-                candidateName: voiceProfile?.name || userMemory?.candidateName || 'Rahul',
-              })
-            }
-            activeOpacity={0.8}
-            accessibilityLabel="Voice Profile Calibration"
-          >
-            <MicIcon size={12} color={voiceProfile?.voiceEnrolled ? '#10B981' : '#38BDF8'} />
-            <Text
-              style={[
-                styles.voiceProfileText,
-                voiceProfile?.voiceEnrolled && { color: '#6EE7B7' },
-              ]}
-            >
-              {voiceProfile?.voiceEnrolled
-                ? `${voiceProfile.name} (Calibrated)`
-                : '🎙️ Enroll Voice'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.diagnosticsPillBadge}
-            onPress={() => setIsDiagnosticsVisible(true)}
-            activeOpacity={0.8}
-            accessibilityLabel="Test AI Engines"
-          >
-            <SparklesIcon size={12} color="#38BDF8" />
-            <Text style={styles.diagnosticsPillText}>🧪 Test AI Engines</Text>
-          </TouchableOpacity>
-
-          {userMemory?.targetRole ? (
-            <View style={styles.targetRoleBadge}>
-              <TargetIcon size={12} color="#818CF8" />
-              <Text style={styles.targetRoleText} numberOfLines={1}>
-                Target: {userMemory.targetRole}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-
-
-      {/* 3. Floating Bottom HUD (Subtitles & Primary Action Controls) */}
-      <View
-        style={[
-          styles.floatingBottomContainer,
-          { paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 22 : 8) + 8 },
-        ]}
-        pointerEvents="box-none"
-      >
-        {/* Live Subtitle Teleprompter */}
-        <View style={styles.subtitleCard}>
-          <View style={styles.subtitleHeaderRow}>
-            <View style={styles.speakerStatusRow}>
-              {isSpeaking ? (
-                <>
-                  <SoundWaveBars level={audioLevel} active={true} color="#38BDF8" size={14} />
-                  <Text style={[styles.subtitleSpeaker, { color: '#38BDF8' }]}>Teddy (AI Buddy & Coach)</Text>
-                </>
-              ) : isListening ? (
-                <>
-                  <SoundWaveBars level={audioLevel} active={true} color="#22D3EE" size={14} />
-                  <Text style={[styles.subtitleSpeaker, { color: '#22D3EE' }]}>Listening to you</Text>
-                </>
-              ) : isThinking ? (
-                <>
-                  <BrainIcon size={13} color="#A78BFA" />
-                  <Text style={[styles.subtitleSpeaker, { color: '#A78BFA' }]}>Updating Career Model</Text>
-                </>
-              ) : (
-                <>
-                  <SparklesIcon size={13} color="#94A3B8" />
-                  <Text style={styles.subtitleSpeaker}>Teddy Ready</Text>
-                </>
-              )}
-            </View>
-
-            {isSpeaking && (
-              <TouchableOpacity
-                style={styles.bargeInHintPill}
-                onPress={stopMascotSpeaking}
-                activeOpacity={0.7}
-              >
-                <PauseIcon size={10} color="#38BDF8" />
-                <Text style={[styles.bargeInHintText, { color: '#38BDF8' }]}>Tap to pause speech</Text>
-              </TouchableOpacity>
-            )}
-            {isListening && (
-              <View style={[styles.bargeInHintPill, { backgroundColor: 'rgba(34, 211, 238, 0.15)' }]}>
-                <Text style={[styles.bargeInHintText, { color: '#22D3EE' }]}>Tap Send when done</Text>
+        {/* Inline Model Download Banner (Only displayed if actively downloading) */}
+        {modelStatus.isDownloading && (
+          <View style={styles.modelStatusBanner}>
+            <ActivityIndicator size="small" color="#38BDF8" style={{ marginRight: 8 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modelStatusText}>{modelStatus.statusText}</Text>
+              <View style={styles.modelProgressTrack}>
+                <View style={[styles.modelProgressFill, { width: `${modelStatus.progress}%` }]} />
               </View>
-            )}
+            </View>
+            <Text style={styles.modelPercentText}>{modelStatus.progress}%</Text>
           </View>
+        )}
 
-          <Text style={styles.subtitleText} numberOfLines={3}>
-            {currentSubtitle || (isListening ? 'Speak now into your microphone...' : 'Tap below to chat with Teddy...')}
-          </Text>
-        </View>
+        {/* Active Session & Sub-topic Mastery Strip */}
+        {session && currentSubtopic && currentQuestion && (
+          <View style={styles.activeTopicBar}>
 
-        {/* Bottom Push-to-Talk Action Bar */}
-        <View style={styles.bottomBar}>
-          {isReady ? (
-            <TouchableOpacity
-              style={styles.primaryStartBtn}
-              onPress={hasStarted ? startListening : startSession}
-              activeOpacity={0.8}
-            >
-              <MicIcon size={20} color="#FFFFFF" />
-              <Text style={styles.primaryStartBtnText}>
-                {hasStarted ? 'Tap to Speak' : 'Start Coaching Conversation'}
+            <View style={styles.topicInfoRow}>
+              <Text style={styles.activeTopicName} numberOfLines={1}>
+                {session.topicName}
               </Text>
-            </TouchableOpacity>
-          ) : isSpeaking ? (
-            <TouchableOpacity
-              style={styles.speakingActiveBtn}
-              onPress={stopMascotSpeaking}
-              activeOpacity={0.8}
-            >
-              <SoundWaveBars level={audioLevel} active={true} color="#38BDF8" size={15} />
-              <Text style={styles.speakingActiveBtnText}>Teddy is speaking... (Tap to Pause)</Text>
-              <PauseIcon size={14} color="#38BDF8" />
-            </TouchableOpacity>
-          ) : isListening ? (
-            <View style={styles.recordingControlsRow}>
-              <TouchableOpacity
-                style={styles.cancelRecordBtn}
-                onPress={cancelListening}
-                activeOpacity={0.7}
-              >
-                <CloseIcon size={16} color="#94A3B8" />
-                <Text style={styles.cancelRecordText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.sendRecordBtn}
-                onPress={() => stopAndSend()}
-                activeOpacity={0.8}
-              >
-                <SoundWaveBars level={audioLevel} active={true} color="#FFFFFF" size={14} />
-                <Text style={styles.sendRecordBtnText}>Send</Text>
-                <SendIcon size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          ) : isThinking ? (
-            <View style={styles.thinkingPill}>
-              <BrainIcon size={16} color="#A78BFA" />
-              <Text style={styles.thinkingPillText}>Teddy is thinking...</Text>
-            </View>
-          ) : null}
-
-          {/* Secondary Controls: Push-to-Talk Indicator & Text Mode */}
-          <View style={styles.secondaryControlsRow}>
-            <View style={styles.modeIndicatorChip}>
-              <MicIcon size={12} color="#38BDF8" />
-              <Text style={styles.modeIndicatorText}>Push-to-Talk Mode</Text>
+              <View style={styles.overallMasteryBadge}>
+                <SparklesIcon size={11} color="#38BDF8" style={{ marginRight: 4 }} />
+                <Text style={styles.overallMasteryText}>
+                  {session.overallMasteryPercentage}% Skill Mastered
+                </Text>
+              </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.textBackupBtn}
-              onPress={() => setIsTextDrawerVisible(true)}
-              activeOpacity={0.8}
-            >
-              <ChatBubbleIcon size={13} color="#38BDF8" />
-              <Text style={styles.textBackupBtnText}>Text Mode</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-
-      {/* Secondary Backup Text Modal (For Silent / Non-Voice Situations) */}
-      <Modal
-        visible={isTextDrawerVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsTextDrawerVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.modalOverlay}
-        >
-          <View style={styles.modalContent}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleRow}>
-                <ChatBubbleIcon size={18} color="#38BDF8" />
-                <View style={{ marginLeft: 8 }}>
-                  <Text style={styles.modalTitle}>Backup Text Mode</Text>
-                  <Text style={styles.modalSubtitle}>Use when you cannot speak or listen out loud</Text>
+            <View style={styles.subtopicProgressContainer}>
+              <View style={styles.subtopicLabelRow}>
+                <Text style={styles.subtopicNameText} numberOfLines={1}>
+                  Sub-topic {session.currentSubtopicIndex + 1}/{session.subtopics.length}: {currentSubtopic.title}
+                </Text>
+                {/* Concept Step Dots: ● ● ○ */}
+                <View style={styles.conceptDotsRow}>
+                  {[1, 2, 3].map((dot) => {
+                    const isMastered = currentSubtopic.conceptsMastered >= dot;
+                    const isCurrent = currentSubtopic.conceptsMastered + 1 === dot;
+                    return (
+                      <View
+                        key={dot}
+                        style={[
+                          styles.conceptDot,
+                          isMastered && styles.conceptDotMastered,
+                          isCurrent && styles.conceptDotCurrent,
+                        ]}
+                      />
+                    );
+                  })}
+                  <Text style={styles.subtopicMasteryText}>{currentSubtopic.masteryPercentage}%</Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setIsTextDrawerVisible(false)}
+              <View style={styles.subtopicTrack}>
+                <View
+                  style={[
+                    styles.subtopicFill,
+                    {
+                      width: `${currentSubtopic.masteryPercentage}%`,
+                      backgroundColor:
+                        currentSubtopic.masteryPercentage === 100
+                          ? colors.successGreen
+                          : '#38BDF8',
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+
+      {/* 2. Teddy Companion Hero Area */}
+      <View style={styles.companionSection}>
+        <View style={styles.companionRow}>
+          <View style={styles.mascotHalo}>
+            <RiveMascot
+              emotion={isThinking ? 'speaking' : (teddyEmotion === 'speaking' ? 'idle' : teddyEmotion)}
+              mascotType="teddy"
+              size={95}
+              showMascotBadge={false}
+            />
+          </View>
+          <View style={styles.companionSpeechCard}>
+            <View style={styles.companionHeaderRow}>
+              <View style={styles.companionNameBadge}>
+                <Text style={styles.companionNameText}>TEDDY AI</Text>
+              </View>
+              <View
+                style={[
+                  styles.emotionBadge,
+                  isThinking && styles.emotionSpeaking,
+                  !isThinking && teddyEmotion === 'celebrating' && styles.emotionCelebrating,
+                  !isThinking && teddyEmotion === 'puzzled' && styles.emotionPuzzled,
+                ]}
               >
-                <CloseIcon size={16} color="#94A3B8" />
+                <Text style={styles.emotionEmoji}>
+                  {isThinking
+                    ? '🎙️ Formulating...'
+                    : teddyEmotion === 'celebrating'
+                    ? '🎉 Celebrating'
+                    : teddyEmotion === 'puzzled'
+                    ? '🤔 Diagnostics'
+                    : '✨ Mentor Ready'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.companionDialogueText} numberOfLines={2}>
+              {isThinking
+                ? 'Teddy is formulating your next question and curriculum...'
+                : currentQuestion
+                ? selectedOptionId
+                  ? teddyEmotion === 'celebrating'
+                    ? "Spot on! That's exactly how it works in production! 🎉"
+                    : "Not quite, but this is a super common trap. Let's analyze it! 🤔"
+                  : 'Analyze the trade-offs carefully and select the best pattern below! 🚀'
+                : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].sender === 'teddy'
+                ? chatMessages[chatMessages.length - 1].text.split('\n')[0]
+                : session
+                ? `Mastering ${currentSubtopic?.title || session.topicName} together!`
+                : 'Welcome! Ready to level up your engineering depth through Question-Driven Learning?'}
+            </Text>
+          </View>
+        </View>
+
+      </View>
+
+      {/* 3. Main Content Stream (Scrollable) */}
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.mainScroll}
+        contentContainerStyle={[
+          styles.mainContent,
+          { paddingBottom: insets.bottom + 85 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {isInitializing && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#38BDF8" />
+            <Text style={styles.loadingText}>Waking up Teddy...</Text>
+          </View>
+        )}
+
+        {/* Welcome / Choice State: Resume Last Session Card OR Masterclass Tracks */}
+        {!currentQuestion && !isThinking && (
+          <View style={styles.welcomeContainer}>
+
+            {/* Resume Last Session Banner */}
+            {latestSessionToResume && (
+              <TouchableOpacity
+                style={styles.resumeHeroCard}
+                onPress={() => resumeSession(latestSessionToResume.sessionId)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.resumeHeroIconContainer}>
+                  <Text style={styles.resumePlayEmoji}>▶️</Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <View style={styles.resumeBadgeRow}>
+                    <Text style={styles.resumeTagText}>CONTINUE WHERE YOU LEFT OFF</Text>
+                    <Text style={styles.resumePercentBadge}>
+                      {latestSessionToResume.overallMasteryPercentage}% Done
+                    </Text>
+                  </View>
+                  <Text style={styles.resumeTopicTitle} numberOfLines={1}>
+                    {latestSessionToResume.topicName}
+                  </Text>
+                  <Text style={styles.resumeSubMeta}>
+                    {latestSessionToResume.subtopics.length} Sub-topics • Masterclass in progress
+                  </Text>
+                </View>
               </TouchableOpacity>
+            )}
+
+            <View style={styles.sectionDivider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerTitle}>
+                {latestSessionToResume ? 'OR START A NEW SKILL' : 'FEATURED MASTERCLASS TRACKS'}
+              </Text>
+              <View style={styles.dividerLine} />
             </View>
 
-            {/* Dynamic Quick Prompts for Active Track */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.quickPromptScroll}
-            >
-              {(CONVERSATION_TRACKS[conversationTrack]?.suggestedPrompts || []).map((prompt, idx) => (
+            {/* Masterclass Track Cards */}
+            <View style={styles.tracksGrid}>
+              {MASTERCLASS_TRACKS.map((track) => (
                 <TouchableOpacity
-                  key={`track_prompt_${idx}`}
-                  style={styles.quickChip}
-                  onPress={() => handleQuickPrompt(prompt)}
+                  key={track.id}
+                  style={[styles.trackCard, { borderLeftColor: track.accentColor }]}
+                  onPress={() => startNewTopic(track.id)}
+                  activeOpacity={0.8}
                 >
-                  <BulbIcon size={13} color={CONVERSATION_TRACKS[conversationTrack]?.badgeColor || '#38BDF8'} />
-                  <Text style={styles.quickChipText}>{prompt}</Text>
+                  <View style={styles.trackCardHeader}>
+                    <View style={styles.trackTagContainer}>
+                      <Text style={[styles.trackTagText, { color: track.accentColor }]}>
+                        {track.tag}
+                      </Text>
+                    </View>
+                    <View style={[styles.trackBadgePill, { borderColor: track.accentColor }]}>
+                      <Text style={[styles.trackBadgeText, { color: track.accentColor }]}>
+                        {track.badge}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.trackCardTitle}>{track.title}</Text>
+                  <Text style={styles.trackCardDesc} numberOfLines={2}>
+                    {track.description}
+                  </Text>
+                  <View style={styles.trackCardFooter}>
+                    <Text style={styles.trackSubtopicsCount}>5 Sub-topics • Masterclass</Text>
+                    <Text style={[styles.trackActionArrow, { color: track.accentColor }]}>
+                      Start →
+                    </Text>
+                  </View>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
 
-            {/* Conversation History */}
-            <ScrollView style={styles.chatScroll} contentContainerStyle={styles.chatScrollContent}>
-              {messages.length === 0 ? (
-                <Text style={styles.emptyChatText}>No messages yet. Send a message below to start.</Text>
-              ) : (
-                messages.map((msg) => (
+            <View style={styles.customTopicPromptBox}>
+              <Text style={styles.customTopicPromptText}>
+                💡 Want to learn something else? Type any topic (e.g. "PostgreSQL WAL", "GraphQL", "Concurrency") in the bar below!
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Active QBL Session: Freeform Inquiries, Active Question & Feedback Cards */}
+        {session && (
+          <View style={styles.sessionStreamContainer}>
+            {/* 1. Free-form Discussion / Hints if user asked Teddy anything */}
+            {chatMessages
+              .filter(
+                (msg) =>
+                  msg.id.startsWith('msg_user_chat_') ||
+                  msg.id.startsWith('msg_teddy_chat_')
+              )
+              .map((msg) => {
+                const isTeddy = msg.sender === 'teddy';
+                return (
                   <View
                     key={msg.id}
                     style={[
-                      styles.chatBubble,
-                      msg.sender === 'user' ? styles.userBubble : styles.mascotBubble,
+                      styles.chatRow,
+                      isTeddy ? styles.chatRowTeddy : styles.chatRowUser,
                     ]}
                   >
-                    <Text style={styles.bubbleAuthor}>
-                      {msg.sender === 'user' ? 'You' : `Teddy (Lv.${mascotProfile.level})`}
-                    </Text>
-                    <Text style={styles.bubbleText}>{msg.text}</Text>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-
-            {/* Text Input Row */}
-            <View style={styles.inputRow}>
-              <TextInput
-                style={styles.textInput}
-                placeholder="Type your answer or career goal..."
-                placeholderTextColor="#64748B"
-                value={typedInput}
-                onChangeText={setTypedInput}
-                onSubmitEditing={handleSendText}
-                returnKeyType="send"
-              />
-              <TouchableOpacity
-                style={[styles.sendBtn, !typedInput.trim() && styles.sendBtnDisabled]}
-                onPress={handleSendText}
-                disabled={!typedInput.trim()}
-              >
-                <SendIcon size={15} color={typedInput.trim() ? '#FFFFFF' : '#64748B'} />
-                <Text style={styles.sendBtnText}>Send</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* On-Device AI Engine Diagnostics & Individual Unit Tests */}
-      <EngineDiagnosticsModal
-        visible={isDiagnosticsVisible}
-        onClose={() => setIsDiagnosticsVisible(false)}
-      />
-
-      {/* 5 Specialized Conversation Tracks Selection Modal */}
-      <Modal
-        visible={isTrackModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsTrackModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.trackModalContent}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalTitleRow}>
-                <TargetIcon size={18} color="#38BDF8" />
-                <View style={{ marginLeft: 8 }}>
-                  <Text style={styles.modalTitle}>5 Coaching Tracks</Text>
-                  <Text style={styles.modalSubtitle}>Pick a specialized focus for your session</Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setIsTrackModalVisible(false)}
-              >
-                <CloseIcon size={16} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.trackListScroll} showsVerticalScrollIndicator={false}>
-              {CONVERSATION_TRACK_LIST.map((track) => {
-                const isSelected = track.id === conversationTrack;
-                return (
-                  <TouchableOpacity
-                    key={track.id}
-                    style={[
-                      styles.trackCard,
-                      isSelected && {
-                        borderColor: track.badgeColor,
-                        backgroundColor: 'rgba(30, 41, 59, 0.95)',
-                      },
-                    ]}
-                    onPress={async () => {
-                      setIsTrackModalVisible(false);
-                      await selectConversationTrack(track.id);
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.trackCardTopRow}>
-                      <View
+                    <View
+                      style={[
+                        styles.chatBubble,
+                        isTeddy ? styles.chatBubbleTeddy : styles.chatBubbleUser,
+                      ]}
+                    >
+                      <Text
                         style={[
-                          styles.trackIconContainer,
-                          { backgroundColor: `${track.badgeColor}22` },
+                          styles.chatText,
+                          isTeddy ? styles.chatTextTeddy : styles.chatTextUser,
                         ]}
                       >
-                        {track.id === 'DISTRIBUTED_SYSTEMS' && (
-                          <ArchitectureIcon size={20} color={track.badgeColor} />
-                        )}
-                        {track.id === 'ENGINEERING_LEADERSHIP' && (
-                          <UsersGroupIcon size={20} color={track.badgeColor} />
-                        )}
-                        {track.id === 'CLIENT_PERFORMANCE' && (
-                          <DeviceMobileIcon size={20} color={track.badgeColor} />
-                        )}
-                        {track.id === 'AI_DATA_PLATFORM' && (
-                          <BrainIcon size={20} color={track.badgeColor} />
-                        )}
-                        {track.id === 'BEHAVIORAL_LEADERSHIP' && (
-                          <SparklesIcon size={20} color={track.badgeColor} />
-                        )}
-                      </View>
-                      <View style={styles.trackTitleBlock}>
-                        <View style={styles.trackTitleHeaderRow}>
+                        {msg.text}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+
+            {/* 2. Active Question Card (Tactical One-by-One QBL Presentation) */}
+            {currentQuestion && (
+              <View style={styles.questionCardContainer}>
+                <View style={styles.questionCardHeader}>
+                  <View style={styles.conceptPill}>
+                    <SparklesIcon size={12} color="#38BDF8" style={{ marginRight: 4 }} />
+                    <Text style={styles.conceptPillText}>
+                      CONCEPT #{currentQuestion.conceptIndex} OF 3
+                    </Text>
+                  </View>
+                  {currentQuestion.isReinforcement && (
+                    <View style={styles.reinforcementBadge}>
+                      <Text style={styles.reinforcementBadgeText}>🎯 Reinforcement Drill</Text>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.questionScenarioText}>
+                  {currentQuestion.questionText}
+                </Text>
+
+                {/* Interactive 4 Multiple-Choice Options */}
+                <View style={styles.optionsList}>
+                  {currentQuestion.options.map((opt) => {
+                    const isSelected = selectedOptionId === opt.id;
+                    const hasSelected = !!selectedOptionId;
+                    const isEvaluated = !!currentTurnResult;
+                    const isCorrect = opt.isCorrect;
+
+                    return (
+                      <TouchableOpacity
+                        key={opt.id}
+                        accessible={true}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Option ${opt.id}: ${opt.text}`}
+                        style={[
+                          styles.optionButton,
+                          isSelected && styles.optionButtonSelected,
+                          isEvaluated && isSelected && isCorrect && styles.optionButtonCorrect,
+                          isEvaluated && isSelected && !isCorrect && styles.optionButtonWrong,
+                          isEvaluated && !isSelected && isCorrect && styles.optionButtonRevealCorrect,
+                          (isThinking || hasSelected) && styles.optionButtonDisabled,
+                        ]}
+                        onPress={() => handleOptionPress(opt.id)}
+                        disabled={isThinking || hasSelected}
+                        activeOpacity={0.75}
+                      >
+                        <View
+                          style={[
+                            styles.optionLetterBadge,
+                            isSelected && styles.optionLetterSelected,
+                            isEvaluated && isSelected && isCorrect && styles.optionLetterCorrect,
+                            isEvaluated && isSelected && !isCorrect && styles.optionLetterWrong,
+                            isEvaluated && !isSelected && isCorrect && styles.optionLetterRevealCorrect,
+                          ]}
+                        >
                           <Text
                             style={[
-                              styles.trackCardTitle,
-                              isSelected && { color: track.badgeColor },
+                              styles.optionLetterText,
+                              isSelected && styles.optionLetterTextSelected,
+                              isEvaluated && isSelected && (isCorrect ? styles.optionLetterTextCorrect : styles.optionLetterTextWrong),
                             ]}
                           >
-                            {track.title}
+                            {isEvaluated && isSelected ? (isCorrect ? '✓' : '✗') : isEvaluated && !isSelected && isCorrect ? '✓' : opt.id}
                           </Text>
-                          {isSelected && (
-                            <View
-                              style={[
-                                styles.activeTrackPill,
-                                { backgroundColor: `${track.badgeColor}33` },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.activeTrackPillText,
-                                  { color: track.badgeColor },
-                                ]}
-                              >
-                                Active
-                              </Text>
-                            </View>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.optionContentText}>{opt.text}</Text>
+                          {isEvaluated && !isSelected && isCorrect && (
+                            <Text style={styles.correctIndicatorTag}>✓ Correct Answer</Text>
                           )}
                         </View>
-                        <Text style={styles.trackCardSubtitle}>
-                          {track.subtitle} • {track.targetRole}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* 3. Deep Diagnostic Feedback Card (Rendered immediately below options once evaluated) */}
+                {currentTurnResult && (
+                  <View
+                    style={[
+                      styles.feedbackCard,
+                      currentTurnResult.isCorrect ? styles.feedbackCardCorrect : styles.feedbackCardWrong,
+                    ]}
+                  >
+                    <View style={styles.feedbackHeaderRow}>
+                      <Text style={styles.feedbackTitleText}>
+                        {currentTurnResult.isCorrect ? '🎉 SPOT ON! +25 XP' : '⚠️ CONCEPT DIAGNOSTIC'}
+                      </Text>
+                      <View
+                        style={[
+                          styles.feedbackStatusBadge,
+                          currentTurnResult.isCorrect ? styles.feedbackStatusCorrect : styles.feedbackStatusWrong,
+                        ]}
+                      >
+                        <Text style={styles.feedbackStatusBadgeText}>
+                          {currentTurnResult.isCorrect ? 'Mastered ✓' : 'Trap Analyzed'}
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.trackSystemFocusText}>{track.systemFocus}</Text>
+                    <Text style={styles.feedbackBodyText}>{currentTurnResult.feedbackText}</Text>
+                  </View>
+                )}
+
+                {/* 4. Dedicated Continue Button (Transitions to Next Concept / Drill / Subtopic) */}
+                {currentTurnResult && (
+                  <TouchableOpacity
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel="Continue to next question"
+                    style={[
+                      styles.continueBtn,
+                      currentTurnResult.isCorrect ? styles.continueBtnCorrect : styles.continueBtnReinforce,
+                    ]}
+                    onPress={advanceToNextQuestion}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.continueBtnText}>
+                      {currentTurnResult.isSubtopicCompleted
+                        ? 'Continue to Next Sub-topic →'
+                        : currentTurnResult.isCorrect
+                        ? `Continue to Concept #${Math.min(3, (currentSubtopic?.conceptsMastered || 0) + 1)} →`
+                        : 'Continue to Reinforcement Drill →'}
+                    </Text>
                   </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* 5. Masterclass 100% Completion Card */}
+            {!currentQuestion && !isThinking && session.overallMasteryPercentage === 100 && (
+              <View style={styles.completionCard}>
+                <Text style={styles.completionEmoji}>🏆</Text>
+                <Text style={styles.completionTitle}>Masterclass Complete!</Text>
+                <Text style={styles.completionDesc}>
+                  You have achieved 100% mastery across all {session.subtopics.length} sub-topics of "{session.topicName}"! You are ready for Staff/Principal architecture rounds!
+                </Text>
+                <TouchableOpacity
+                  style={[styles.continueBtn, styles.continueBtnCorrect]}
+                  onPress={() => setIsRoadmapVisible(true)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.continueBtnText}>Review Mastery Roadmap 🗺️</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Thinking Indicator */}
+            {isThinking && (
+              <View style={styles.thinkingContainer}>
+                <ActivityIndicator size="small" color="#38BDF8" style={{ marginRight: 8 }} />
+                <Text style={styles.thinkingLabel}>Teddy is formulating your next question...</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* 4. Floating Modern Glassmorphism Input Bar */}
+      <View
+        style={[
+          styles.inputContainer,
+          { paddingBottom: Math.max(insets.bottom, 12) },
+        ]}
+      >
+        <TextInput
+          style={styles.textInput}
+          placeholder={
+            !session
+              ? 'Enter any skill, topic, or language...'
+              : 'Ask Teddy a question or ask for a hint...'
+          }
+          placeholderTextColor="#64748B"
+          value={inputText}
+          onChangeText={setInputText}
+          onSubmitEditing={handleSend}
+          returnKeyType="send"
+          multiline={false}
+          editable={!isThinking}
+        />
+        <TouchableOpacity
+          style={[
+            styles.sendBtn,
+            (!inputText.trim() || isThinking) && styles.sendBtnDisabled,
+          ]}
+          onPress={handleSend}
+          disabled={!inputText.trim() || isThinking}
+          activeOpacity={0.8}
+        >
+          <SendIcon
+            size={18}
+            color={inputText.trim() && !isThinking ? '#07090E' : '#475569'}
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* 5. Sub-topic Roadmap Modal Sheet */}
+      <Modal
+        visible={isRoadmapVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsRoadmapVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Masterclass Curriculum</Text>
+                <Text style={styles.modalSubtitle}>
+                  {session?.topicName} • 5+ In-Depth Sub-topics
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsRoadmapVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <CloseIcon size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.roadmapList} showsVerticalScrollIndicator={false}>
+              {session?.subtopics.map((sub, idx) => {
+                const isCurrent = idx === session.currentSubtopicIndex;
+                const isCompleted = sub.status === 'COMPLETED';
+
+                return (
+                  <View
+                    key={sub.id}
+                    style={[
+                      styles.roadmapItemCard,
+                      isCurrent && styles.roadmapItemCurrent,
+                      isCompleted && styles.roadmapItemCompleted,
+                    ]}
+                  >
+                    <View style={styles.roadmapItemHeader}>
+                      <View
+                        style={[
+                          styles.roadmapIndexBadge,
+                          isCompleted && styles.roadmapIndexCompleted,
+                          isCurrent && styles.roadmapIndexCurrent,
+                        ]}
+                      >
+                        <Text style={styles.roadmapIndexText}>
+                          {isCompleted ? '✓' : idx + 1}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={styles.roadmapItemTitle}>{sub.title}</Text>
+                        <Text style={styles.roadmapItemDesc}>{sub.description}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.roadmapProgressRow}>
+                      <View style={styles.roadmapTrack}>
+                        <View
+                          style={[
+                            styles.roadmapFill,
+                            {
+                              width: `${sub.masteryPercentage}%`,
+                              backgroundColor: isCompleted ? colors.successGreen : '#38BDF8',
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.roadmapMasteryText}>
+                        {sub.masteryPercentage}% ({sub.conceptsMastered}/{sub.totalConcepts} concepts)
+                      </Text>
+                    </View>
+                  </View>
                 );
               })}
             </ScrollView>
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* 6. Past Sessions Picker Modal Sheet */}
+      <Modal
+        visible={isSessionsModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setIsSessionsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Your Learning Sessions</Text>
+                <Text style={styles.modalSubtitle}>
+                  Resume where you left off or review past topic progress
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsSessionsModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <CloseIcon size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.sessionsList} showsVerticalScrollIndicator={false}>
+              {pastSessions.length === 0 ? (
+                <View style={styles.emptySessionsBox}>
+                  <Text style={styles.emptySessionsText}>
+                    No saved sessions yet. Pick a masterclass track to build your skill mastery!
+                  </Text>
+                </View>
+              ) : (
+                pastSessions.map((s) => (
+                  <TouchableOpacity
+                    key={s.sessionId}
+                    style={[
+                      styles.sessionCard,
+                      session?.sessionId === s.sessionId && styles.sessionCardActive,
+                    ]}
+                    onPress={() => {
+                      setIsSessionsModalVisible(false);
+                      resumeSession(s.sessionId);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sessionCardTitle}>{s.topicName}</Text>
+                      <Text style={styles.sessionCardMeta}>
+                        {s.subtopics.length} sub-topics • Last updated{' '}
+                        {new Date(s.updatedAt).toLocaleDateString()}
+                      </Text>
+                    </View>
+                    <View style={styles.sessionMasteryBadge}>
+                      <Text style={styles.sessionMasteryText}>
+                        {s.overallMasteryPercentage}%
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   rootContainer: {
     flex: 1,
-    backgroundColor: '#d6e2ea',
+    backgroundColor: '#07090E',
   },
-  floatingTopContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    elevation: 20,
+  topHeader: {
+    backgroundColor: '#0B0F19',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#161E30',
   },
-  floatingBottomContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 20,
-    elevation: 20,
-  },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
   },
-  mascotLevelChip: {
-    flexShrink: 1,
-    maxWidth: '65%',
-    flexDirection: 'column',
-    gap: 5,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+  levelCard: {
+    flex: 1,
+    marginRight: 10,
   },
-  mascotLevelHeaderRow: {
+  levelBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    marginBottom: 4,
   },
-  levelBadge: {
+  starBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
     backgroundColor: 'rgba(56, 189, 248, 0.15)',
     paddingHorizontal: 6,
     paddingVertical: 2,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  starBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#38BDF8',
+    marginLeft: 3,
+  },
+  personalityTierText: {
+    fontSize: 12,
+    color: '#F8FAFC',
+    fontWeight: '600',
+    flex: 1,
+  },
+  xpFractionText: {
+    fontSize: 10,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  xpTrack: {
+    height: 3,
+    backgroundColor: '#1C2538',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  xpFill: {
+    height: '100%',
+    backgroundColor: '#38BDF8',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roadmapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     borderRadius: 8,
+    marginRight: 6,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.3)',
   },
-  levelBadgeText: {
+  roadmapBtnText: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  sessionsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#131B2E',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: '#202B42',
+  },
+  sessionsBtnText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#131B2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#202B42',
+  },
+  modelStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#131B2E',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.2)',
+  },
+  modelStatusText: {
+    fontSize: 11,
+    color: '#38BDF8',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  modelProgressTrack: {
+    height: 3,
+    backgroundColor: '#1E293B',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  modelProgressFill: {
+    height: '100%',
+    backgroundColor: '#38BDF8',
+  },
+  modelPercentText: {
+    fontSize: 11,
+    color: '#94A3B8',
+    marginLeft: 8,
+    fontWeight: '700',
+  },
+  activeTopicBar: {
+    marginTop: 8,
+    backgroundColor: '#0F1420',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1C2538',
+  },
+  topicInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  activeTopicName: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
+  },
+  overallMasteryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  overallMasteryText: {
     color: '#38BDF8',
     fontSize: 11,
     fontWeight: '700',
   },
-  mascotPersonalityText: {
-    color: '#F8FAFC',
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
+  subtopicProgressContainer: {},
+  subtopicLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  xpBarTrack: {
-    width: '100%',
-    height: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  subtopicNameText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    flex: 1,
+    marginRight: 6,
+  },
+  conceptDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  conceptDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#334155',
+    marginRight: 4,
+  },
+  conceptDotMastered: {
+    backgroundColor: colors.successGreen,
+  },
+  conceptDotCurrent: {
+    backgroundColor: '#38BDF8',
+  },
+  subtopicMasteryText: {
+    color: '#CBD5E1',
+    fontSize: 11,
+    fontWeight: '700',
+    marginLeft: 4,
+  },
+  subtopicTrack: {
+    height: 3,
+    backgroundColor: '#07090E',
     borderRadius: 2,
     overflow: 'hidden',
   },
-  xpBarFill: {
+  subtopicFill: {
     height: '100%',
-    backgroundColor: '#38BDF8',
-    borderRadius: 2,
   },
-  headerControls: {
+  companionSection: {
+    backgroundColor: '#0A0E18',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#161E30',
+  },
+  companionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+  mascotHalo: {
+    width: 82,
+    height: 82,
+    borderRadius: 20,
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+    overflow: 'hidden',
   },
-  iconBtnActive: {
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+  companionSpeechCard: {
+    flex: 1,
+    marginLeft: 12,
+    backgroundColor: '#121827',
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#1F293D',
+  },
+  companionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  companionNameBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  companionNameText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  emotionBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+  },
+  emotionSpeaking: {
+    backgroundColor: 'rgba(56, 189, 248, 0.22)',
+  },
+  emotionCelebrating: {
+    backgroundColor: 'rgba(34, 197, 94, 0.18)',
+  },
+  emotionPuzzled: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+  },
+  emotionThinking: {
+    backgroundColor: 'rgba(168, 85, 247, 0.18)',
+  },
+  emotionEmoji: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#E2E8F0',
+  },
+  companionDialogueText: {
+    color: '#F1F5F9',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+  mainScroll: {
+    flex: 1,
+  },
+  mainContent: {
+    padding: 16,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  loadingText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  welcomeContainer: {},
+  resumeHeroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#101726',
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1.5,
     borderColor: '#38BDF8',
-  },
-  topBadgesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 4,
-    flexWrap: 'wrap',
-  },
-  trackSelectorBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#38BDF8',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowRadius: 10,
+    marginBottom: 8,
   },
-  trackSelectorText: {
+  resumeHeroIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resumePlayEmoji: {
+    fontSize: 20,
+  },
+  resumeBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  resumeTagText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  resumePercentBadge: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '700',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  resumeTopicTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  resumeSubMeta: {
+    color: '#94A3B8',
     fontSize: 12,
+  },
+  sectionDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#161E30',
+  },
+  dividerTitle: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    letterSpacing: 0.6,
+  },
+  tracksGrid: {
+    gap: 10,
+  },
+  trackCard: {
+    backgroundColor: '#0F1422',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#1D273B',
+    borderLeftWidth: 4,
+  },
+  trackCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  trackTagContainer: {},
+  trackTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  trackBadgePill: {
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  trackBadgeText: {
+    fontSize: 10,
     fontWeight: '700',
   },
-  voiceProfileBadge: {
+  trackCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  trackCardDesc: {
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 8,
+  },
+  trackCardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.35)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    justifyContent: 'space-between',
   },
-  voiceProfileBadgeActive: {
-    borderColor: 'rgba(16, 185, 129, 0.45)',
+  trackSubtopicsCount: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  trackActionArrow: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  customTopicPromptBox: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#1E293B',
+  },
+  customTopicPromptText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  sessionStreamContainer: {
+    gap: 12,
+  },
+  questionCardContainer: {
+    backgroundColor: '#0E1524',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#1E2B45',
+  },
+  questionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  conceptPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  conceptPillText: {
+    color: '#38BDF8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  reinforcementBadge: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  reinforcementBadgeText: {
+    color: '#F59E0B',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  questionScenarioText: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 21,
+    marginBottom: 12,
+  },
+  optionsList: {
+    gap: 8,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#131B2C',
+    borderRadius: 10,
+    padding: 11,
+    borderWidth: 1,
+    borderColor: '#23304A',
+  },
+  optionButtonSelected: {
+    borderColor: '#38BDF8',
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+  },
+  optionButtonCorrect: {
+    borderColor: '#22C55E',
+    backgroundColor: 'rgba(34, 197, 94, 0.16)',
+  },
+  optionButtonWrong: {
+    borderColor: '#EF4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.16)',
+  },
+  optionButtonRevealCorrect: {
+    borderColor: '#10B981',
     backgroundColor: 'rgba(16, 185, 129, 0.12)',
   },
-  voiceProfileText: {
-    color: '#38BDF8',
-    fontSize: 12,
-    fontWeight: '700',
+  optionButtonDisabled: {
+    opacity: 0.65,
   },
-  diagnosticsPillBadge: {
-    flexDirection: 'row',
+  optionLetterBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#1E293B',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  diagnosticsPillText: {
-    color: '#38BDF8',
+  optionLetterSelected: {
+    backgroundColor: '#38BDF8',
+  },
+  optionLetterCorrect: {
+    backgroundColor: '#22C55E',
+  },
+  optionLetterWrong: {
+    backgroundColor: '#EF4444',
+  },
+  optionLetterRevealCorrect: {
+    backgroundColor: '#10B981',
+  },
+  optionLetterText: {
+    color: '#94A3B8',
     fontSize: 12,
+    fontWeight: '800',
+  },
+  optionLetterTextSelected: {
+    color: '#07090E',
+  },
+  optionLetterTextCorrect: {
+    color: '#07090E',
+    fontWeight: '800',
+  },
+  optionLetterTextWrong: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  optionContentText: {
+    color: '#E2E8F0',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  correctIndicatorTag: {
+    color: '#22C55E',
+    fontSize: 11,
     fontWeight: '700',
+    marginTop: 4,
   },
-  targetRoleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.4)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
+  feedbackCard: {
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1.5,
+    marginTop: 14,
   },
-  targetRoleText: {
-    color: '#A5B4FC',
-    fontSize: 12,
-    fontWeight: '700',
+  feedbackCardCorrect: {
+    backgroundColor: '#063B2C',
+    borderColor: '#10B981',
   },
-
-  subtitleCard: {
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.90)',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
+  feedbackCardWrong: {
+    backgroundColor: '#38160B',
+    borderColor: '#F59E0B',
   },
-  subtitleHeaderRow: {
+  feedbackHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  speakerStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  subtitleSpeaker: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+  feedbackTitleText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
-  bargeInHintPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
+  feedbackStatusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#F59E0B',
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  bargeInHintText: {
-    color: '#FBBF24',
+  feedbackStatusCorrect: {
+    backgroundColor: '#10B981',
+  },
+  feedbackStatusWrong: {
+    backgroundColor: '#F59E0B',
+  },
+  feedbackStatusBadgeText: {
+    color: '#07090E',
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  subtitleText: {
-    color: '#F1F5F9',
-    fontSize: 14,
+  feedbackBodyText: {
+    color: '#F8FAFC',
+    fontSize: 13,
     lineHeight: 20,
-    fontWeight: '500',
   },
-  bottomBar: {
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'android' ? 18 : 8,
-    gap: 10,
-  },
-  primaryStartBtn: {
-    flexDirection: 'row',
+  continueBtn: {
+    marginTop: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#0284C7',
-    paddingVertical: 16,
-    borderRadius: 16,
-    shadowColor: '#0284C7',
+    backgroundColor: '#38BDF8',
+    shadowColor: '#38BDF8',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  primaryStartBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  continueBtnCorrect: {
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
   },
-  speakingActiveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    borderWidth: 1,
-    borderColor: '#38BDF8',
-    paddingVertical: 14,
-    borderRadius: 14,
+  continueBtnReinforce: {
+    backgroundColor: '#F59E0B',
+    shadowColor: '#F59E0B',
   },
-  speakingActiveBtnText: {
-    color: '#38BDF8',
+  continueBtnText: {
+    color: '#07090E',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
-  recordingControlsRow: {
-    flexDirection: 'row',
+  completionCard: {
+    backgroundColor: '#0E1524',
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
-    gap: 12,
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+    marginTop: 20,
   },
-  cancelRecordBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    paddingVertical: 14,
-    borderRadius: 14,
+  completionEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
   },
-  cancelRecordText: {
+  completionTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  completionDesc: {
     color: '#94A3B8',
     fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  chatRow: {
+    flexDirection: 'row',
+    marginVertical: 4,
+  },
+  chatRowTeddy: {
+    justifyContent: 'flex-start',
+  },
+  chatRowUser: {
+    justifyContent: 'flex-end',
+  },
+  chatBubble: {
+    maxWidth: '85%',
+    padding: 12,
+    borderRadius: 14,
+  },
+  chatBubbleTeddy: {
+    backgroundColor: '#121827',
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: '#1F293D',
+  },
+  chatBubbleUser: {
+    backgroundColor: '#0284C7',
+    borderBottomRightRadius: 4,
+  },
+  chatText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  chatTextTeddy: {
+    color: '#F1F5F9',
+  },
+  chatTextUser: {
+    color: '#FFFFFF',
     fontWeight: '600',
   },
-  sendRecordBtn: {
-    flex: 2,
+  thinkingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0284C7',
-    paddingVertical: 14,
-    borderRadius: 14,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 6,
+    padding: 10,
+    backgroundColor: '#0F172A',
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
-  sendRecordBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  thinkingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(139, 92, 246, 0.15)',
-    borderWidth: 1,
-    borderColor: '#8B5CF6',
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  thinkingPillText: {
-    color: '#A78BFA',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  secondaryControlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-  },
-  modeIndicatorChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-  },
-  modeIndicatorText: {
+  thinkingLabel: {
     color: '#38BDF8',
     fontSize: 12,
-    fontWeight: '700',
+    fontStyle: 'italic',
   },
-  textBackupBtn: {
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    backgroundColor: '#0B0F19',
+    borderTopWidth: 1,
+    borderTopColor: '#161E30',
   },
-  textBackupBtnText: {
-    color: '#E2E8F0',
-    fontSize: 12,
-    fontWeight: '700',
+  textInput: {
+    flex: 1,
+    height: 42,
+    backgroundColor: '#131B2E',
+    borderRadius: 21,
+    paddingHorizontal: 16,
+    color: '#F8FAFC',
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: '#23304A',
+  },
+  sendBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#38BDF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  sendBtnDisabled: {
+    backgroundColor: '#1E293B',
+    opacity: 0.4,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  modalSheet: {
+    backgroundColor: '#0F1422',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
     maxHeight: '80%',
-    paddingBottom: 24,
+    borderWidth: 1,
+    borderColor: '#1E2B45',
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 18,
+    justifyContent: 'space-between',
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  modalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderBottomColor: '#161E30',
   },
   modalTitle: {
     color: '#F8FAFC',
@@ -1039,181 +1651,131 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalSubtitle: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 12,
     marginTop: 2,
   },
-  closeBtn: {
+  modalCloseBtn: {
     padding: 6,
   },
-  quickPromptScroll: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.04)',
-  },
-  quickChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  quickChipText: {
-    color: '#93C5FD',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chatScroll: {
-    paddingHorizontal: 16,
-    maxHeight: 280,
-  },
-  chatScrollContent: {
-    paddingVertical: 12,
-    gap: 10,
-  },
-  emptyChatText: {
-    color: '#64748B',
-    textAlign: 'center',
-    fontSize: 13,
-    marginVertical: 20,
-  },
-  chatBubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    maxWidth: '85%',
-  },
-  mascotBubble: {
-    backgroundColor: '#1E293B',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
-  },
-  userBubble: {
-    backgroundColor: '#0284C7',
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
-  },
-  bubbleAuthor: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#94A3B8',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  bubbleText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 8,
-  },
-  textInput: {
-    flex: 1,
-    backgroundColor: '#1E293B',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: '#FFFFFF',
-    fontSize: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  sendBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#0284C7',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  sendBtnDisabled: {
-    backgroundColor: '#334155',
-    opacity: 0.6,
-  },
-  sendBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  trackModalContent: {
-    backgroundColor: '#0F172A',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    maxHeight: '82%',
-    width: '100%',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  trackListScroll: {
+  roadmapList: {
     marginTop: 12,
   },
-  trackCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.6)',
-    borderRadius: 16,
-    padding: 14,
+  roadmapItemCard: {
+    backgroundColor: '#131B2C',
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#223048',
   },
-  trackCardTopRow: {
+  roadmapItemCurrent: {
+    borderColor: '#38BDF8',
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+  },
+  roadmapItemCompleted: {
+    borderColor: colors.successGreen,
+  },
+  roadmapItemHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    alignItems: 'flex-start',
   },
-  trackIconContainer: {
-    width: 40,
-    height: 40,
+  roadmapIndexBadge: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
+    backgroundColor: '#26344F',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trackTitleBlock: {
-    flex: 1,
+  roadmapIndexCurrent: {
+    backgroundColor: '#38BDF8',
   },
-  trackTitleHeaderRow: {
+  roadmapIndexCompleted: {
+    backgroundColor: colors.successGreen,
+  },
+  roadmapIndexText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  roadmapItemTitle: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  roadmapItemDesc: {
+    color: '#94A3B8',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  roadmapProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 6,
+    marginTop: 10,
   },
-  trackCardTitle: {
-    color: '#F8FAFC',
-    fontSize: 14,
-    fontWeight: '700',
+  roadmapTrack: {
     flex: 1,
+    height: 4,
+    backgroundColor: '#07090E',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginRight: 8,
   },
-  activeTrackPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+  roadmapFill: {
+    height: '100%',
   },
-  activeTrackPillText: {
+  roadmapMasteryText: {
+    color: '#CBD5E1',
     fontSize: 10,
     fontWeight: '700',
   },
-  trackCardSubtitle: {
+  sessionsList: {
+    marginTop: 12,
+  },
+  emptySessionsBox: {
+    paddingVertical: 28,
+    alignItems: 'center',
+  },
+  emptySessionsText: {
+    color: '#94A3B8',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  sessionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#131B2C',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#223048',
+  },
+  sessionCardActive: {
+    borderColor: '#38BDF8',
+  },
+  sessionCardTitle: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  sessionCardMeta: {
     color: '#94A3B8',
     fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2,
   },
-  trackSystemFocusText: {
-    color: '#CBD5E1',
+  sessionMasteryBadge: {
+    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  sessionMasteryText: {
+    color: '#38BDF8',
     fontSize: 12,
-    lineHeight: 17,
-    marginTop: 8,
+    fontWeight: '700',
   },
 });

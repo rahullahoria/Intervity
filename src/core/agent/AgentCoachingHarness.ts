@@ -255,7 +255,7 @@ export class AgentCoachingHarness {
     this.mascot.totalTurns += 1;
 
     // 1. Determine Dynamic Coaching Phase
-    let determinedPhase: CoachingPhase = this.memory.currentPhase;
+    let determinedPhase: CoachingPhase;
 
     if (turnIndex === 0 || !this.memory.targetRole || this.memory.targetRole === 'Software Engineer') {
       determinedPhase = 'DISCOVERY';
