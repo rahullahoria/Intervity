@@ -127,20 +127,23 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
   const [inputText, setInputText] = useState('');
   const [isRoadmapVisible, setIsRoadmapVisible] = useState(false);
   const [isSessionsModalVisible, setIsSessionsModalVisible] = useState(false);
+  const [showAllOptions, setShowAllOptions] = useState(false);
 
-  // When a new question arrives, ALWAYS scroll to top (y: 0) so the question text is 100% visible and not covered!
+  // When a new question arrives, ALWAYS scroll to top (y: 0) and reset option collapse so question is 100% visible
   useEffect(() => {
     if (currentQuestion) {
+      setShowAllOptions(false);
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     }
   }, [currentQuestion?.id]);
 
-  // When turn is evaluated (feedback arrives), gently scroll down to reveal the feedback and Continue button!
+  // When turn is evaluated (feedback arrives), keep scroll strictly anchored at top (y: 0)
+  // so the question, choices, and feedback show from the beginning with ZERO overlap under Teddy!
   useEffect(() => {
     if (currentTurnResult) {
       const timer = setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 120);
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 50);
       return () => clearTimeout(timer);
     }
   }, [currentTurnResult]);
@@ -524,13 +527,19 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                   {currentQuestion.questionText}
                 </Text>
 
-                {/* Interactive 4 Multiple-Choice Options */}
+                {/* Interactive Multiple-Choice Options */}
                 <View style={styles.optionsList}>
                   {currentQuestion.options.map((opt) => {
                     const isSelected = selectedOptionId === opt.id;
                     const hasSelected = !!selectedOptionId;
                     const isEvaluated = !!currentTurnResult;
                     const isCorrect = opt.isCorrect;
+
+                    // When evaluated, prioritize showing the selected option and the correct option to prevent vertical overflow and overlap
+                    const isRelevant = isSelected || isCorrect;
+                    if (isEvaluated && !showAllOptions && !isRelevant) {
+                      return null;
+                    }
 
                     return (
                       <TouchableOpacity
@@ -540,6 +549,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                         accessibilityLabel={`Option ${opt.id}: ${opt.text}`}
                         style={[
                           styles.optionButton,
+                          isEvaluated && styles.optionButtonEvaluatedCompact,
                           isSelected && styles.optionButtonSelected,
                           isEvaluated && isSelected && isCorrect && styles.optionButtonCorrect,
                           isEvaluated && isSelected && !isCorrect && styles.optionButtonWrong,
@@ -571,13 +581,31 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={styles.optionContentText}>{opt.text}</Text>
-                          {isEvaluated && !isSelected && isCorrect && (
+                          {isEvaluated && isSelected && !isCorrect && (
+                            <Text style={styles.wrongIndicatorTag}>✗ Your Choice (Incorrect)</Text>
+                          )}
+                          {isEvaluated && isCorrect && (
                             <Text style={styles.correctIndicatorTag}>✓ Correct Answer</Text>
                           )}
                         </View>
                       </TouchableOpacity>
                     );
                   })}
+
+                  {/* Toggle to view all options if some are hidden once evaluated */}
+                  {currentTurnResult && currentQuestion.options.length > 2 && (
+                    <TouchableOpacity
+                      style={styles.toggleOptionsBtn}
+                      onPress={() => setShowAllOptions((prev) => !prev)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.toggleOptionsBtnText}>
+                        {showAllOptions
+                          ? '▴ Show focused choices'
+                          : `▾ View all ${currentQuestion.options.length} options`}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* 3. Deep Diagnostic Feedback Card (Rendered immediately below options once evaluated) */}
@@ -1439,11 +1467,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 4,
   },
+  wrongIndicatorTag: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  optionButtonEvaluatedCompact: {
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  toggleOptionsBtn: {
+    alignSelf: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  toggleOptionsBtnText: {
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   feedbackCard: {
     borderRadius: 14,
     padding: 14,
     borderWidth: 1.5,
-    marginTop: 14,
+    marginTop: 10,
   },
   feedbackCardCorrect: {
     backgroundColor: '#063B2C',

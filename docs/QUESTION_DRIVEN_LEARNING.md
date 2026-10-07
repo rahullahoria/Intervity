@@ -172,3 +172,12 @@ QBL is validated with dedicated regression tests in [`tests/questionDrivenLearni
 - **Session Resumption**: Asserts SQLite persistence and turn restoration.
 - **Question Distinctness**: Confirms zero duplicates across Concept 1, Concept 2, Concept 3, and Reinforcement drills.
 - **Emotion Lifecycle**: Validates that evaluation never misassigns `speaking` state during evaluation.
+
+---
+
+## 7. UX & Viewport Layout Architecture
+
+To maintain high visual ergonomics and readability on mobile viewports (e.g. iPhone 17 Pro, SE, standard Android sizes):
+- **Viewport Anchor & Zero Overlap Guarantee**: When an answer is evaluated, the viewport scroll remains anchored strictly at the top (`y: 0`). This ensures that the diagnostic card (`⚠️ CONCEPT DIAGNOSTIC`, `Trap Analyzed` badge, and mistake breakdown) is presented **from the very beginning** without being clipped or sliding behind the fixed Teddy companion card.
+- **Smart Distractor Collapse**: To prevent cognitive overload and excessive scrolling, evaluated views prioritize the candidate's selection (`✗ Your Choice`) and the authoritative solution (`✓ Correct Answer`), offering an intuitive toggle (`▾ View all N options` / `▴ Show focused choices`) to inspect unselected distractors.
+- **Auto-Reset on Progression**: When advancing to a reinforcement drill or the next concept, the option collapse state resets, and scroll is repositioned to top, ensuring candidate focus is immediately centered on the new challenge.
