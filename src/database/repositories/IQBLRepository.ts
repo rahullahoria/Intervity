@@ -20,4 +20,5 @@ export interface IQBLRepository {
   getAllSessions(limit?: number): Promise<QBLSession[]>;
   saveTurn(turn: QBLSessionTurnRecord): Promise<void>;
   getTurnsForSession(sessionId: string): Promise<QBLSessionTurnRecord[]>;
+  getMistakesForSession(sessionId: string): Promise<QBLSessionTurnRecord[]>;
 }

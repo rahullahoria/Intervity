@@ -234,5 +234,102 @@ describe('Question-Driven Learning (QBL) Core Engine & Flow', () => {
       assert.ok(qCustom.questionText.includes('Docker') || qCustom.questionText.includes('Containerization'));
     });
   });
+
+  describe('Graduated Difficulty Progression (Basic -> Intermediate -> Advanced -> Pro)', () => {
+    it('assigns step-by-step graduated difficulty across subtopics in the learning roadmap', async () => {
+      const subtopics = await qblEngine.planSubtopics('SQL Indexing & Sharding');
+      assert.ok(subtopics.length >= 5);
+      assert.strictEqual(subtopics[0].difficulty, 'basic');
+      assert.strictEqual(subtopics[1].difficulty, 'intermediate');
+      assert.strictEqual(subtopics[2].difficulty, 'advanced');
+      assert.strictEqual(subtopics[3].difficulty, 'pro');
+      assert.strictEqual(subtopics[4].difficulty, 'pro');
+    });
+
+    it('generates questions with graduated difficulty tiers (Concept 1 Basic -> Concept 2 Interm -> Concept 3 Adv -> Drill Pro)', async () => {
+      const session = await qblEngine.createNewSession('SQL Indexing & Sharding');
+      const sub = session.subtopics[0];
+
+      const qBasic = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+      assert.strictEqual(qBasic.difficulty, 'basic');
+      // Concept 1 must start with foundational intuition (e.g. index purpose vs full table scan)
+      assert.ok(
+        qBasic.questionText.toLowerCase().includes('primary purpose') ||
+        qBasic.questionText.toLowerCase().includes('index') ||
+        qBasic.questionText.toLowerCase().includes('full table scan')
+      );
+
+      const qInterm = await qblEngine.generateQuestion(session.topicName, sub, 2, false);
+      assert.strictEqual(qInterm.difficulty, 'intermediate');
+
+      const qAdv = await qblEngine.generateQuestion(session.topicName, sub, 3, false);
+      assert.strictEqual(qAdv.difficulty, 'advanced');
+
+      const qPro = await qblEngine.generateQuestion(session.topicName, sub, 1, true, 'B+Tree');
+      assert.strictEqual(qPro.difficulty, 'pro');
+      assert.strictEqual(qPro.isReinforcement, true);
+    });
+  });
+
+  describe('Post-Topic Mistake Review Session', () => {
+    it('records failed turns in SQLite and retrieves comprehensive autopsy review items', async () => {
+      const session = await qblEngine.createNewSession('Kafka & Event Streaming');
+      const sub = session.subtopics[0];
+
+      // Question 1: User makes a mistake
+      const q1 = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+      const wrongOpt1 = q1.options.find((o) => !o.isCorrect)!;
+      const correctOpt1 = q1.options.find((o) => o.isCorrect)!;
+      const turn1 = await qblEngine.evaluateAnswer(session, sub, q1, wrongOpt1.id);
+      assert.strictEqual(turn1.isCorrect, false);
+
+      // Question 2: User answers correctly
+      const q2 = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+      const correctOpt2 = q2.options.find((o) => o.isCorrect)!;
+      const turn2 = await qblEngine.evaluateAnswer(session, sub, q2, correctOpt2.id);
+      assert.strictEqual(turn2.isCorrect, true);
+
+      // Question 3: User makes another mistake on Concept 2
+      const q3 = await qblEngine.generateQuestion(session.topicName, sub, 2, false);
+      const wrongOpt3 = q3.options.find((o) => !o.isCorrect)!;
+      const correctOpt3 = q3.options.find((o) => o.isCorrect)!;
+      const turn3 = await qblEngine.evaluateAnswer(session, sub, q3, wrongOpt3.id);
+      assert.strictEqual(turn3.isCorrect, false);
+
+      // Retrieve mistake review items for session
+      const mistakes = await qblEngine.getMistakesForSession(session.sessionId);
+      assert.strictEqual(mistakes.length, 2, 'Must contain exactly the 2 failed turns');
+
+      // Verify Mistake Item 1 details
+      const m1 = mistakes[0];
+      assert.strictEqual(m1.sessionId, session.sessionId);
+      assert.strictEqual(m1.questionText, q1.questionText);
+      assert.strictEqual(m1.userSelectedOption.id, wrongOpt1.id);
+      assert.strictEqual(m1.correctOption.id, correctOpt1.id);
+      assert.ok(m1.feedbackText.includes('Not quite') || m1.feedbackText.includes('incorrect'));
+
+      // Verify Mistake Item 2 details
+      const m2 = mistakes[1];
+      assert.strictEqual(m2.sessionId, session.sessionId);
+      assert.strictEqual(m2.questionText, q3.questionText);
+      assert.strictEqual(m2.userSelectedOption.id, wrongOpt3.id);
+      assert.strictEqual(m2.correctOption.id, correctOpt3.id);
+    });
+
+    it('returns empty array when user achieves flawless first-pass mastery without mistakes', async () => {
+      const session = await qblEngine.createNewSession('Distributed Systems');
+      const sub = session.subtopics[0];
+
+      // Answer all 3 concepts correctly
+      for (let c = 1; c <= 3; c++) {
+        const q = await qblEngine.generateQuestion(session.topicName, sub, c, false);
+        const correct = q.options.find((o) => o.isCorrect)!;
+        await qblEngine.evaluateAnswer(session, sub, q, correct.id);
+      }
+
+      const mistakes = await qblEngine.getMistakesForSession(session.sessionId);
+      assert.strictEqual(mistakes.length, 0, 'Zero mistakes recorded for flawless session');
+    });
+  });
 });
 

@@ -315,6 +315,8 @@ export interface QBLOption {
   explanation: string;
 }
 
+export type QBLDifficulty = 'basic' | 'intermediate' | 'advanced' | 'pro';
+
 export interface QBLQuestion {
   id: string;
   conceptTitle: string;
@@ -324,6 +326,7 @@ export interface QBLQuestion {
   explanation: string;
   coachingTip?: string;
   isReinforcement?: boolean;
+  difficulty?: QBLDifficulty;
 }
 
 export interface QBLSubtopic {
@@ -334,6 +337,21 @@ export interface QBLSubtopic {
   totalConcepts: number; // default 3
   masteryPercentage: number; // 0 to 100%
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  difficulty?: QBLDifficulty;
+}
+
+export interface QBLMistakeReviewItem {
+  turnId: string;
+  sessionId: string;
+  subtopicId: string;
+  conceptTitle: string;
+  questionText: string;
+  userSelectedOption: QBLOption;
+  correctOption: QBLOption;
+  allOptions: QBLOption[];
+  feedbackText: string;
+  difficulty?: QBLDifficulty;
+  timestamp: number;
 }
 
 export interface QBLSession {

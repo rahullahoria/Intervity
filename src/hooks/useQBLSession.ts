@@ -21,6 +21,7 @@ import {
   QBLSubtopic,
   QBLQuestion,
   QBLTurnResult,
+  QBLMistakeReviewItem,
 } from '../types';
 
 
@@ -50,6 +51,9 @@ export function useQBLSession() {
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [isInitializing, setIsInitializing] = useState<boolean>(true);
   const [latestSessionToResume, setLatestSessionToResume] = useState<QBLSession | null>(null);
+  const [sessionMistakes, setSessionMistakes] = useState<QBLMistakeReviewItem[]>([]);
+  const [currentMistakeIndex, setCurrentMistakeIndex] = useState<number>(0);
+  const [isReviewSessionActive, setIsReviewSessionActive] = useState<boolean>(false);
 
   // Model Asset Status
   const [modelStatus, setModelStatus] = useState<{
@@ -188,6 +192,9 @@ export function useQBLSession() {
     try {
       const newSession = await qblEngine.current.createNewSession(topicName.trim());
       setSession(newSession);
+      setSessionMistakes([]);
+      setCurrentMistakeIndex(0);
+      setIsReviewSessionActive(false);
 
       const firstSubtopic = newSession.subtopics[0];
       setCurrentSubtopic(firstSubtopic);
@@ -237,6 +244,10 @@ export function useQBLSession() {
       if (!loaded) return;
 
       setSession(loaded);
+      const pastMistakes = await qblEngine.current.getMistakesForSession(loaded.sessionId);
+      setSessionMistakes(pastMistakes);
+      setCurrentMistakeIndex(0);
+      setIsReviewSessionActive(false);
 
       // Find first uncompleted subtopic, or default to last subtopic
       let activeSubIndex = loaded.subtopics.findIndex((s) => s.status !== 'COMPLETED');
@@ -346,6 +357,11 @@ export function useQBLSession() {
           subtopicMastery: outcome.subtopicMastery,
         },
       ]);
+
+      if (!outcome.isCorrect) {
+        const refreshedMistakes = await qblEngine.current.getMistakesForSession(session.sessionId);
+        setSessionMistakes(refreshedMistakes);
+      }
     } catch (err) {
       console.warn('[useQBLSession] selectOption error:', err);
     } finally {
@@ -399,20 +415,41 @@ export function useQBLSession() {
             ]);
           } else {
             // Whole topic complete!
-            const completeMsg = `🏆 INCREDIBLE WORK! You have achieved 100% mastery across all ${session.subtopics.length} sub-topics of "${session.topicName}"! You are a masterclass architect! 🌟`;
-            setTeddyDialogue(completeMsg);
-            setTeddyEmotion('celebrating');
+            const mistakes = await qblEngine.current.getMistakesForSession(session.sessionId);
+            setSessionMistakes(mistakes);
             setCurrentQuestion(null);
 
-            setChatMessages((prev) => [
-              ...prev,
-              {
-                id: `msg_complete_${Date.now()}`,
-                sender: 'teddy',
-                text: completeMsg,
-                timestamp: Date.now(),
-              },
-            ]);
+            if (mistakes.length > 0) {
+              const reviewIntroMsg = `🏆 Topic Complete! You covered all ${session.subtopics.length} sub-topics of "${session.topicName}"!\n\nTo lock in your intuition, let's step through a dedicated Review Session for the ${mistakes.length} tricky trap${mistakes.length > 1 ? 's' : ''} you encountered! 🔍`;
+              setTeddyDialogue(reviewIntroMsg);
+              setTeddyEmotion('puzzled');
+              setCurrentMistakeIndex(0);
+              setIsReviewSessionActive(true);
+
+              setChatMessages((prev) => [
+                ...prev,
+                {
+                  id: `msg_review_start_${Date.now()}`,
+                  sender: 'teddy',
+                  text: reviewIntroMsg,
+                  timestamp: Date.now(),
+                },
+              ]);
+            } else {
+              const completeMsg = `🏆 FLAWLESS VICTORY! You have achieved 100% mastery across all ${session.subtopics.length} sub-topics of "${session.topicName}" with ZERO mistakes! You are a masterclass architect! 🌟`;
+              setTeddyDialogue(completeMsg);
+              setTeddyEmotion('celebrating');
+
+              setChatMessages((prev) => [
+                ...prev,
+                {
+                  id: `msg_complete_${Date.now()}`,
+                  sender: 'teddy',
+                  text: completeMsg,
+                  timestamp: Date.now(),
+                },
+              ]);
+            }
           }
         } else {
           // Advance to next concept within the same subtopic
@@ -527,6 +564,46 @@ export function useQBLSession() {
     }
   }, [session, currentQuestion, currentSubtopic, isThinking, startNewTopic]);
 
+  // 7. Mistake Review Session Controls
+  const startMistakeReview = useCallback(async () => {
+    if (!session) return;
+    const mistakes = await qblEngine.current.getMistakesForSession(session.sessionId);
+    setSessionMistakes(mistakes);
+    if (mistakes.length > 0) {
+      setCurrentMistakeIndex(0);
+      setIsReviewSessionActive(true);
+      setTeddyEmotion('puzzled');
+      const item = mistakes[0];
+      const reviewMsg = `Reviewing Trap 1 of ${mistakes.length}: "${item.conceptTitle}"\n\nLet's dissect why your choice was tricky and solidify the authoritative mental model! 🔍`;
+      setTeddyDialogue(reviewMsg);
+    }
+  }, [session]);
+
+  const nextMistake = useCallback(() => {
+    setCurrentMistakeIndex((prev) => {
+      const nextIdx = Math.min(prev + 1, sessionMistakes.length - 1);
+      const item = sessionMistakes[nextIdx];
+      setTeddyDialogue(`Trap ${nextIdx + 1} of ${sessionMistakes.length}: "${item?.conceptTitle || 'Tricky Concept'}" 🔍`);
+      return nextIdx;
+    });
+  }, [sessionMistakes]);
+
+  const previousMistake = useCallback(() => {
+    setCurrentMistakeIndex((prev) => {
+      const prevIdx = Math.max(prev - 1, 0);
+      const item = sessionMistakes[prevIdx];
+      setTeddyDialogue(`Trap ${prevIdx + 1} of ${sessionMistakes.length}: "${item?.conceptTitle || 'Tricky Concept'}" 🔍`);
+      return prevIdx;
+    });
+  }, [sessionMistakes]);
+
+  const exitReviewSession = useCallback(() => {
+    setIsReviewSessionActive(false);
+    setTeddyEmotion('celebrating');
+    const exitMsg = `Mistake review complete! You've analyzed every trap and converted mistakes into rock-solid mastery! 🚀`;
+    setTeddyDialogue(exitMsg);
+  }, []);
+
   return {
     session,
     pastSessions,
@@ -549,5 +626,14 @@ export function useQBLSession() {
     currentTurnResult,
     selectedOptionId,
     sendChatMessage,
+    isReviewSessionActive,
+    sessionMistakes,
+    currentMistakeIndex,
+    currentMistake: sessionMistakes[currentMistakeIndex] || null,
+    mistakesCount: sessionMistakes.length,
+    startMistakeReview,
+    nextMistake,
+    previousMistake,
+    exitReviewSession,
   };
 }

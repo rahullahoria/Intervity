@@ -18,6 +18,8 @@ import {
   QBLQuestion,
   QBLOption,
   QBLTurnResult,
+  QBLDifficulty,
+  QBLMistakeReviewItem,
 } from '../../types';
 import { getCatalogQuestion } from './QBLQuestionCatalog';
 
@@ -82,15 +84,20 @@ Do not output any markdown headers or commentary outside the JSON array.`;
       parsedSubtopics = this.getDefaultCurriculum(cleanTopic);
     }
 
-    return parsedSubtopics.map((item, index) => ({
-      id: item.id || `sub_${index + 1}`,
-      title: item.title,
-      description: item.description,
-      conceptsMastered: 0,
-      totalConcepts: 3,
-      masteryPercentage: 0,
-      status: index === 0 ? 'IN_PROGRESS' : 'PENDING',
-    }));
+    return parsedSubtopics.map((item, index) => {
+      const difficulty: QBLDifficulty =
+        index === 0 ? 'basic' : index === 1 ? 'intermediate' : index === 2 ? 'advanced' : 'pro';
+      return {
+        id: item.id || `sub_${index + 1}`,
+        title: item.title,
+        description: item.description,
+        conceptsMastered: 0,
+        totalConcepts: 3,
+        masteryPercentage: 0,
+        status: index === 0 ? 'IN_PROGRESS' : 'PENDING',
+        difficulty,
+      };
+    });
   }
 
   /**
@@ -103,8 +110,25 @@ Do not output any markdown headers or commentary outside the JSON array.`;
     isReinforcement: boolean = false,
     previousMistake?: string
   ): Promise<QBLQuestion> {
+    const difficulty: QBLDifficulty = isReinforcement || conceptIndex >= 4
+      ? 'pro'
+      : conceptIndex === 3
+      ? 'advanced'
+      : conceptIndex === 2
+      ? 'intermediate'
+      : 'basic';
+
+    const difficultyGuide = difficulty === 'basic'
+      ? 'TARGET DIFFICULTY: BASIC. Start from core intuition, foundational mental models, basic definitions, and primary purpose. Do NOT jump to advanced production trade-offs or complex edge cases yet!'
+      : difficulty === 'intermediate'
+      ? 'TARGET DIFFICULTY: INTERMEDIATE. Focus on standard operational mechanisms, core algorithms, data structures, and practical application rules.'
+      : difficulty === 'advanced'
+      ? 'TARGET DIFFICULTY: ADVANCED. Focus on production edge cases, performance bottlenecks, cost-based optimizer decisions, and engineering trade-offs.'
+      : 'TARGET DIFFICULTY: PRO. Focus on staff-level architecture, catastrophic failure isolation, distributed consensus, and zero-data-loss guarantees.';
+
     const systemPrompt = `You are Teddy, a warm and brilliant engineering mentor.
 Create a real-world, scenario-based multiple-choice question testing Concept #${conceptIndex} of sub-topic "${subtopic.title}" in "${topicName}".
+${difficultyGuide}
 Provide exactly 4 options labeled A, B, C, D. Exactly ONE option must be correct (isCorrect: true).
 For each option, explain clearly and concisely why it is correct or why it is incorrect.
 Output strictly a JSON object with this exact schema:
@@ -128,6 +152,7 @@ Output strictly a JSON object with this exact schema:
     const userPrompt = `Generate a QBL multiple-choice question for:
 Topic: ${topicName}
 Sub-topic: ${subtopic.title} (${subtopic.description})
+Difficulty: ${difficulty.toUpperCase()}
 Concept #${conceptIndex} of 3
 ${reinforcementClause}`;
 
@@ -175,6 +200,7 @@ ${reinforcementClause}`;
       explanation: parsedQuestion.explanation || 'Mastering this architectural principle ensures resilience and low latency.',
       coachingTip: parsedQuestion.coachingTip || 'Always reason from first principles and latency trade-offs.',
       isReinforcement,
+      difficulty,
     };
   }
 
@@ -227,7 +253,7 @@ ${reinforcementClause}`;
     session.updatedAt = Date.now();
 
     // Persist to SQLite
-    const turnId = `turn_${Date.now()}`;
+    const turnId = `turn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     await this.repository.saveTurn({
       turnId,
       sessionId: session.sessionId,
@@ -297,6 +323,45 @@ ${reinforcementClause}`;
    */
   async getAllSessions(): Promise<QBLSession[]> {
     return this.repository.getAllSessions(20);
+  }
+
+  /**
+   * Fetches all mistake turns for a session to power the post-topic Mistake Review Session
+   */
+  async getMistakesForSession(sessionId: string): Promise<QBLMistakeReviewItem[]> {
+    const turns = await this.repository.getMistakesForSession(sessionId);
+    return turns.map((t) => {
+      let options: QBLOption[] = [];
+      try {
+        options = JSON.parse(t.optionsJson);
+      } catch {
+        options = [];
+      }
+      const userSelectedOption = options.find((o) => o.id === t.userSelectedOptionId) || {
+        id: t.userSelectedOptionId,
+        text: `Option ${t.userSelectedOptionId}`,
+        isCorrect: false,
+        explanation: 'Selected choice',
+      };
+      const correctOption = options.find((o) => o.isCorrect) || {
+        id: 'A',
+        text: 'Correct pattern',
+        isCorrect: true,
+        explanation: 'Authoritative pattern',
+      };
+      return {
+        turnId: t.turnId,
+        sessionId: t.sessionId,
+        subtopicId: t.subtopicId,
+        conceptTitle: t.conceptTitle || 'Conceptual Challenge',
+        questionText: t.questionText,
+        userSelectedOption,
+        correctOption,
+        allOptions: options,
+        feedbackText: t.feedbackText,
+        timestamp: t.createdAt,
+      };
+    });
   }
 
   /**

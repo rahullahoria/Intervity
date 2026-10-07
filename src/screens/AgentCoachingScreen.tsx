@@ -108,6 +108,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     currentSubtopic,
     currentQuestion,
     teddyEmotion,
+    teddyDialogue,
     chatMessages,
     isThinking,
     isInitializing,
@@ -123,6 +124,15 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     currentTurnResult,
     selectedOptionId,
     sendChatMessage,
+    isReviewSessionActive,
+    sessionMistakes,
+    currentMistakeIndex,
+    currentMistake,
+    mistakesCount,
+    startMistakeReview,
+    nextMistake,
+    previousMistake,
+    exitReviewSession,
   } = useQBLSession();
 
   const [inputText, setInputText] = useState('');
@@ -148,6 +158,12 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       return () => clearTimeout(timer);
     }
   }, [currentTurnResult]);
+
+  useEffect(() => {
+    if (isReviewSessionActive) {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [isReviewSessionActive, currentMistakeIndex]);
 
   // Auto-scroll on free-form chat messages if no active question
   useEffect(() => {
@@ -263,18 +279,31 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         )}
 
         {/* Active Session & Sub-topic Mastery Strip */}
-        {session && currentSubtopic && currentQuestion && (
+        {session && currentSubtopic && (currentQuestion || isReviewSessionActive) && (
           <View style={styles.activeTopicBar}>
 
             <View style={styles.topicInfoRow}>
               <Text style={styles.activeTopicName} numberOfLines={1}>
                 {session.topicName}
               </Text>
-              <View style={styles.overallMasteryBadge}>
-                <SparklesIcon size={11} color="#38BDF8" style={{ marginRight: 4 }} />
-                <Text style={styles.overallMasteryText}>
-                  {session.overallMasteryPercentage}% Skill Mastered
-                </Text>
+              <View style={styles.headerRightBadges}>
+                <View style={styles.overallMasteryBadge}>
+                  <SparklesIcon size={11} color="#38BDF8" style={{ marginRight: 4 }} />
+                  <Text style={styles.overallMasteryText}>
+                    {session.overallMasteryPercentage}% Skill Mastered
+                  </Text>
+                </View>
+                {mistakesCount > 0 && !isReviewSessionActive && (
+                  <TouchableOpacity
+                    style={styles.reviewMistakesHudBtn}
+                    onPress={startMistakeReview}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.reviewMistakesHudText}>
+                      🔍 Review ({mistakesCount})
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -341,13 +370,16 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 style={[
                   styles.emotionBadge,
                   isThinking && styles.emotionSpeaking,
-                  !isThinking && teddyEmotion === 'celebrating' && styles.emotionCelebrating,
-                  !isThinking && teddyEmotion === 'puzzled' && styles.emotionPuzzled,
+                  !isThinking && isReviewSessionActive && styles.emotionPuzzled,
+                  !isThinking && !isReviewSessionActive && teddyEmotion === 'celebrating' && styles.emotionCelebrating,
+                  !isThinking && !isReviewSessionActive && teddyEmotion === 'puzzled' && styles.emotionPuzzled,
                 ]}
               >
                 <Text style={styles.emotionEmoji}>
                   {isThinking
                     ? '🎙️ Formulating...'
+                    : isReviewSessionActive
+                    ? '🔍 Reviewing Traps'
                     : teddyEmotion === 'celebrating'
                     ? '🎉 Celebrating'
                     : teddyEmotion === 'puzzled'
@@ -359,6 +391,8 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             <Text style={styles.companionDialogueText} numberOfLines={2}>
               {isThinking
                 ? 'Teddy is formulating your next question and curriculum...'
+                : isReviewSessionActive
+                ? (teddyDialogue.split('\n')[0] || 'Let\'s analyze the traps and solidify your mental model! 🔍')
                 : currentQuestion
                 ? selectedOptionId
                   ? teddyEmotion === 'celebrating'
@@ -515,14 +549,45 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               })}
 
             {/* 2. Active Question Card (Tactical One-by-One QBL Presentation) */}
-            {currentQuestion && (
+            {!isReviewSessionActive && currentQuestion && (
               <View style={styles.questionCardContainer}>
                 <View style={styles.questionCardHeader}>
-                  <View style={styles.conceptPill}>
-                    <SparklesIcon size={12} color="#38BDF8" style={{ marginRight: 4 }} />
-                    <Text style={styles.conceptPillText}>
-                      CONCEPT #{currentQuestion.conceptIndex} OF 3
-                    </Text>
+                  <View style={styles.badgeRow}>
+                    <View style={styles.conceptPill}>
+                      <SparklesIcon size={12} color="#38BDF8" style={{ marginRight: 4 }} />
+                      <Text style={styles.conceptPillText}>
+                        CONCEPT #{currentQuestion.conceptIndex} OF 3
+                      </Text>
+                    </View>
+                    {currentQuestion.difficulty && (
+                      <View
+                        style={[
+                          styles.difficultyBadge,
+                          currentQuestion.difficulty === 'basic' && styles.difficultyBadgeBasic,
+                          currentQuestion.difficulty === 'intermediate' && styles.difficultyBadgeIntermediate,
+                          currentQuestion.difficulty === 'advanced' && styles.difficultyBadgeAdvanced,
+                          currentQuestion.difficulty === 'pro' && styles.difficultyBadgePro,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.difficultyText,
+                            currentQuestion.difficulty === 'basic' && styles.difficultyTextBasic,
+                            currentQuestion.difficulty === 'intermediate' && styles.difficultyTextIntermediate,
+                            currentQuestion.difficulty === 'advanced' && styles.difficultyTextAdvanced,
+                            currentQuestion.difficulty === 'pro' && styles.difficultyTextPro,
+                          ]}
+                        >
+                          {currentQuestion.difficulty === 'basic'
+                            ? '🟢 BASIC'
+                            : currentQuestion.difficulty === 'intermediate'
+                            ? '🟡 INTERMEDIATE'
+                            : currentQuestion.difficulty === 'advanced'
+                            ? '🟠 ADVANCED'
+                            : '🟣 PRO'}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                   {currentQuestion.isReinforcement && (
                     <View style={styles.reinforcementBadge}>
@@ -668,16 +733,155 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               </View>
             )}
 
-            {/* 5. Masterclass 100% Completion Card */}
-            {!currentQuestion && !isThinking && session.overallMasteryPercentage === 100 && (
+            {/* 3. Mistake Review Session Card */}
+            {isReviewSessionActive && currentMistake && (
+              <View style={styles.reviewCardContainer}>
+                {/* Header */}
+                <View style={styles.reviewHeaderRow}>
+                  <View style={styles.reviewHeaderLeft}>
+                    <View style={styles.reviewTitleBadge}>
+                      <Text style={styles.reviewTitleBadgeText}>🔍 MISTAKE AUTOPSY & REVIEW</Text>
+                    </View>
+                    <View style={styles.reviewCounterBadge}>
+                      <Text style={styles.reviewCounterText}>
+                        Trap {currentMistakeIndex + 1} of {sessionMistakes.length}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.reviewExitBtn}
+                    onPress={exitReviewSession}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.reviewExitBtnText}>✕ Exit Review</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Subtopic & Difficulty */}
+                <View style={styles.reviewSubtopicRow}>
+                  <Text style={styles.reviewSubtopicText} numberOfLines={1}>
+                    {currentMistake.conceptTitle}
+                  </Text>
+                  {currentMistake.difficulty && (
+                    <View
+                      style={[
+                        styles.difficultyBadge,
+                        currentMistake.difficulty === 'basic' && styles.difficultyBadgeBasic,
+                        currentMistake.difficulty === 'intermediate' && styles.difficultyBadgeIntermediate,
+                        currentMistake.difficulty === 'advanced' && styles.difficultyBadgeAdvanced,
+                        currentMistake.difficulty === 'pro' && styles.difficultyBadgePro,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.difficultyText,
+                          currentMistake.difficulty === 'basic' && styles.difficultyTextBasic,
+                          currentMistake.difficulty === 'intermediate' && styles.difficultyTextIntermediate,
+                          currentMistake.difficulty === 'advanced' && styles.difficultyTextAdvanced,
+                          currentMistake.difficulty === 'pro' && styles.difficultyTextPro,
+                        ]}
+                      >
+                        {currentMistake.difficulty === 'basic'
+                          ? '🟢 BASIC'
+                          : currentMistake.difficulty === 'intermediate'
+                          ? '🟡 INTERMEDIATE'
+                          : currentMistake.difficulty === 'advanced'
+                          ? '🟠 ADVANCED'
+                          : '🟣 PRO'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* The Challenging Question Scenario */}
+                <View style={styles.reviewQuestionBox}>
+                  <Text style={styles.reviewQuestionLabel}>THE CHALLENGE SCENARIO</Text>
+                  <Text style={styles.reviewQuestionText}>{currentMistake.questionText}</Text>
+                </View>
+
+                {/* The Trap (Candidate's Choice) */}
+                <View style={styles.reviewTrapBox}>
+                  <View style={styles.reviewBoxHeader}>
+                    <Text style={styles.reviewTrapHeaderTag}>❌ YOUR TRAP CHOICE</Text>
+                    <Text style={styles.reviewOptionLetter}>Option {currentMistake.userSelectedOption.id}</Text>
+                  </View>
+                  <Text style={styles.reviewOptionText}>{currentMistake.userSelectedOption.text}</Text>
+                  <View style={styles.reviewDivider} />
+                  <Text style={styles.reviewAutopsyLabel}>WHY THIS FAILED (AUTOPSY):</Text>
+                  <Text style={styles.reviewAutopsyText}>
+                    {currentMistake.userSelectedOption.explanation || currentMistake.feedbackText}
+                  </Text>
+                </View>
+
+                {/* Authoritative Pattern (Correct Answer) */}
+                <View style={styles.reviewPatternBox}>
+                  <View style={styles.reviewBoxHeader}>
+                    <Text style={styles.reviewPatternHeaderTag}>✓ AUTHORITATIVE PATTERN</Text>
+                    <Text style={styles.reviewPatternLetter}>Option {currentMistake.correctOption.id}</Text>
+                  </View>
+                  <Text style={styles.reviewPatternText}>{currentMistake.correctOption.text}</Text>
+                  <View style={styles.reviewDividerGreen} />
+                  <Text style={styles.reviewPatternDetailLabel}>CORRECT MENTAL MODEL:</Text>
+                  <Text style={styles.reviewPatternDetailText}>
+                    {currentMistake.correctOption.explanation}
+                  </Text>
+                </View>
+
+                {/* Navigation Action Buttons */}
+                <View style={styles.reviewNavRow}>
+                  <TouchableOpacity
+                    style={[styles.reviewNavBtn, currentMistakeIndex === 0 && styles.reviewNavBtnDisabled]}
+                    onPress={previousMistake}
+                    disabled={currentMistakeIndex === 0}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.reviewNavBtnText, currentMistakeIndex === 0 && styles.reviewNavBtnTextDisabled]}>
+                      ← Previous Trap
+                    </Text>
+                  </TouchableOpacity>
+
+                  {currentMistakeIndex < sessionMistakes.length - 1 ? (
+                    <TouchableOpacity
+                      style={[styles.reviewNavBtn, styles.reviewNavBtnPrimary]}
+                      onPress={nextMistake}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.reviewNavBtnPrimaryText}>Next Trap →</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.reviewNavBtn, styles.reviewNavBtnComplete]}
+                      onPress={exitReviewSession}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.reviewNavBtnCompleteText}>Finish Review 🎉</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* 4. Masterclass 100% Completion Card */}
+            {!currentQuestion && !isReviewSessionActive && !isThinking && session.overallMasteryPercentage === 100 && (
               <View style={styles.completionCard}>
                 <Text style={styles.completionEmoji}>🏆</Text>
                 <Text style={styles.completionTitle}>Masterclass Complete!</Text>
                 <Text style={styles.completionDesc}>
                   You have achieved 100% mastery across all {session.subtopics.length} sub-topics of "{session.topicName}"! You are ready for Staff/Principal architecture rounds!
                 </Text>
+                {mistakesCount > 0 && (
+                  <TouchableOpacity
+                    style={[styles.continueBtn, styles.reviewMistakesCompletionBtn]}
+                    onPress={startMistakeReview}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.reviewMistakesCompletionBtnText}>
+                      🔍 Review {mistakesCount} Traps & Mistakes
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                  style={[styles.continueBtn, styles.continueBtnCorrect]}
+                  style={[styles.continueBtn, styles.continueBtnCorrect, { marginTop: 10 }]}
                   onPress={() => setIsRoadmapVisible(true)}
                   activeOpacity={0.85}
                 >
@@ -758,6 +962,21 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 <CloseIcon size={20} color="#94A3B8" />
               </TouchableOpacity>
             </View>
+
+            {mistakesCount > 0 && (
+              <TouchableOpacity
+                style={styles.roadmapReviewMistakesBtn}
+                onPress={() => {
+                  setIsRoadmapVisible(false);
+                  startMistakeReview();
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.roadmapReviewMistakesText}>
+                  🔍 Review All Mistakes & Traps ({mistakesCount})
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <ScrollView style={styles.roadmapList} showsVerticalScrollIndicator={false}>
               {session?.subtopics.map((sub, idx) => {
@@ -1848,6 +2067,321 @@ const styles = StyleSheet.create({
   sessionMasteryText: {
     color: '#38BDF8',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  difficultyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 6,
+    borderWidth: 1,
+  },
+  difficultyBadgeBasic: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: 'rgba(16, 185, 129, 0.4)',
+  },
+  difficultyBadgeIntermediate: {
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+  },
+  difficultyBadgeAdvanced: {
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderColor: 'rgba(249, 115, 22, 0.4)',
+  },
+  difficultyBadgePro: {
+    backgroundColor: 'rgba(168, 85, 247, 0.15)',
+    borderColor: 'rgba(168, 85, 247, 0.4)',
+  },
+  difficultyText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  difficultyTextBasic: {
+    color: '#10B981',
+  },
+  difficultyTextIntermediate: {
+    color: '#F59E0B',
+  },
+  difficultyTextAdvanced: {
+    color: '#F97316',
+  },
+  difficultyTextPro: {
+    color: '#A855F7',
+  },
+  reviewCardContainer: {
+    backgroundColor: '#0F1420',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    marginBottom: 16,
+  },
+  reviewHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    flex: 1,
+  },
+  reviewTitleBadge: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  reviewTitleBadgeText: {
+    color: '#EF4444',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  reviewCounterBadge: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  reviewCounterText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reviewExitBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  reviewExitBtnText: {
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  reviewSubtopicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewSubtopicText: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
+  },
+  reviewQuestionBox: {
+    backgroundColor: '#131B2E',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#1C2538',
+  },
+  reviewQuestionLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  reviewQuestionText: {
+    color: '#F8FAFC',
+    fontSize: 14,
+    lineHeight: 21,
+    fontWeight: '500',
+  },
+  reviewTrapBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.06)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  reviewBoxHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  reviewTrapHeaderTag: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  reviewOptionLetter: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  reviewOptionText: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  reviewDivider: {
+    height: 1,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    marginVertical: 10,
+  },
+  reviewAutopsyLabel: {
+    color: '#F87171',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  reviewAutopsyText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  reviewPatternBox: {
+    backgroundColor: 'rgba(16, 185, 129, 0.06)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  reviewPatternHeaderTag: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  reviewPatternLetter: {
+    color: '#10B981',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  reviewPatternText: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  reviewDividerGreen: {
+    height: 1,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    marginVertical: 10,
+  },
+  reviewPatternDetailLabel: {
+    color: '#34D399',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  reviewPatternDetailText: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  reviewNavRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  reviewNavBtn: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  reviewNavBtnDisabled: {
+    opacity: 0.4,
+  },
+  reviewNavBtnText: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  reviewNavBtnTextDisabled: {
+    color: '#64748B',
+  },
+  reviewNavBtnPrimary: {
+    backgroundColor: '#0284C7',
+    borderColor: '#38BDF8',
+  },
+  reviewNavBtnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reviewNavBtnComplete: {
+    backgroundColor: '#059669',
+    borderColor: '#10B981',
+  },
+  reviewNavBtnCompleteText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reviewMistakesHudBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+  },
+  reviewMistakesHudText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  headerRightBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roadmapReviewMistakesBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+  },
+  roadmapReviewMistakesText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  reviewMistakesCompletionBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    marginTop: 12,
+  },
+  reviewMistakesCompletionBtnText: {
+    color: '#EF4444',
+    fontSize: 14,
     fontWeight: '700',
   },
 });

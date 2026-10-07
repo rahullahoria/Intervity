@@ -99,6 +99,26 @@ export class QBLStorageManager implements IQBLRepository {
     }));
   }
 
+  async getMistakesForSession(sessionId: string): Promise<QBLSessionTurnRecord[]> {
+    const res = await this.client.execute(
+      `SELECT * FROM qbl_session_turns WHERE session_id = ? AND is_correct = 0 ORDER BY created_at ASC;`,
+      [sessionId]
+    );
+    if (!res.rows) return [];
+    return res.rows.map((r) => ({
+      turnId: r.turn_id,
+      sessionId: r.session_id,
+      subtopicId: r.subtopic_id,
+      conceptTitle: r.concept_title,
+      questionText: r.question_text,
+      optionsJson: r.options_json,
+      userSelectedOptionId: r.user_selected_option_id,
+      isCorrect: Boolean(r.is_correct),
+      feedbackText: r.feedback_text,
+      createdAt: r.created_at,
+    }));
+  }
+
   private mapRowToSession(row: any): QBLSession {
     let subtopics: QBLSubtopic[];
     try {

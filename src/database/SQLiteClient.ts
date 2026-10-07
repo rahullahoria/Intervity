@@ -140,11 +140,25 @@ class InMemoryDatabaseDriver {
         const tableMap = this.tables.get(table);
         let list = tableMap ? Array.from(tableMap.values()) : [];
 
-        // WHERE col = ?
-        const whereMatch = trimmed.match(/WHERE\s+([a-zA-Z0-9_]+)\s*=\s*\?/i);
-        if (whereMatch && whereMatch[1] && params.length > 0) {
-          const col = whereMatch[1];
-          list = list.filter(r => String(r[col]) === String(params[0]));
+        // WHERE clause handling (supports multiple AND conditions)
+        const whereClauseMatch = trimmed.match(/WHERE\s+(.+?)(?:\s+ORDER\s+BY|\s+LIMIT|;|$)/i);
+        if (whereClauseMatch) {
+          const whereClause = whereClauseMatch[1];
+          const conditions = whereClause.split(/\s+AND\s+/i);
+          let paramIdx = 0;
+          for (const cond of conditions) {
+            const eqMatch = cond.trim().match(/^([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
+            if (eqMatch) {
+              const col = eqMatch[1];
+              let targetVal: any = eqMatch[2].trim();
+              if (targetVal === '?') {
+                targetVal = params[paramIdx++];
+              } else if (targetVal.startsWith("'") && targetVal.endsWith("'")) {
+                targetVal = targetVal.slice(1, -1);
+              }
+              list = list.filter((r) => String(r[col]) === String(targetVal));
+            }
+          }
         }
 
 
