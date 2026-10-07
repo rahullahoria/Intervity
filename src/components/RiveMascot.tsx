@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Image } from 'react-native';
 import Rive, { Alignment, Fit, RiveRef } from 'rive-react-native';
 import { colors } from '../theme/colors';
 import { InterviewState } from '../types';
@@ -166,7 +166,11 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
             />
           ) : (
             <View style={styles.fallbackContainer}>
-              <Text style={styles.fallbackEmoji}>🐻</Text>
+              <Image
+                source={require('../assets/images/teddy_logo.png')}
+                style={{ width: 140, height: 140, borderRadius: 70 }}
+                resizeMode="cover"
+              />
               <Text style={styles.fallbackName}>Teddy</Text>
             </View>
           )}
@@ -222,7 +226,11 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
         ) : (
           // Elegant vector fallback in case Rive engine fails
           <View style={styles.fallbackContainer}>
-            <Text style={styles.fallbackEmoji}>🐻</Text>
+            <Image
+              source={require('../assets/images/teddy_logo.png')}
+              style={{ width: size * 0.72, height: size * 0.72, borderRadius: (size * 0.72) / 2 }}
+              resizeMode="cover"
+            />
             <Text style={styles.fallbackName}>Teddy</Text>
           </View>
         )}

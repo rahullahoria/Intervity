@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate complete Android and iOS mascot app launcher icons.
-Uses Coach Nova's face on a luxury midnight-navy background with cyan-indigo rim lighting.
+Uses Teddy's face on a luxury midnight-navy background with cyan-indigo rim lighting.
 """
 
 import os
@@ -12,31 +12,7 @@ def create_master_icons(src_path):
     orig = Image.open(src_path).convert('RGB')
     
     # 1. Master Square Full-Bleed 1024x1024 (for iOS & Android square)
-    canvas = Image.new('RGBA', (1024, 1024), (12, 16, 36, 255))
-    canvas_draw = ImageDraw.Draw(canvas)
-    
-    # Draw dark midnight gradient
-    for y in range(1024):
-        ratio = y / 1024.0
-        r = int(12 + (24 - 12) * ratio)
-        g = int(16 + (30 - 16) * ratio)
-        b = int(36 + (64 - 36) * ratio)
-        canvas_draw.line([(0, y), (1024, y)], fill=(r, g, b, 255))
-        
-    # Circle portal
-    center_x, center_y = 512, 512
-    radius = 405
-    circle_mask = Image.new('L', (1024, 1024), 0)
-    mask_draw = ImageDraw.Draw(circle_mask)
-    mask_draw.ellipse([center_x - radius, center_y - radius, center_x + radius, center_y + radius], fill=255)
-    
-    canvas.paste(orig, (0, 0), circle_mask)
-    
-    # Rim highlight
-    rim = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
-    rim_draw = ImageDraw.Draw(rim)
-    rim_draw.ellipse([center_x - radius, center_y - radius, center_x + radius, center_y + radius], outline=(56, 189, 248, 65), width=4)
-    master_square = Image.alpha_composite(canvas, rim)
+    master_square = orig.resize((1024, 1024), Image.Resampling.LANCZOS).convert('RGBA')
     
     # 2. Master Round 1024x1024 (for Android round icon)
     master_round = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
@@ -45,9 +21,9 @@ def create_master_icons(src_path):
     round_mask_draw.ellipse([20, 20, 1004, 1004], fill=255)
     master_round.paste(master_square, (0, 0), round_mask)
     
-    # 3. Master Adaptive Foreground 1024x1024 (scaled to 68% safe zone for 108dp canvas)
+    # 3. Master Adaptive Foreground 1024x1024 (scaled to 72% safe zone for 108dp canvas)
     master_fg = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
-    scale = 0.70
+    scale = 0.72
     scaled_w, scaled_h = int(1024 * scale), int(1024 * scale)
     scaled_square = master_square.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
     offset_x = (1024 - scaled_w) // 2
@@ -57,7 +33,8 @@ def create_master_icons(src_path):
     return master_square, master_round, master_fg
 
 def generate_android_icons(master_square, master_round, master_fg):
-    res_dir = "/Users/rahullahoria/dina/Jobs_search_app/android/app/src/main/res"
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    res_dir = os.path.join(project_root, "android", "app", "src", "main", "res")
     densities = {
         "mipmap-mdpi": (48, 108),
         "mipmap-hdpi": (72, 162),
@@ -122,7 +99,8 @@ def generate_android_icons(master_square, master_round, master_fg):
     print("Android launcher assets generated successfully.")
 
 def generate_ios_icons(master_square):
-    appiconset_dir = "/Users/rahullahoria/dina/Jobs_search_app/ios/OfflineInterviewApp/Images.xcassets/AppIcon.appiconset"
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    appiconset_dir = os.path.join(project_root, "ios", "OfflineInterviewApp", "Images.xcassets", "AppIcon.appiconset")
     os.makedirs(appiconset_dir, exist_ok=True)
     
     # iOS icon specifications
@@ -171,7 +149,8 @@ def generate_ios_icons(master_square):
     print("iOS AppIcon.appiconset generated successfully.")
 
 def main():
-    src_path = "/Users/rahullahoria/.gemini/antigravity/brain/2d2e6988-b4cb-47b3-b235-d1ebc0e0ef39/mascot_logo_master_1790771824227.jpg"
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    src_path = os.path.join(project_root, "src", "assets", "images", "teddy_logo.png")
     print(f"Processing master mascot logo from {src_path}...")
     master_square, master_round, master_fg = create_master_icons(src_path)
     

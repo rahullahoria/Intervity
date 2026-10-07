@@ -25,6 +25,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RiveMascot } from '../components/RiveMascot';
@@ -183,25 +184,32 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         ]}
       >
         <View style={styles.headerRow}>
-          {/* Level Badge with Star & XP Progress */}
-          <View style={styles.levelCard}>
-            <View style={styles.levelBadgeRow}>
-              <View style={styles.starBadge}>
-                <StarIcon size={12} color="#38BDF8" />
-                <Text style={styles.starBadgeText}>Lv.{mascotLevel}</Text>
+          {/* Level Badge with Teddy Logo, Star & XP Progress */}
+          <View style={styles.levelCardContainer}>
+            <Image
+              source={require('../assets/images/teddy_logo.png')}
+              style={styles.headerTeddyLogo}
+              resizeMode="cover"
+            />
+            <View style={styles.levelCard}>
+              <View style={styles.levelBadgeRow}>
+                <View style={styles.starBadge}>
+                  <StarIcon size={12} color="#38BDF8" />
+                  <Text style={styles.starBadgeText}>Lv.{mascotLevel}</Text>
+                </View>
+                <Text style={styles.personalityTierText} numberOfLines={1}>
+                  {mascotTier}
+                </Text>
+                <Text style={styles.xpFractionText}>{mascotXp % 100}/100 XP</Text>
               </View>
-              <Text style={styles.personalityTierText} numberOfLines={1}>
-                {mascotTier}
-              </Text>
-              <Text style={styles.xpFractionText}>{mascotXp % 100}/100 XP</Text>
-            </View>
-            <View style={styles.xpTrack}>
-              <View
-                style={[
-                  styles.xpFill,
-                  { width: `${Math.min(100, (mascotXp % 100))}%` },
-                ]}
-              />
+              <View style={styles.xpTrack}>
+                <View
+                  style={[
+                    styles.xpFill,
+                    { width: `${Math.min(100, (mascotXp % 100))}%` },
+                  ]}
+                />
+              </View>
             </View>
           </View>
 
@@ -892,9 +900,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  levelCardContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  headerTeddyLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#38BDF8',
+    marginRight: 8,
+  },
   levelCard: {
     flex: 1,
-    marginRight: 10,
   },
   levelBadgeRow: {
     flexDirection: 'row',
