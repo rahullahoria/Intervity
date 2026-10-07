@@ -175,9 +175,75 @@ QBL is validated with dedicated regression tests in [`tests/questionDrivenLearni
 
 ---
 
-## 7. UX & Viewport Layout Architecture
+---
 
-To maintain high visual ergonomics and readability on mobile viewports (e.g. iPhone 17 Pro, SE, standard Android sizes):
-- **Viewport Anchor & Zero Overlap Guarantee**: When an answer is evaluated, the viewport scroll remains anchored strictly at the top (`y: 0`). This ensures that the diagnostic card (`⚠️ CONCEPT DIAGNOSTIC`, `Trap Analyzed` badge, and mistake breakdown) is presented **from the very beginning** without being clipped or sliding behind the fixed Teddy companion card.
-- **Smart Distractor Collapse**: To prevent cognitive overload and excessive scrolling, evaluated views prioritize the candidate's selection (`✗ Your Choice`) and the authoritative solution (`✓ Correct Answer`), offering an intuitive toggle (`▾ View all N options` / `▴ Show focused choices`) to inspect unselected distractors.
-- **Auto-Reset on Progression**: When advancing to a reinforcement drill or the next concept, the option collapse state resets, and scroll is repositioned to top, ensuring candidate focus is immediately centered on the new challenge.
+## 8. Deep Technical Optimizations & Zero-Latency Pipeline
+
+To combine LLM-driven generation with real-time mobile UX, Intervity implements three core architectural optimizations:
+
+### Optimization 1: Pipelined Background Pre-generation (0ms Transitions)
+Large Language Models running locally on edge hardware (NPU/GPU/CPU) take 1.5–4 seconds to synthesize deep technical questions. However, human candidates spend 20–45 seconds reading, analyzing, and answering each multiple-choice question.
+
+QBL exploits this natural cognitive window with **Pipelined Asynchronous Prefetching** via `QBLEngine.prefetchCache`:
+- **Session Start**: When `createNewSession` or `startNewTopic` is called, Concept #1 of Sub-topic 1 is pre-generated immediately.
+- **During Question Display**: The moment Concept $N$ is rendered on screen, `QBLEngine.generateQuestion` fires a background promise for Concept $N+1$. When the candidate finishes and taps `Continue to Concept #N+1 →`, the question is served from memory with **0ms latency**.
+- **On Incorrect Answers**: As soon as an answer is evaluated as incorrect, `evaluateAnswer` immediately fires a background prefetch for the targeted **reinforcement drill** while the candidate reads the diagnostics autopsy card.
+- **On Sub-topic Completion**: When Concept #3 is mastered, `evaluateAnswer` asynchronously pre-fetches Concept #1 of the subsequent subtopic in the roadmap.
+
+```
+Candidate Reads Question N (20-45s)
+│
+├──> UI Thread: Candidate evaluates options
+│
+└──> Background Thread: QBLEngine.prefetchQuestion(N+1) [completes in ~2s]
+                                │
+Candidate Taps "Continue" ──────┴──> Question N+1 renders INSTANTLY (0ms)
+```
+
+### Optimization 2: Deep Technical Prompt Engineering & Artifact Grounding
+Questions are systematically grounded in real production engineering realities rather than trivial textbook definitions:
+- **Code & Syntax**: Real snippets in TypeScript, Python, Go, C++, or SQL illustrating concurrency bugs, thread pools, or query filters.
+- **Configuration Flags**: Real system knobs (e.g. `max.poll.interval.ms`, `min.insync.replicas`, `shared_buffers`, `wal_sync_method`).
+- **Telemetry & Metrics**: Concrete production numbers (e.g. "p99 latency spiked from 12ms to 850ms under 50k RPS", thread dumps, CPU saturation).
+- **Sub-topic Diversity**: Zero question repetition across all 5 subtopics. Subtopic 1 (Fundamentals), Subtopic 2 (Engine Architecture), Subtopic 3 (Bottlenecks/Edge Cases), Subtopic 4 (High-Scale Optimizations), and Subtopic 5 (Staff Architecture) each generate distinct, specialized challenges.
+
+### Optimization 3: Token-Level GBNF Grammar Constrained Decoding (`QBL_JSON_GBNF`)
+To eliminate JSON parse errors and guarantee schema compliance when running on quantized edge LLMs (`MiniCPM5-2B`), Intervity defines a token-level GBNF grammar in [`OfflineLLMEngine.ts`](../src/core/llm/OfflineLLMEngine.ts):
+- Constrains llama.rn sampling to strictly valid JSON keys (`conceptTitle`, `questionText`, `options`, `explanation`, `coachingTip`).
+- Enforces exactly 4 option objects (`A`, `B`, `C`, `D`) with required booleans (`isCorrect: true/false`).
+- Coupled with a resilient `parseAndValidateQuestionJSON` sanitization layer that strips markdown code blocks (` ```json ... ``` `) and repairs internal unescaped newlines.
+
+---
+
+## 9. Graduated Difficulty Progression (Step-by-Step Learning)
+
+Candidates learn step-by-step rather than being thrust into complex staff-level architecture prematurely:
+
+| Concept Stage | Difficulty Tier | Pedagogical Focus |
+| :--- | :--- | :--- |
+| **Concept #1** | `[BASIC]` | Foundational mental models, core invariants, primary terminology, and junior/mid misconception traps. |
+| **Concept #2** | `[INTERMEDIATE]` | Real code snippets, operational workflows, runtime mechanics, and lifecycle trade-offs. |
+| **Concept #3** | `[ADVANCED]` | Production incidents, p99 latency spikes, configuration conflicts, thread contention, and execution plans. |
+| **Reinforcement** | `[PRO]` | Edge cases, mission-critical failure modes, split-brain scenarios, CAP dilemmas, and staff-level decisions. |
+
+---
+
+## 10. Interactive Mistake Autopsy & Review Session
+
+Mistakes are treated as the highest-value learning opportunities:
+- Every incorrect selection is automatically logged to SQLite (`qbl_session_turns` with `is_correct = 0`).
+- A persistent `🔍 Review (N)` badge in the topic HUD highlights total active traps.
+- Candidates can tap **Review (N)** at any point during learning or upon 100% topic completion.
+- The **Mistake Autopsy Card** provides:
+  1. `❌ YOUR TRAP CHOICE`: Highlights the chosen distractor and explains *why* it was a plausible trap and where it fails in production.
+  2. `✓ AUTHORITATIVE PATTERN`: Displays the correct engineering approach with deep mental models.
+  3. Step-by-step navigation (`← Previous Trap`, `Next Trap →`, `Finish Review 🎉`) allowing candidates to review and solidify their intuition before continuing.
+
+---
+
+## 11. UX Viewport & Auto-Scroll Mechanics
+
+To provide a seamless, non-overlapping mobile layout:
+- **Smooth Auto-Scroll to Feedback**: Upon answer evaluation, the scroll view smooth-scrolls to the end (`scrollToEnd({ animated: true })`), bringing Teddy's diagnostics, the autopsy card, and the `Continue →` button cleanly into view without manual swiping.
+- **Top Anchor on Progression**: When a new question loads (`currentQuestion.id` changes) or when entering/exiting Review mode, the viewport immediately anchors to `y: 0` (`scrollTo({ y: 0 })`), ensuring the question header, badges, and scenario always display from the beginning with zero mascot overlap.
+

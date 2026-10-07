@@ -10,7 +10,7 @@
  * 6. Reinforcement questions on failed concepts until 100% mastery is achieved
  */
 
-import { OfflineLLMEngine } from '../llm/OfflineLLMEngine';
+import { OfflineLLMEngine, QBL_JSON_GBNF } from '../llm/OfflineLLMEngine';
 import { IQBLRepository, QBLStorageManager } from '../../database';
 import {
   QBLSession,
@@ -26,6 +26,7 @@ import { getCatalogQuestion } from './QBLQuestionCatalog';
 export class QBLEngine {
   private llmEngine: OfflineLLMEngine;
   private repository: IQBLRepository;
+  private prefetchCache: Map<string, Promise<QBLQuestion>> = new Map();
 
   constructor(
     llmEngine?: OfflineLLMEngine,
@@ -41,6 +42,60 @@ export class QBLEngine {
 
   getRepository(): IQBLRepository {
     return this.repository;
+  }
+
+  /**
+   * Generates a deterministic cache key for pre-generated questions
+   */
+  getPrefetchKey(topicName: string, subtopicId: string, conceptIndex: number, isReinforcement: boolean): string {
+    return `${topicName.trim().toLowerCase()}_${subtopicId}_c${conceptIndex}_r${isReinforcement ? 1 : 0}`;
+  }
+
+  /**
+   * Clears the background prefetch cache
+   */
+  clearPrefetchCache(): void {
+    this.prefetchCache.clear();
+  }
+
+  /**
+   * Checks whether a question is already pre-generated or actively in flight
+   */
+  hasPrefetchedQuestion(topicName: string, subtopicId: string, conceptIndex: number, isReinforcement: boolean = false): boolean {
+    const key = this.getPrefetchKey(topicName, subtopicId, conceptIndex, isReinforcement);
+    return this.prefetchCache.has(key);
+  }
+
+  /**
+   * Optimization 1: Pipelined Background Pre-generation
+   * Asynchronously generates a question in the background and caches the Promise.
+   * When the candidate reaches this question, resolution latency is 0ms.
+   */
+  prefetchQuestion(
+    topicName: string,
+    subtopic: QBLSubtopic,
+    conceptIndex: number,
+    isReinforcement: boolean = false,
+    previousMistake?: string
+  ): Promise<QBLQuestion> {
+    const key = this.getPrefetchKey(topicName, subtopic.id, conceptIndex, isReinforcement);
+    if (this.prefetchCache.has(key)) {
+      return this.prefetchCache.get(key)!;
+    }
+
+    const promise = this.generateQuestionInternal(
+      topicName,
+      subtopic,
+      conceptIndex,
+      isReinforcement,
+      previousMistake
+    ).catch((err) => {
+      console.warn('[QBLEngine] Prefetch failed, using fallback catalog:', err);
+      return this.getDefaultQuestion(topicName, subtopic, conceptIndex, isReinforcement, previousMistake);
+    });
+
+    this.prefetchCache.set(key, promise);
+    return promise;
   }
 
   /**
@@ -102,11 +157,51 @@ Do not output any markdown headers or commentary outside the JSON array.`;
 
   /**
    * Generates a 4-option multiple choice question for a specific concept in a subtopic.
+   * If pre-generated in the background cache, returns immediately (0ms latency).
+   * Automatically pipelines prefetching for the subsequent concept.
    */
   async generateQuestion(
     topicName: string,
     subtopic: QBLSubtopic,
     conceptIndex: number, // 1, 2, or 3
+    isReinforcement: boolean = false,
+    previousMistake?: string
+  ): Promise<QBLQuestion> {
+    const key = this.getPrefetchKey(topicName, subtopic.id, conceptIndex, isReinforcement);
+    let questionPromise: Promise<QBLQuestion>;
+
+    if (this.prefetchCache.has(key)) {
+      questionPromise = this.prefetchCache.get(key)!;
+      this.prefetchCache.delete(key);
+    } else {
+      questionPromise = this.generateQuestionInternal(
+        topicName,
+        subtopic,
+        conceptIndex,
+        isReinforcement,
+        previousMistake
+      );
+    }
+
+    const question = await questionPromise;
+
+    // Optimization 1: Pipelined Background Pre-generation
+    // While the user reads and thinks through this question, pre-generate the next concept
+    if (!isReinforcement && conceptIndex < subtopic.totalConcepts) {
+      this.prefetchQuestion(topicName, subtopic, conceptIndex + 1, false);
+    }
+
+    return question;
+  }
+
+  /**
+   * Optimization 2 & 3: Deep Technical Prompt Engineering with Real Engineering Artifacts
+   * and Token-Level GBNF Constrained Decoding.
+   */
+  private async generateQuestionInternal(
+    topicName: string,
+    subtopic: QBLSubtopic,
+    conceptIndex: number,
     isReinforcement: boolean = false,
     previousMistake?: string
   ): Promise<QBLQuestion> {
@@ -118,66 +213,67 @@ Do not output any markdown headers or commentary outside the JSON array.`;
       ? 'intermediate'
       : 'basic';
 
-    const difficultyGuide = difficulty === 'basic'
-      ? 'TARGET DIFFICULTY: BASIC. Start from core intuition, foundational mental models, basic definitions, and primary purpose. Do NOT jump to advanced production trade-offs or complex edge cases yet!'
+    const artifactGuidance = difficulty === 'basic'
+      ? `Include a concrete mental model or foundational code/schema snippet. Focus on core primitives, fundamental invariants, and basic architectural definitions. Distractors should represent common junior/mid misconceptions.`
       : difficulty === 'intermediate'
-      ? 'TARGET DIFFICULTY: INTERMEDIATE. Focus on standard operational mechanisms, core algorithms, data structures, and practical application rules.'
+      ? `Include a real-world code snippet (e.g. TypeScript/Python/Go/SQL), standard configuration parameters, or an operational workflow. Focus on runtime mechanics, state lifecycle, and standard operational trade-offs.`
       : difficulty === 'advanced'
-      ? 'TARGET DIFFICULTY: ADVANCED. Focus on production edge cases, performance bottlenecks, cost-based optimizer decisions, and engineering trade-offs.'
-      : 'TARGET DIFFICULTY: PRO. Focus on staff-level architecture, catastrophic failure isolation, distributed consensus, and zero-data-loss guarantees.';
+      ? `Include a production scenario with concrete metrics (e.g. "p99 latency spiked from 12ms to 850ms under 50k RPS"), an EXPLAIN execution plan, thread dump, or configuration conflict (e.g. max.poll.interval.ms vs processing time). Distractors must be plausible engineering approaches that fail under high load or edge cases.`
+      : `Include a mission-critical distributed systems failure, split-brain scenario, catastrophic memory/disk exhaustion, or zero-data-loss consistency dilemma. Focus on staff-level decision making, CAP theorem trade-offs, and consensus protocols.`;
 
-    const systemPrompt = `You are Teddy, a warm and brilliant engineering mentor.
-Create a real-world, scenario-based multiple-choice question testing Concept #${conceptIndex} of sub-topic "${subtopic.title}" in "${topicName}".
-${difficultyGuide}
-Provide exactly 4 options labeled A, B, C, D. Exactly ONE option must be correct (isCorrect: true).
-For each option, explain clearly and concisely why it is correct or why it is incorrect.
-Output strictly a JSON object with this exact schema:
-{
-  "conceptTitle": "string",
-  "questionText": "string",
-  "options": [
-    { "id": "A", "text": "string", "isCorrect": boolean, "explanation": "string" },
-    { "id": "B", "text": "string", "isCorrect": boolean, "explanation": "string" },
-    { "id": "C", "text": "string", "isCorrect": boolean, "explanation": "string" },
-    { "id": "D", "text": "string", "isCorrect": boolean, "explanation": "string" }
-  ],
-  "explanation": "string (comprehensive takeaway)",
-  "coachingTip": "string (Teddy's friendly mental model tip)"
-}`;
+    const systemPrompt = `You are Teddy, a world-class Principal Software Engineer and compassionate mentor.
+Your mission is to craft deeply technical, scenario-based Multiple Choice Questions for Question-Driven Learning (QBL).
+
+CRITICAL REQUIREMENTS:
+1. Every question must be grounded in real-world software engineering reality with concrete artifacts:
+   - Real code blocks (TypeScript, Python, Java, Go, C++, or SQL)
+   - Configuration key-value pairs (e.g., timeout flags, buffer sizes, retry policies)
+   - Real system metrics (e.g., p99 latency, IOPS, cache hit ratios, thread contention)
+   - Real error logs or execution plans (e.g. EXPLAIN ANALYZE, deadlock traces, OOM)
+2. ${artifactGuidance}
+3. Distractors (incorrect options) MUST be realistic technical traps that senior engineers debate, NOT obvious joke answers.
+4. Exactly ONE option must be correct ("isCorrect": true). The other three must be false ("isCorrect": false).
+5. For each option, provide a rigorous 1-2 sentence engineering explanation of why it works or why it fails at scale.
+6. Provide an insightful overarching explanation and a punchy, memorable "coachingTip" from Teddy.
+7. Output STRICT valid JSON matching the schema without markdown code blocks, preamble, or postscript.`;
 
     const reinforcementClause = isReinforcement
-      ? `The candidate previously selected a wrong answer (${previousMistake || 'conceptual trap'}). Craft a fresh reinforcement question testing this same core concept from a different practical angle to help them reach 100% mastery.`
+      ? `\nREINFORCEMENT DRILL: The candidate previously made an error (${previousMistake || 'conceptual misconception'}). Create an alternative scenario testing the same core architectural invariant from a different angle to guarantee 100% mastery.`
       : '';
 
-    const userPrompt = `Generate a QBL multiple-choice question for:
+    const userPrompt = `Generate a rigorous ${difficulty.toUpperCase()} tier QBL question.
 Topic: ${topicName}
-Sub-topic: ${subtopic.title} (${subtopic.description})
-Difficulty: ${difficulty.toUpperCase()}
+Sub-topic: ${subtopic.title}
+Sub-topic Scope: ${subtopic.description}
 Concept #${conceptIndex} of 3
-${reinforcementClause}`;
+Difficulty Tier: ${difficulty.toUpperCase()}${reinforcementClause}
+
+Output JSON schema:
+{
+  "conceptTitle": "Specific Concept Name",
+  "questionText": "Detailed scenario with embedded code, config, or metrics...",
+  "options": [
+    { "id": "A", "text": "Concrete option A", "isCorrect": boolean, "explanation": "Why A works or fails..." },
+    { "id": "B", "text": "Concrete option B", "isCorrect": boolean, "explanation": "Why B works or fails..." },
+    { "id": "C", "text": "Concrete option C", "isCorrect": boolean, "explanation": "Why C works or fails..." },
+    { "id": "D", "text": "Concrete option D", "isCorrect": boolean, "explanation": "Why D works or fails..." }
+  ],
+  "explanation": "Deep architectural takeaway...",
+  "coachingTip": "Teddy's memorable mental model..."
+}`;
 
     let generatedText = '';
     try {
-      generatedText = await this.llmEngine.generateCompletion(userPrompt, systemPrompt);
+      generatedText = await this.llmEngine.generateCompletion(userPrompt, systemPrompt, {
+        grammar: QBL_JSON_GBNF,
+        temperature: 0.3,
+      });
     } catch (err) {
       console.warn('[QBLEngine] LLM generateQuestion error, using fallback:', err);
     }
 
-    let parsedQuestion: any = null;
-    if (generatedText) {
-      try {
-        const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsedQuestion = JSON.parse(jsonMatch[0]);
-        }
-      } catch (parseErr) {
-        console.warn('[QBLEngine] Failed to parse question JSON:', parseErr);
-      }
-    }
-
-    if (!parsedQuestion || !parsedQuestion.options || parsedQuestion.options.length < 4) {
-      parsedQuestion = this.getDefaultQuestion(topicName, subtopic, conceptIndex, isReinforcement, previousMistake);
-    }
+    const parsedQuestion = this.parseAndValidateQuestionJSON(generatedText) ||
+      this.getDefaultQuestion(topicName, subtopic, conceptIndex, isReinforcement, previousMistake);
 
     // Ensure options array has valid IDs and exactly one correct option
     const options: QBLOption[] = (parsedQuestion.options as any[]).slice(0, 4).map((opt, idx) => ({
@@ -192,7 +288,7 @@ ${reinforcementClause}`;
     }
 
     return {
-      id: `q_${Date.now()}_${conceptIndex}`,
+      id: `q_${Date.now()}_${conceptIndex}_${Math.random().toString(36).slice(2, 6)}`,
       conceptTitle: parsedQuestion.conceptTitle || `Core Concept ${conceptIndex}`,
       conceptIndex,
       questionText: parsedQuestion.questionText || `How does ${subtopic.title} operate in high-scale production?`,
@@ -202,6 +298,60 @@ ${reinforcementClause}`;
       isReinforcement,
       difficulty,
     };
+  }
+
+  /**
+   * Optimization 3: Constrained Decoding & Schema Defense Sanitizer
+   * Extracts valid JSON object, strips markdown code fences, and validates required schema fields.
+   */
+  private parseAndValidateQuestionJSON(rawText: string): any {
+    if (!rawText || typeof rawText !== 'string') return null;
+
+    // 1. Strip markdown fences if present
+    let cleaned = rawText.trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.slice(7);
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.slice(3);
+    }
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.slice(0, cleaned.length - 3);
+    }
+    cleaned = cleaned.trim();
+
+    // 2. Extract outermost JSON object
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace <= firstBrace) {
+      return null;
+    }
+
+    const jsonCandidate = cleaned.slice(firstBrace, lastBrace + 1);
+
+    try {
+      const parsed = JSON.parse(jsonCandidate);
+      if (
+        parsed &&
+        typeof parsed.questionText === 'string' &&
+        Array.isArray(parsed.options) &&
+        parsed.options.length >= 4
+      ) {
+        return parsed;
+      }
+    } catch {
+      // Attempt repair of unescaped newlines within strings
+      try {
+        const repaired = jsonCandidate.replace(/(?<!\\)\n/g, '\\n');
+        const parsed = JSON.parse(repaired);
+        if (parsed && typeof parsed.questionText === 'string' && Array.isArray(parsed.options)) {
+          return parsed;
+        }
+      } catch {
+        // Parsing failed, return null to use catalog fallback
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -269,6 +419,19 @@ ${reinforcementClause}`;
 
     await this.repository.saveSession(session);
 
+    // Optimization 1: Pipelined Background Pre-generation
+    if (!isCorrect) {
+      // Candidate made an error: prefetch reinforcement question while they read diagnostics
+      this.prefetchQuestion(session.topicName, subtopic, question.conceptIndex, true, selectedOption.text);
+    } else if (isSubtopicCompleted) {
+      // Subtopic completed: prefetch Concept 1 of next subtopic if available
+      const nextSubIndex = session.currentSubtopicIndex + 1;
+      if (nextSubIndex < session.subtopics.length) {
+        const nextSub = session.subtopics[nextSubIndex];
+        this.prefetchQuestion(session.topicName, nextSub, 1, false);
+      }
+    }
+
     return {
       turnId,
       isCorrect,
@@ -287,6 +450,7 @@ ${reinforcementClause}`;
    * Starts a brand new QBL session for a given skill or topic
    */
   async createNewSession(topicName: string): Promise<QBLSession> {
+    this.clearPrefetchCache();
     const subtopics = await this.planSubtopics(topicName);
     const session: QBLSession = {
       sessionId: `qbl_${Date.now()}`,
@@ -301,6 +465,12 @@ ${reinforcementClause}`;
     };
 
     await this.repository.saveSession(session);
+
+    // Immediately prefetch Concept 1 of the initial subtopic in the background
+    if (subtopics.length > 0) {
+      this.prefetchQuestion(topicName, subtopics[0], 1, false);
+    }
+
     return session;
   }
 

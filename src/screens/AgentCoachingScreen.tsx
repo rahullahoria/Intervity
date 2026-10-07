@@ -148,21 +148,19 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     }
   }, [currentQuestion?.id]);
 
-  // When turn is evaluated (feedback arrives), keep scroll strictly anchored at top (y: 0)
-  // so the question, choices, and feedback show from the beginning with ZERO overlap under Teddy!
+  // When turn is evaluated, smooth-scroll to reveal the feedback card and Continue button.
+  // When a new question arrives (above), it always anchors strictly at top (y: 0) to show from the beginning!
   useEffect(() => {
     if (currentTurnResult) {
       const timer = setTimeout(() => {
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-      }, 50);
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
       return () => clearTimeout(timer);
     }
   }, [currentTurnResult]);
 
   useEffect(() => {
-    if (isReviewSessionActive) {
-      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-    }
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   }, [isReviewSessionActive, currentMistakeIndex]);
 
   // Auto-scroll on free-form chat messages if no active question

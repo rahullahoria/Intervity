@@ -16,7 +16,7 @@ import assert from 'node:assert';
 import { SQLiteClient } from '../src/database/SQLiteClient';
 import { QBLStorageManager } from '../src/database/QBLStorageManager';
 import { QBLEngine } from '../src/core/qbl/QBLEngine';
-import { OfflineLLMEngine } from '../src/core/llm/OfflineLLMEngine';
+import { OfflineLLMEngine, QBL_JSON_GBNF } from '../src/core/llm/OfflineLLMEngine';
 
 describe('Question-Driven Learning (QBL) Core Engine & Flow', () => {
   let db: SQLiteClient;
@@ -329,6 +329,136 @@ describe('Question-Driven Learning (QBL) Core Engine & Flow', () => {
 
       const mistakes = await qblEngine.getMistakesForSession(session.sessionId);
       assert.strictEqual(mistakes.length, 0, 'Zero mistakes recorded for flawless session');
+    });
+  });
+
+  describe('Optimization 1: Pipelined Background Pre-generation', () => {
+    it('pre-generates Concept 1 on createNewSession and pre-generates Concept N+1 on generating Concept N', async () => {
+      const session = await qblEngine.createNewSession('Distributed Systems');
+      const sub = session.subtopics[0];
+
+      // 1. Check that createNewSession pre-cached Concept 1
+      assert.strictEqual(
+        qblEngine.hasPrefetchedQuestion(session.topicName, sub.id, 1, false),
+        true,
+        'Concept 1 must be pre-fetched into cache upon session creation'
+      );
+
+      // 2. Generating Concept 1 consumes it and automatically triggers prefetch for Concept 2
+      const q1 = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+      assert.ok(q1.questionText);
+      assert.strictEqual(
+        qblEngine.hasPrefetchedQuestion(session.topicName, sub.id, 2, false),
+        true,
+        'Concept 2 must be automatically pre-fetched in the background while user reads Concept 1'
+      );
+
+      // 3. Generating Concept 2 consumes it and triggers prefetch for Concept 3
+      const q2 = await qblEngine.generateQuestion(session.topicName, sub, 2, false);
+      assert.ok(q2.questionText);
+      assert.strictEqual(
+        qblEngine.hasPrefetchedQuestion(session.topicName, sub.id, 3, false),
+        true,
+        'Concept 3 must be automatically pre-fetched while user reads Concept 2'
+      );
+    });
+
+    it('pre-generates reinforcement drill immediately upon incorrect answer', async () => {
+      const session = await qblEngine.createNewSession('Kafka & Event Streaming');
+      const sub = session.subtopics[0];
+
+      const q1 = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+      const wrongOpt = q1.options.find((o) => !o.isCorrect)!;
+
+      // Submit wrong answer
+      await qblEngine.evaluateAnswer(session, sub, q1, wrongOpt.id);
+
+      // Verify reinforcement question is now actively cached
+      assert.strictEqual(
+        qblEngine.hasPrefetchedQuestion(session.topicName, sub.id, 1, true),
+        true,
+        'Reinforcement drill for Concept 1 must be pre-fetched immediately upon wrong answer'
+      );
+    });
+
+    it('pre-generates Concept 1 of the NEXT subtopic upon completing current subtopic', async () => {
+      const session = await qblEngine.createNewSession('Kafka & Event Streaming');
+      const sub1 = session.subtopics[0];
+      const sub2 = session.subtopics[1];
+
+      // Complete all 3 concepts of Subtopic 1
+      for (let c = 1; c <= 3; c++) {
+        const q = await qblEngine.generateQuestion(session.topicName, sub1, c, false);
+        const correct = q.options.find((o) => o.isCorrect)!;
+        await qblEngine.evaluateAnswer(session, sub1, q, correct.id);
+      }
+
+      assert.strictEqual(sub1.status, 'COMPLETED');
+
+      // Verify Subtopic 2 Concept 1 was automatically pre-fetched into cache
+      assert.strictEqual(
+        qblEngine.hasPrefetchedQuestion(session.topicName, sub2.id, 1, false),
+        true,
+        'Next subtopic Concept 1 must be pre-fetched when previous subtopic completes'
+      );
+    });
+  });
+
+  describe('Optimization 2: Technical Subtopic Diversity (No Repetition)', () => {
+    it('generates distinct, non-repeating technical questions across all 5 subtopics', async () => {
+      const session = await qblEngine.createNewSession('Kafka & Event Streaming');
+      assert.ok(session.subtopics.length >= 5);
+
+      const concept1Questions: string[] = [];
+
+      for (let i = 0; i < Math.min(session.subtopics.length, 5); i++) {
+        const sub = session.subtopics[i];
+        const q = await qblEngine.generateQuestion(session.topicName, sub, 1, false);
+        assert.ok(q.questionText && q.questionText.length > 20);
+        concept1Questions.push(q.questionText);
+      }
+
+      // Verify that all 5 subtopics have unique, distinct questions for Concept 1
+      const uniqueQuestions = new Set(concept1Questions);
+      assert.strictEqual(
+        uniqueQuestions.size,
+        concept1Questions.length,
+        'Every subtopic must have a distinct, non-repeating question for Concept 1'
+      );
+    });
+  });
+
+  describe('Optimization 3: GBNF Grammar & Robust Schema Defense', () => {
+    it('defines a valid token-level GBNF grammar for strict JSON schema compliance', () => {
+      assert.ok(QBL_JSON_GBNF);
+      assert.ok(QBL_JSON_GBNF.includes('root ::='));
+      assert.ok(QBL_JSON_GBNF.includes('conceptTitle'));
+      assert.ok(QBL_JSON_GBNF.includes('questionText'));
+      assert.ok(QBL_JSON_GBNF.includes('optionsList'));
+    });
+
+    it('safely extracts and sanitizes questions even when wrapped in markdown fences or noise', () => {
+      const rawWithFences = `\`\`\`json
+{
+  "conceptTitle": "Distributed Commit Invariants",
+  "questionText": "Under two-phase commit, what prevents coordinator failure from blocking participants indefinitely?",
+  "options": [
+    { "id": "A", "text": "Three-phase commit with non-blocking timeouts.", "isCorrect": true, "explanation": "3PC adds a pre-commit state." },
+    { "id": "B", "text": "Rebooting participant servers.", "isCorrect": false, "explanation": "Rebooting does not release locks." },
+    { "id": "C", "text": "Disabling logs.", "isCorrect": false, "explanation": "Disabling logs breaks durability." },
+    { "id": "D", "text": "Sending UDP packets.", "isCorrect": false, "explanation": "UDP lacks delivery guarantees." }
+  ],
+  "explanation": "3PC uses timeouts in pre-commit.",
+  "coachingTip": "Always design for non-blocking fallbacks."
+}
+\`\`\``;
+
+      // Access private method for testing via any cast
+      const parsed = (qblEngine as any).parseAndValidateQuestionJSON(rawWithFences);
+      assert.ok(parsed);
+      assert.strictEqual(parsed.conceptTitle, 'Distributed Commit Invariants');
+      assert.strictEqual(parsed.options.length, 4);
+      assert.strictEqual(parsed.options[0].isCorrect, true);
     });
   });
 });

@@ -15,6 +15,17 @@ import { HardwareAccelerationManager, HardwareAccelerationMode } from '../hardwa
 import { TeddyDialogueEngine } from '../agent/TeddyDialogueEngine';
 import { getCatalogQuestion } from '../qbl/QBLQuestionCatalog';
 
+/**
+ * GBNF Grammar for Constrained Decoding
+ * Enforces 100% strict JSON schema compliance directly at the token sampling level
+ */
+export const QBL_JSON_GBNF = `root ::= "{" ws "\\"conceptTitle\\":" ws string "," ws "\\"questionText\\":" ws string "," ws "\\"options\\":" ws optionsList "," ws "\\"explanation\\":" ws string "," ws "\\"coachingTip\\":" ws string ws "}"
+optionsList ::= "[" ws optionObj "," ws optionObj "," ws optionObj "," ws optionObj ws "]"
+optionObj ::= "{" ws "\\"id\\":" ws ("\\"A\\"" | "\\"B\\"" | "\\"C\\"" | "\\"D\\"") "," ws "\\"text\\":" ws string "," ws "\\"isCorrect\\":" ws boolean "," ws "\\"explanation\\":" ws string ws "}"
+boolean ::= "true" | "false"
+string ::= "\\"" ([^"\\\\\\x00-\\x1F] | "\\\\" ["\\\\/bfnrt] | "\\\\u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F])* "\\""
+ws ::= [ \\t\\n\\r]*`;
+
 export class OfflineLLMEngine {
   private llamaContext: any = null;
   private isLoaded = false;
@@ -196,7 +207,11 @@ export class OfflineLLMEngine {
     return fullResponse;
   }
 
-  async generateCompletion(prompt: string, systemPrompt?: string): Promise<string> {
+  async generateCompletion(
+    prompt: string,
+    systemPrompt?: string,
+    options?: { grammar?: string; n_predict?: number; temperature?: number }
+  ): Promise<string> {
     if (!this.isLoaded) {
       await this.loadModel('MiniCPM5-2B-Q4_K_M.gguf');
     }
@@ -205,17 +220,23 @@ export class OfflineLLMEngine {
     if (this.llamaContext && typeof this.llamaContext.completion === 'function') {
       return new Promise<string>((resolve, reject) => {
         let full = '';
+        const completionParams: any = {
+          messages: [
+            ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+            { role: 'user', content: prompt },
+          ],
+          n_predict: options?.n_predict || 1024,
+          temperature: options?.temperature ?? 0.3,
+          top_p: 0.9,
+          stop: ['<|im_end|>', '<|endoftext|>'],
+        };
+
+        if (options?.grammar) {
+          completionParams.grammar = options.grammar;
+        }
+
         this.llamaContext.completion(
-          {
-            messages: [
-              ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-              { role: 'user', content: prompt },
-            ],
-            n_predict: 1024,
-            temperature: 0.3,
-            top_p: 0.9,
-            stop: ['<|im_end|>', '<|endoftext|>'],
-          },
+          completionParams,
           (data: { token: string }) => {
             if (this.abortSignal) return;
             full += data.token;

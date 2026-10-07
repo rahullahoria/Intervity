@@ -722,165 +722,720 @@ const TRACK_QUESTIONS: Record<string, {
 };
 
 /**
- * Procedural Dynamic Question Generator for any arbitrary topic
+ * Procedural Dynamic Question Generator for any arbitrary topic and subtopic.
+ * Synthesizes deep, artifact-rich engineering questions (code snippets, SQL, configs, latency metrics)
+ * across graduated difficulty tiers (basic -> intermediate -> advanced -> pro).
  */
 function buildProceduralQuestion(
   topicName: string,
   subtopicTitle: string,
   conceptIndex: number,
-  isReinforcement: boolean
+  isReinforcement: boolean,
+  _previousMistake?: string
 ): QuestionTemplate {
   const cleanTopic = topicName.trim() || 'Software Architecture';
   const cleanSubtopic = subtopicTitle.trim() || 'Core Engineering';
+  const subLower = cleanSubtopic.toLowerCase();
+  const topLower = cleanTopic.toLowerCase();
 
+  // 1. Kafka Producer / Ingestion / Idempotence Theme
+  if (subLower.includes('producer') || subLower.includes('idempotence') || subLower.includes('ack') || subLower.includes('ingest')) {
+    if (isReinforcement) {
+      return {
+        conceptTitle: 'Producer Idempotence Invariants & PID Deduplication',
+        difficulty: 'pro',
+        questionText: `Under network partition, a Kafka producer with \`enable.idempotence=true\` retries a batch after an \`UNKNOWN_TOPIC_OR_PARTITION\` error. Why does the broker safely discard the duplicate without user-space deduplication?\n\n\`\`\`properties\nenable.idempotence=true\nmax.in.flight.requests.per.connection=5\nretries=2147483647\n\`\`\``,
+        options: [
+          {
+            id: 'A',
+            text: 'The broker tracks the monotonic Sequence Number associated with each Producer ID (PID) and drops records where Sequence <= LastCommittedSequence.',
+            isCorrect: true,
+            explanation: 'Kafka assigns an internal Producer ID (PID) and sequence numbers to every record batch. The partition leader verifies sequence monotonicity and discards duplicates automatically.',
+          },
+          {
+            id: 'B',
+            text: 'The producer hashes the message payload in SHA-256 and deletes it from local disk.',
+            isCorrect: false,
+            explanation: 'Payload hashing is not part of Kafka broker protocol; sequence numbers and PIDs provide deterministic deduplication without payload inspection.',
+          },
+          {
+            id: 'C',
+            text: 'The partition leader drops all incoming messages until the network partition heals.',
+            isCorrect: false,
+            explanation: 'The leader continues processing valid writes that meet quorum requirements.',
+          },
+          {
+            id: 'D',
+            text: 'The operating system TCP buffer suppresses retried packets at layer 4.',
+            isCorrect: false,
+            explanation: 'TCP guarantees segment delivery within a socket session, but application-level retries across reconnects require application-level idempotence tokens.',
+          },
+        ],
+        explanation: 'Idempotent producers assign a monotonic sequence number per PID per partition. The broker rejects any batch with sequence <= current watermark, eliminating duplicate writes on retries.',
+        coachingTip: 'Remember: enable.idempotence requires acks=all and retries > 0. The broker handles sequence deduplication in memory for active producer epochs.',
+      };
+    }
+
+    if (conceptIndex === 1) {
+      return {
+        conceptTitle: 'Producer acks Semantics & Durability Trade-offs',
+        difficulty: 'basic',
+        questionText: `In event stream publishing, how does setting \`acks=all\` differ from \`acks=1\` when publishing messages to a clustered broker?\n\n\`\`\`properties\nacks=all\nmin.insync.replicas=2\n\`\`\``,
+        options: [
+          {
+            id: 'A',
+            text: 'With acks=all, the producer waits for the partition leader AND all In-Sync Replicas (ISR) to commit the record to their local write-ahead log.',
+            isCorrect: true,
+            explanation: 'acks=all guarantees that even if the leader crashes immediately after acknowledging, surviving ISR followers hold the committed message, preventing data loss.',
+          },
+          {
+            id: 'B',
+            text: 'acks=all broadcasts the message via UDP multicast to all client subscribers directly.',
+            isCorrect: false,
+            explanation: 'acks is an acknowledgement configuration between producer and broker, not a client subscription mechanism.',
+          },
+          {
+            id: 'C',
+            text: 'acks=1 provides zero-data-loss guarantees even if the broker hardware catches fire.',
+            isCorrect: false,
+            explanation: 'acks=1 only waits for the leader disk write; if the leader dies before replicating to followers, un-replicated records are permanently lost.',
+          },
+          {
+            id: 'D',
+            text: 'acks=all disables all producer retries to maximize throughput.',
+            isCorrect: false,
+            explanation: 'acks=all is typically combined with high or infinite retries to guarantee delivery.',
+          },
+        ],
+        explanation: 'acks=all with min.insync.replicas >= 2 ensures that messages survive the abrupt death of the leader broker without loss.',
+        coachingTip: 'Think of acks=1 like a verbal confirmation from one person, while acks=all is a signed notarized contract witnessed by the quorum.',
+      };
+    }
+
+    if (conceptIndex === 2) {
+      return {
+        conceptTitle: 'Batching Mechanics: linger.ms vs batch.size',
+        difficulty: 'intermediate',
+        questionText: `A producer application experiences high CPU overhead and low throughput sending 20,000 small events/sec. Which producer configuration tuning introduces bounded micro-batching without unacceptable latency?\n\n\`\`\`properties\nbatch.size=65536\nlinger.ms=10\ncompression.type=zstd\n\`\`\``,
+        options: [
+          {
+            id: 'A',
+            text: 'Setting linger.ms=10 forces the producer to buffer records for up to 10ms (or until batch.size is reached), allowing efficient batch compression and lower I/O syscalls.',
+            isCorrect: true,
+            explanation: 'By default linger.ms=0 sends immediately. Adding a 5-10ms buffer allows multiple records to coalesce into a single compressed network packet.',
+          },
+          {
+            id: 'B',
+            text: 'Setting max.block.ms=0 to drop all incoming messages that cannot be sent immediately.',
+            isCorrect: false,
+            explanation: 'Dropping messages causes severe data loss and does not optimize batching.',
+          },
+          {
+            id: 'C',
+            text: 'Increasing consumer thread count to 1,000 on the publishing server.',
+            isCorrect: false,
+            explanation: 'Consumers read from brokers; they do not control producer-side batching.',
+          },
+          {
+            id: 'D',
+            text: 'Disabling TCP socket buffers entirely.',
+            isCorrect: false,
+            explanation: 'Disabling socket buffers degrades network performance.',
+          },
+        ],
+        explanation: 'linger.ms gives the producer thread permission to wait up to N milliseconds to fill batch.size, multiplying throughput while keeping latency predictable.',
+        coachingTip: 'Think of linger.ms like a bus schedule: waiting 5 minutes for 40 passengers is far more efficient than driving an empty bus for each individual walker.',
+      };
+    }
+
+    return {
+      conceptTitle: 'Poison Pill Retries & max.in.flight.requests.per.connection',
+      difficulty: 'advanced',
+      questionText: `When operating a high-throughput event producer with \`enable.idempotence=false\`, why does setting \`max.in.flight.requests.per.connection > 1\` with \`retries > 0\` risk message reordering during temporary network jitter?`,
+      options: [
+        {
+          id: 'A',
+          text: 'If Batch 1 fails and is retried while Batch 2 succeeds on a parallel connection, Batch 2 is committed before the retried Batch 1.',
+          isCorrect: true,
+          explanation: 'Without idempotence, non-deterministic network retry arrivals cause out-of-order writes across parallel in-flight TCP requests.',
+        },
+        {
+          id: 'B',
+          text: 'The broker will truncate the partition log and reset all consumer offsets to zero.',
+          isCorrect: false,
+          explanation: 'Log truncation only occurs during replication reconciliation, not producer connection reordering.',
+        },
+        {
+          id: 'C',
+          text: 'The operating system drops all TLS encryption keys on retry.',
+          isCorrect: false,
+          explanation: 'TLS sessions persist across application-layer packet retries.',
+        },
+        {
+          id: 'D',
+          text: 'The producer automatically changes the partition key to null.',
+          isCorrect: false,
+          explanation: 'Partition keys are immutable per record.',
+        },
+      ],
+      explanation: 'In-flight parallel requests without idempotence can arrive and commit out of order if an earlier batch suffers a transient timeout and retries after a subsequent batch.',
+      coachingTip: 'To guarantee strict ordering without idempotence, max.in.flight must be 1. With enable.idempotence=true, Kafka safely supports max.in.flight <= 5 while preserving strict order!',
+    };
+  }
+
+  // 2. Broker Architecture / Replication / ISR Theme
+  if (subLower.includes('broker') || subLower.includes('replication') || subLower.includes('isr')) {
+    if (conceptIndex === 1) {
+      return {
+        conceptTitle: 'Broker Leader-Follower Replication & High Watermark',
+        difficulty: 'basic',
+        questionText: `In a partitioned distributed broker architecture, how is the "High Watermark" (HW) defined, and what is its role in consumer isolation?\n\n\`\`\`text\nLeader Log:   [0][1][2][3][4] (LEO=5)\nFollower Log: [0][1][2]       (HW=3)\n\`\`\``,
+        options: [
+          {
+            id: 'A',
+            text: 'The High Watermark represents the highest offset replicated across all In-Sync Replicas (ISR); consumers are only allowed to read up to the HW.',
+            isCorrect: true,
+            explanation: 'High Watermark prevents "dirty reads". Uncommitted messages beyond the HW could be lost if the leader crashes before replication completes.',
+          },
+          {
+            id: 'B',
+            text: 'The High Watermark is the maximum number of network sockets open on the broker.',
+            isCorrect: false,
+            explanation: 'High Watermark is an offset boundary in the partition commit log, not a network socket counter.',
+          },
+          {
+            id: 'C',
+            text: 'Consumers read all messages up to the Log End Offset (LEO) immediately, ignoring replication status.',
+            isCorrect: false,
+            explanation: 'Reading un-replicated records up to LEO would allow dirty reads of messages that might be truncated on leader failover.',
+          },
+          {
+            id: 'D',
+            text: 'The High Watermark resets to 0 every 60 seconds.',
+            isCorrect: false,
+            explanation: 'The High Watermark monotonically advances as followers replicate new segments.',
+          },
+        ],
+        explanation: 'The High Watermark guarantees read isolation: only messages confirmed replicated across the required ISR quorum are visible to consumers.',
+        coachingTip: 'High Watermark is the waterline of safety. Above the waterline is uncommitted turbulent water; below it is stone-cold committed truth.',
+      };
+    }
+
+    if (conceptIndex === 2) {
+      return {
+        conceptTitle: 'min.insync.replicas vs Replication Factor',
+        difficulty: 'intermediate',
+        questionText: `A topic has \`replication.factor=3\` and \`min.insync.replicas=2\`. Two broker nodes abruptly suffer hardware failure simultaneously. What happens to producers configured with \`acks=all\`?\n\n\`\`\`properties\nreplication.factor=3\nmin.insync.replicas=2\nacks=all\n\`\`\``,
+        options: [
+          {
+            id: 'A',
+            text: 'The sole surviving broker rejects write requests with a \`NotEnoughReplicasException\` because the active ISR count (1) is less than min.insync.replicas (2).',
+            isCorrect: true,
+            explanation: 'When active ISR drops below min.insync.replicas, the broker refuses new writes with acks=all to prevent consistency degradation, prioritizing CP over AP.',
+          },
+          {
+            id: 'B',
+            text: 'The surviving broker silently converts writes to acks=0 and proceeds without errors.',
+            isCorrect: false,
+            explanation: 'Brokers never silently downgrade client safety contracts.',
+          },
+          {
+            id: 'C',
+            text: 'All consumers connected to the topic immediately crash with out-of-memory errors.',
+            isCorrect: false,
+            explanation: 'Consumers can still read committed data up to the High Watermark even when writes are blocked.',
+          },
+          {
+            id: 'D',
+            text: 'The broker automatically creates two virtual machines in AWS to replace the dead brokers.',
+            isCorrect: false,
+            explanation: 'Automated infrastructure provisioning is an external orchestrator concern, not an internal broker protocol behavior.',
+          },
+        ],
+        explanation: 'min.insync.replicas defines the minimum quorum required to accept writes when acks=all. If surviving replicas < min.insync.replicas, writes are rejected with NotEnoughReplicasException.',
+        coachingTip: 'This is the CAP theorem in action: Kafka chooses Consistency over Availability for writes when quorum is lost.',
+      };
+    }
+
+    return {
+      conceptTitle: 'Unclean Leader Election & Log Truncation Risks',
+      difficulty: 'advanced',
+      questionText: `Under what circumstance would setting \`unclean.leader.election.enable=true\` cause committed message loss, and why is it disabled by default in production?\n\n\`\`\`properties\nunclean.leader.election.enable=false\n\`\`\``,
+      options: [
+        {
+          id: 'A',
+          text: 'If all ISR brokers die, an out-of-sync replica is elected leader, causing it to truncate any offsets it never received and permanently overwriting previously committed messages.',
+          isCorrect: true,
+          explanation: 'Electing an out-of-sync broker restores availability at the cost of data consistency; un-replicated historic commits are truncated and lost forever.',
+        },
+        {
+          id: 'B',
+          text: 'It causes the JVM garbage collector to run continuously in a stop-the-world loop.',
+          isCorrect: false,
+          explanation: 'Leader election does not directly trigger GC loops.',
+        },
+        {
+          id: 'C',
+          text: 'It corrupts the operating system kernel page cache permanently across all nodes.',
+          isCorrect: false,
+          explanation: 'It causes log offset inconsistency, not OS kernel corruption.',
+        },
+        {
+          id: 'D',
+          text: 'It forces producers to re-encrypt all payloads with RSA 4096-bit keys.',
+          isCorrect: false,
+          explanation: 'Leader election does not reconfigure payload cryptographic algorithms.',
+        },
+      ],
+      explanation: 'Unclean leader election allows a non-ISR follower to become leader during catastrophe. This guarantees data loss and log divergence, which is unacceptable for financial or audit logs.',
+      coachingTip: 'Never enable unclean leader election unless service downtime is infinitely more expensive than losing confirmed historical data.',
+    };
+  }
+
+  // 3. Consumer Rebalancing & Partition Assignment Theme
+  if (subLower.includes('consumer') || subLower.includes('rebalanc') || subLower.includes('group') || subLower.includes('offset')) {
+    if (conceptIndex === 1) {
+      return {
+        conceptTitle: 'Consumer Group Partition Allocation & Scale Bounds',
+        difficulty: 'basic',
+        questionText: `A topic has 12 partitions. A consumer group has 16 active consumer instances running on separate servers. How many consumer instances will actively process messages from this topic?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Exactly 12 consumers will each be assigned 1 partition; the remaining 4 consumers will remain idle as hot standbys.',
+            isCorrect: true,
+            explanation: 'In Kafka, a single partition can only be consumed by at most one consumer instance within the same group to maintain strict message ordering.',
+          },
+          {
+            id: 'B',
+            text: 'All 16 consumers will round-robin read every single message, resulting in duplicate processing.',
+            isCorrect: false,
+            explanation: 'Consumer groups divide partitions, not individual messages, avoiding duplicates across group members.',
+          },
+          {
+            id: 'C',
+            text: 'The broker will crash because consumers exceed partition count.',
+            isCorrect: false,
+            explanation: 'Extra consumers simply sit idle awaiting failover.',
+          },
+          {
+            id: 'D',
+            text: 'Each partition is dynamically split into 1.33 sub-partitions.',
+            isCorrect: false,
+            explanation: 'Partitions cannot be dynamically fractionalized at runtime.',
+          },
+        ],
+        explanation: 'Partition count is the maximum degree of consumer parallelism in a single consumer group. Extra consumers remain idle standby workers.',
+        coachingTip: 'If you need 16 parallel workers, your topic must have at least 16 partitions!',
+      };
+    }
+
+    if (conceptIndex === 2) {
+      return {
+        conceptTitle: 'max.poll.interval.ms vs session.timeout.ms',
+        difficulty: 'intermediate',
+        questionText: `A consumer processes heavy ML inference batches taking 8 minutes per batch. Every 5 minutes, the consumer group triggers a rebalance and pauses. What is the root cause?\n\n\`\`\`properties\nsession.timeout.ms=45000\nmax.poll.interval.ms=300000 // 5 minutes\n\`\`\``,
+        options: [
+          {
+            id: 'A',
+            text: 'Processing exceeds max.poll.interval.ms (300s); the broker coordinator assumes the consumer thread is dead/stuck and kicks it out of the group.',
+            isCorrect: true,
+            explanation: 'max.poll.interval.ms is the maximum delay between consecutive poll() calls. Even if the background heartbeat thread is alive, exceeding this window triggers group eviction.',
+          },
+          {
+            id: 'B',
+            text: 'The operating system killed the process due to out-of-memory (OOM).',
+            isCorrect: false,
+            explanation: 'The question states the consumer group triggers a rebalance and pauses, not that the process exited.',
+          },
+          {
+            id: 'C',
+            text: 'session.timeout.ms must be set higher than max.poll.interval.ms.',
+            isCorrect: false,
+            explanation: 'session.timeout.ms is for background heartbeats (typically 10-45s), while max.poll.interval.ms is for application processing logic.',
+          },
+          {
+            id: 'D',
+            text: 'The topic has expired and deleted all partition logs.',
+            isCorrect: false,
+            explanation: 'Topic log retention does not evict consumer instances from group coordination.',
+          },
+        ],
+        explanation: 'Heartbeats happen on a dedicated background thread (session.timeout.ms), but max.poll.interval.ms monitors the main record processing loop. Increase max.poll.interval.ms or reduce max.poll.records!',
+        coachingTip: 'Separate heartbeat liveness from processing liveness: heartbeats prove the process is alive; poll() proves the application logic is progressing.',
+      };
+    }
+
+    return {
+      conceptTitle: 'Cooperative Sticky Rebalance vs Eager Rebalancing',
+      difficulty: 'advanced',
+      questionText: `Why does upgrading consumer groups from the legacy Eager Rebalance Protocol to the \`CooperativeStickyAssignor\` eliminate "stop-the-world" latency spikes during autoscaling events?`,
+      options: [
+        {
+          id: 'A',
+          text: 'Under Cooperative rebalancing, consumers only revoke the specific partitions being moved; all other unaffected partition streams continue processing without pausing.',
+          isCorrect: true,
+          explanation: 'Legacy eager rebalancing revokes 100% of partitions across all nodes. Cooperative rebalance performs incremental handoffs, maintaining data flow on un-reassigned partitions.',
+        },
+        {
+          id: 'B',
+          text: 'CooperativeStickyAssignor stores all message payloads in client RAM.',
+          isCorrect: false,
+          explanation: 'The assignor only computes partition-to-member mappings, not message storage.',
+        },
+        {
+          id: 'C',
+          text: 'It bypasses the group coordinator broker and uses peer-to-peer WebRTC connections.',
+          isCorrect: false,
+          explanation: 'Kafka group coordination still coordinates assignments through the broker group coordinator.',
+        },
+        {
+          id: 'D',
+          text: 'It automatically commits offsets every 1 microsecond.',
+          isCorrect: false,
+          explanation: 'Commit schedules are determined by enable.auto.commit and auto.commit.interval.ms.',
+        },
+      ],
+      explanation: 'Cooperative rebalancing changes partition reassignment from a global stop-the-world pause to two fast incremental phases, keeping unaffected partitions flowing continuously.',
+      coachingTip: 'Always switch to CooperativeStickyAssignor in modern Kafka. It turns catastrophic rebalance freezes into imperceptible incremental handoffs.',
+    };
+  }
+
+  // 4. React Native Architecture & UI Thread Theme
+  if (topLower.includes('react') || topLower.includes('mobile')) {
+    if (subLower.includes('ui') || subLower.includes('fps') || subLower.includes('render') || subLower.includes('schedul')) {
+      return {
+        conceptTitle: '60 FPS Main Thread Scheduling & Bridge Congestion',
+        difficulty: conceptIndex === 1 ? 'basic' : conceptIndex === 2 ? 'intermediate' : 'advanced',
+        questionText: `In a React Native application, what causes UI micro-stutters (frame drops below 60 FPS) when scrolling a complex feed with animations running simultaneously?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Heavy JS event handlers executing synchronous computational work on the single JavaScript event loop, delaying the serialization and dispatch of layout updates to the native UI thread.',
+            isCorrect: true,
+            explanation: 'The JavaScript thread must yield within 16.6ms to maintain 60 FPS. Long-running JS operations block touch response and bridge updates.',
+          },
+          {
+            id: 'B',
+            text: 'The mobile device GPU has run out of registers to store strings.',
+            isCorrect: false,
+            explanation: 'GPUs rasterize textures and vertices, not application-level JS strings.',
+          },
+          {
+            id: 'C',
+            text: 'React Native automatically limits scrolling to 30 FPS on all Android devices.',
+            isCorrect: false,
+            explanation: 'React Native targets native 60/120Hz display refresh rates on all supported hardware.',
+          },
+          {
+            id: 'D',
+            text: 'The device battery temperature drops below 0 degrees Celsius.',
+            isCorrect: false,
+            explanation: 'Battery temperature does not explain JS thread scheduling bottlenecks.',
+          },
+        ],
+        explanation: 'Offloading layout transitions to native driver animations or Worklets keeps 60 FPS silky smooth even when the JS thread is momentarily busy.',
+        coachingTip: 'Always use useNativeDriver: true or Reanimated Worklets so gesture animations execute directly on the UI thread without crossing threads.',
+      };
+    }
+
+    if (subLower.includes('jsi') || subLower.includes('fabric') || subLower.includes('turbo')) {
+      return {
+        conceptTitle: 'JSI Direct Memory Invocation vs Legacy JSON Bridge',
+        difficulty: 'intermediate',
+        questionText: `How does the JavaScript Interface (JSI) in React Native's New Architecture eliminate the serialization bottleneck of the legacy architecture?`,
+        options: [
+          {
+            id: 'A',
+            text: 'JSI provides C++ host objects directly to the JavaScript runtime, allowing JS code to invoke native C++ methods synchronously in shared memory without JSON stringification.',
+            isCorrect: true,
+            explanation: 'The legacy bridge serialized all calls to asynchronous JSON strings across threads. JSI uses direct C++ pointers, eliminating serialization and enabling synchronous native calls.',
+          },
+          {
+            id: 'B',
+            text: 'JSI compiles all JavaScript into binary machine code ahead of time at build time only.',
+            isCorrect: false,
+            explanation: 'JSI is a runtime bridging interface that allows direct memory object references between C++ and Hermes/V8.',
+          },
+          {
+            id: 'C',
+            text: 'JSI disables native iOS Objective-C and Android Java layers completely.',
+            isCorrect: false,
+            explanation: 'Native platform layers remain; TurboModules interact with them via C++ JSI bindings.',
+          },
+          {
+            id: 'D',
+            text: 'JSI runs all native modules on a remote cloud server.',
+            isCorrect: false,
+            explanation: 'JSI is an on-device embedded bridging interface.',
+          },
+        ],
+        explanation: 'JSI exposes C++ host objects to the JS engine via host object references. This unlocks zero-copy synchronous communication without JSON serialization overhead.',
+        coachingTip: 'Think of the legacy bridge like two people mailing letters back and forth in JSON. JSI is both people sitting at the same table sharing the same memory notebook!',
+      };
+    }
+  }
+
+  // 5. High-Scale Optimization & Performance Theme
+  if (subLower.includes('scale') || subLower.includes('optimization') || subLower.includes('throughput') || subLower.includes('performance')) {
+    return {
+      conceptTitle: `High-Scale Production Optimization in ${cleanSubtopic}`,
+      difficulty: conceptIndex === 1 ? 'basic' : conceptIndex === 2 ? 'intermediate' : 'advanced',
+      questionText: `When scaling "${cleanTopic}" to sustain 100,000 requests/sec with p99 latency guarantees under 15ms, which optimization delivers the highest reduction in OS context switching and I/O wait?`,
+      options: [
+        {
+          id: 'A',
+          text: 'Leveraging non-blocking epoll/kqueue event loops, batch I/O operations, connection pooling, and zero-copy data transfer (e.g. sendfile).',
+          isCorrect: true,
+          explanation: 'Non-blocking I/O event loops multiplex thousands of connections per worker thread, eliminating thread context-switching overhead and disk-to-socket memory copy cycles.',
+        },
+        {
+          id: 'B',
+          text: 'Spawning one dedicated OS thread per incoming network connection without bounds.',
+          isCorrect: false,
+          explanation: 'Thread-per-connection architectures cause severe thread contention, high memory overhead per thread stack, and catastrophic context-switching churn.',
+        },
+        {
+          id: 'C',
+          text: 'Disabling all caching layers and querying spinning hard drives directly.',
+          isCorrect: false,
+          explanation: 'Disk I/O without caching increases latency by orders of magnitude.',
+        },
+        {
+          id: 'D',
+          text: 'Compressing all network payloads with maximum level gzip compression on every micro-packet.',
+          isCorrect: false,
+          explanation: 'Max level gzip consumes excessive CPU cycles and increases serialization latency for micro-packets.',
+        },
+      ],
+      explanation: 'Modern high-throughput engines rely on non-blocking event loops, kernel zero-copy transfers, and amortizing network and disk syscalls across batched requests.',
+      coachingTip: 'The fastest I/O is the I/O you never execute. Use connection pooling, pagecache zero-copy, and smart batching to keep CPU caches hot.',
+    };
+  }
+
+  // 6. Concurrency, Failure Modes & Bottlenecks Theme
+  if (subLower.includes('failure') || subLower.includes('bottleneck') || subLower.includes('edge case') || subLower.includes('concurrency')) {
+    return {
+      conceptTitle: `Failure Modes & Graceful Degradation in ${cleanSubtopic}`,
+      difficulty: conceptIndex === 1 ? 'basic' : conceptIndex === 2 ? 'intermediate' : 'advanced',
+      questionText: `During a sudden upstream dependency slowdown in "${cleanTopic}", what mechanism prevents downstream thread exhaustion and cascading system collapse?`,
+      options: [
+        {
+          id: 'A',
+          text: 'Deploying a Circuit Breaker with bounded concurrency limits, explicit fallback defaults, and aggressive timeout thresholds.',
+          isCorrect: true,
+          explanation: 'When dependency latencies spike, circuit breakers trip open immediately, rejecting requests fast without occupying thread pools or connection sockets.',
+        },
+        {
+          id: 'B',
+          text: 'Extending all network timeouts to infinite so no requests ever fail.',
+          isCorrect: false,
+          explanation: 'Infinite timeouts tie up threads indefinitely, causing thread pool starvation and bringing down the entire application.',
+        },
+        {
+          id: 'C',
+          text: 'Immediately executing 10 tight retry attempts for every failed request without backoff.',
+          isCorrect: false,
+          explanation: 'Aggressive retries create a thundering herd that amplifies pressure and ensures total dependency failure.',
+        },
+        {
+          id: 'D',
+          text: 'Disabling all error logging and health check endpoints.',
+          isCorrect: false,
+          explanation: 'Hiding errors blinds operations and prevents automated recovery.',
+        },
+      ],
+      explanation: 'Fail fast, shed load, and isolate blast radius. Circuit breakers and bounded queues ensure that degraded dependencies do not drag down healthy upstream services.',
+      coachingTip: 'Always fail fast! A quick 503 error is 1,000x better than hanging for 60 seconds and hoarding threads until your server runs out of memory.',
+    };
+  }
+
+  // 7. Staff-Level Trade-offs & Architecture Theme
+  if (subLower.includes('staff') || subLower.includes('trade-off') || subLower.includes('leadership')) {
+    return {
+      conceptTitle: `Staff-Level Architectural Trade-offs: ${cleanSubtopic}`,
+      difficulty: 'pro',
+      questionText: `As a Staff Architect evaluating a mission-critical persistence layer for "${cleanTopic}", how do you evaluate the fundamental trade-off between Synchronous Multi-Region Replication vs Asynchronous Replication?`,
+      options: [
+        {
+          id: 'A',
+          text: 'Synchronous replication guarantees Recovery Point Objective (RPO) = 0 (zero data loss) across region failures, but forces write latencies to absorb cross-region speed-of-light network round trips (e.g. 50-80ms p99 write penalty).',
+          isCorrect: true,
+          explanation: 'Physics dictates cross-region packet latency. Synchronous replication guarantees zero data loss (RPO=0) at the expense of write latency, whereas asynchronous replication offers low local latency with the risk of loss during ungraceful failover.',
+        },
+        {
+          id: 'B',
+          text: 'Synchronous replication executes faster than local memory cache reads.',
+          isCorrect: false,
+          explanation: 'Cross-region network transit is limited by the speed of light in fiber and is thousands of times slower than local RAM.',
+        },
+        {
+          id: 'C',
+          text: 'Asynchronous replication guarantees zero data loss under any power outage.',
+          isCorrect: false,
+          explanation: 'If the primary datacenter suffers sudden total failure before replicating pending WAL buffers, those records are lost.',
+        },
+        {
+          id: 'D',
+          text: 'Database sharding eliminates all speed-of-light networking constraints.',
+          isCorrect: false,
+          explanation: 'Sharding distributes data volume across nodes, but cross-region consensus still obeys networking physics.',
+        },
+      ],
+      explanation: 'Staff engineering decisions are defined by navigating fundamental trade-offs: RPO=0 zero data loss requires synchronous quorum at the cost of cross-region latency.',
+      coachingTip: 'There are no silver bullets in distributed systems—only carefully chosen trade-offs aligned with real business SLAs and physics.',
+    };
+  }
+
+  // 8. General Dynamic Procedural Fallback Tailored to Subtopic & Concept
   if (isReinforcement) {
     return {
       conceptTitle: `Reinforcement Drill: ${cleanSubtopic}`,
       difficulty: 'pro',
-      questionText: `Let's solidify your mental model for "${cleanTopic}": When diagnosing unexpected performance degradation or data anomalies in "${cleanSubtopic}", which diagnostic approach isolates the root cause most reliably?`,
+      questionText: `Let's solidify your mental model for "${cleanSubtopic}" in "${cleanTopic}": When diagnosing unexpected data inconsistencies or performance regressions under load, which diagnostic strategy reliably isolates the root cause?`,
       options: [
         {
           id: 'A',
-          text: 'Disabling telemetry and trace logs to reduce CPU overhead.',
-          isCorrect: false,
-          explanation: 'Disabling telemetry blinds observability and makes post-mortem analysis impossible.',
+          text: 'Analyzing distributed trace spans, correlating p99 latency spikes with thread lock contention, and validating consistency invariants against the commit log.',
+          isCorrect: true,
+          explanation: `Correlating high-percentile latency (p99/p99.9) and trace waterfalls with atomic commit logs directly exposes where execution stalls occur in ${cleanSubtopic}.`,
         },
         {
           id: 'B',
-          text: 'Analyzing distributed trace spans, p99 latency distributions, and correlating error rate spikes with release metadata.',
-          isCorrect: true,
-          explanation: 'Correlating high-percentile latency (p99/p99.9) and trace waterfalls quickly isolates specific service or query bottlenecks.',
+          text: 'Disabling telemetry, metrics, and trace headers to minimize CPU cycles.',
+          isCorrect: false,
+          explanation: 'Disabling telemetry blinds observability and makes diagnosis impossible.',
         },
         {
           id: 'C',
-          text: 'Assuming the network is instantaneous and error-free at all times.',
+          text: 'Assuming all network operations and thread context switches complete with zero latency.',
           isCorrect: false,
-          explanation: 'The fallacies of distributed computing explicitly prove that networks are unreliable and subject to latency variance.',
+          explanation: 'Ignoring real-world latency variance leads to brittle, deadlock-prone systems.',
         },
         {
           id: 'D',
-          text: 'Permanently increasing timeouts on all services to 10 minutes.',
+          text: 'Permanently increasing timeouts on all services to 15 minutes.',
           isCorrect: false,
-          explanation: 'Inflating timeouts ties up connection pools and leads to cascading deadlocks.',
+          explanation: 'Excessive timeouts exhaust thread pools and convert isolated slowness into total cascading outages.',
         },
       ],
-      explanation: `Robust engineering in ${cleanTopic} relies on high-resolution observability, structured logs, and understanding high-percentile latency distributions.`,
+      explanation: `Robust engineering in ${cleanSubtopic} relies on high-resolution observability, structured correlation IDs, and understanding high-percentile latency distributions.`,
       coachingTip: 'Never optimize based on average (p50) latency alone. The p99 latency tells you what your most active production users are experiencing.',
     };
   }
 
-  // Concept 1: BASIC
   if (conceptIndex === 1) {
     return {
-      conceptTitle: `Core Fundamentals & Mental Models of ${cleanTopic}`,
+      conceptTitle: `Core Primitives & Mental Models of ${cleanSubtopic}`,
       difficulty: 'basic',
-      questionText: `When first learning "${cleanTopic}", what is its primary foundational purpose, and what fundamental problem does it solve in modern software systems?`,
+      questionText: `When designing or evaluating "${cleanSubtopic}" in "${cleanTopic}", what is its fundamental architectural role and primary invariant guarantee?`,
       options: [
         {
           id: 'A',
-          text: `Providing a robust, decoupled architecture to manage state, compute, or data flow reliably without unneeded coupling.`,
+          text: `Establishing decoupled, deterministic boundaries for state and execution, preventing unbounded resource consumption while ensuring clear contracts.`,
           isCorrect: true,
-          explanation: `At its core, ${cleanTopic} solves scalability, maintainability, or isolation challenges by defining clean architectural boundaries.`,
+          explanation: `At its foundation, ${cleanSubtopic} establishes clear operational contracts and prevents resource contention across decoupled system layers.`,
         },
         {
           id: 'B',
-          text: `Replacing all database storage with volatile temporary variables.`,
+          text: `Replacing all durable persistence with volatile local global variables.`,
           isCorrect: false,
-          explanation: `Temporary variables are volatile and do not provide persistent guarantees.`,
+          explanation: `Volatile memory without durable invariants leads to immediate data loss upon process termination.`,
         },
         {
           id: 'C',
-          text: `Executing code exclusively inside mobile device battery firmware.`,
+          text: `Executing all operational logic synchronously within client browser cookies.`,
           isCorrect: false,
-          explanation: `Battery firmware does not run application engineering logic.`,
+          explanation: `Browser cookies are limited in size (4KB) and cannot execute application architecture logic.`,
         },
         {
           id: 'D',
-          text: `Eliminating the need to write unit tests or handle error states.`,
+          text: `Eliminating the need to handle edge cases or concurrent access.`,
           isCorrect: false,
-          explanation: `Testing and resilient error handling remain essential across all software disciplines.`,
+          explanation: `Concurrency control and error resilience are essential across all production architectures.`,
         },
       ],
-      explanation: `Mastering foundational concepts in ${cleanTopic} establishes clear mental models before tackling production bottlenecks.`,
-      coachingTip: 'Always master the "Why" before diving into framework syntax or low-level flags.',
+      explanation: `Mastering foundational primitives in ${cleanSubtopic} establishes the mental framework required to understand higher-level failure modes and production optimizations.`,
+      coachingTip: 'Always master the core architectural invariants before optimizing low-level configurations or syntax.',
     };
   }
 
-  // Concept 2: INTERMEDIATE
   if (conceptIndex === 2) {
     return {
-      conceptTitle: `Operational Mechanics & Standard Patterns in ${cleanTopic}`,
+      conceptTitle: `Operational Mechanics & Execution Lifecycle in ${cleanSubtopic}`,
       difficulty: 'intermediate',
-      questionText: `In standard production implementations of "${cleanTopic}", which architectural mechanism governs internal execution flow and ensures correct state transitions?`,
+      questionText: `In production environments, how does "${cleanSubtopic}" coordinate internal execution flow and manage resource transitions safely under concurrent load?`,
       options: [
         {
           id: 'A',
-          text: `Allowing arbitrary uncoordinated mutations from background worker threads.`,
-          isCorrect: false,
-          explanation: `Uncoordinated mutations introduce severe race conditions, memory leaks, and corrupt state.`,
+          text: `Through structured state transitions, bounded worker pools, and explicit lifecycle stages that guard against race conditions and resource leaks.`,
+          isCorrect: true,
+          explanation: `Explicit lifecycle stages and bounded resource pools ensure that ${cleanSubtopic} remains stable and deterministic even under high concurrency.`,
         },
         {
           id: 'B',
-          text: `Defining explicit lifecycles, structured state machines, and predictable event dispatchers.`,
-          isCorrect: true,
-          explanation: `Explicit lifecycles and structured transitions ensure that ${cleanTopic} executes deterministically even under concurrent workloads.`,
+          text: `By allowing uncoordinated background threads to mutate shared memory without synchronization.`,
+          isCorrect: false,
+          explanation: `Uncoordinated mutations cause severe data corruption, race conditions, and memory leaks.`,
         },
         {
           id: 'C',
-          text: `Hardcoding IP addresses and bypassing network interfaces.`,
+          text: `By rebooting the physical host server after every client invocation.`,
           isCorrect: false,
-          explanation: `Hardcoded addresses prevent dynamic scaling, DNS failover, and service discovery.`,
+          explanation: `Rebooting servers per request destroys performance and makes connection reuse impossible.`,
         },
         {
           id: 'D',
-          text: `Restarting the server process on every single incoming client request.`,
+          text: `By completely disabling garbage collection and operating system virtual memory.`,
           isCorrect: false,
-          explanation: `Process reboots introduce massive latency and prevent connection pooling.`,
+          explanation: `Disabling memory management causes immediate hardware exhaustion and kernel panics.`,
         },
       ],
-      explanation: `Standard production implementations of ${cleanTopic} rely on deterministic lifecycle management and decoupled message pipelines.`,
-      coachingTip: 'Map out the lifecycle transitions from initialization to teardown to avoid silent memory leaks.',
+      explanation: `Deterministic execution in ${cleanSubtopic} depends on structured concurrency, bounded buffers, and clean lifecycle management.`,
+      coachingTip: 'Always map out the lifecycle from initialization to teardown to avoid silent connection and memory leaks.',
     };
   }
 
   // Concept 3: ADVANCED
   return {
-    conceptTitle: `Failure Modes, Trade-offs & Bottlenecks in ${cleanTopic}`,
+    conceptTitle: `High-Load Edge Cases & Resilience in ${cleanSubtopic}`,
     difficulty: 'advanced',
-    questionText: `When operating "${cleanTopic}" under 100x traffic amplification, which architectural pattern defends against cascading failures and ensures graceful degradation?`,
+    questionText: `When operating "${cleanSubtopic}" under sudden 10x traffic spikes, which pattern defends against cascading failures and ensures continuous service availability?`,
     options: [
       {
         id: 'A',
-        text: `Configuring unlimited retry loops without exponential backoff or jitter.`,
-        isCorrect: false,
-        explanation: `Immediate, tight retry loops amplify traffic and trigger catastrophic self-inflicted Denial of Service (DoS).`,
+        text: `Enforcing backpressure, bounded request queues, token-bucket rate limiting, and shedding non-essential background load.`,
+        isCorrect: true,
+        explanation: `Bounded queues and backpressure signal upstream producers to throttle down, preventing memory exhaustion and preserving critical SLA commitments.`,
       },
       {
         id: 'B',
-        text: `Implementing backpressure, token-bucket rate limiting, circuit breakers, and bounded priority queues.`,
-        isCorrect: true,
-        explanation: `Backpressure and bounded queues signal producers to slow down, while circuit breakers shed non-essential load to maintain SLA guarantees.`,
+        text: `Executing tight unthrottled retry loops without jitter on every single transient failure.`,
+        isCorrect: false,
+        explanation: `Tight retry loops create thundering herd stampedes that amplify downstream outages.`,
       },
       {
         id: 'C',
-        text: `Disabling all HTTP status codes except 200 OK regardless of backend exceptions.`,
+        text: `Hardcoding all response HTTP codes to 200 OK regardless of backend exceptions.`,
         isCorrect: false,
-        explanation: `Masking errors as 200 OK confuses upstream clients and breaks automated failover systems.`,
+        explanation: `Faking success codes blinds automated failover systems and confuses clients.`,
       },
       {
         id: 'D',
-        text: `Routing 100% of incoming production requests to a single standby node.`,
+        text: `Directing all production traffic to an unindexed temporary table.`,
         isCorrect: false,
-        explanation: `Routing massive traffic to a single node guarantees immediate exhaustion and service outage.`,
+        explanation: `Unindexed tables cause massive full scans and immediate database saturation.`,
       },
     ],
-    explanation: `Resilient systems in ${cleanTopic} implement load shedding, bounded queues, and circuit breakers to guarantee that even under overwhelming traffic, primary business operations succeed.`,
-    coachingTip: `Always use exponential backoff with full jitter on retries to de-synchronize retry waves.`,
+    explanation: `Resilient architectures in ${cleanSubtopic} enforce backpressure, bounded buffers, and shed load gracefully to ensure core services never collapse.`,
+    coachingTip: 'Always implement exponential backoff with full jitter on retries to de-synchronize retry waves and protect recovering systems.',
   };
 }
 
 /**
  * Returns a tailored, concept-specific QBL question.
+ * Dynamically routes to subtopic-specific synthesis to ensure
+ * every concept across all 5 subtopics receives distinct, deep questions.
  */
 export function getCatalogQuestion(
   topicName: string,
@@ -890,6 +1445,7 @@ export function getCatalogQuestion(
   previousMistake?: string
 ): QBLQuestion {
   const normTopic = topicName.toLowerCase();
+  const normSub = subtopicTitle.toLowerCase();
   let matchedTrackKey: string | null = null;
 
   for (const trackKey of Object.keys(TRACK_QUESTIONS)) {
@@ -899,9 +1455,21 @@ export function getCatalogQuestion(
     }
   }
 
+  // Only use the static track question bank if the subtopic is specifically about the track's first subtopic / core concepts!
+  const isSubtopic1 =
+    normSub.includes('fundamental') ||
+    normSub.includes('core') ||
+    normSub.includes('primitive') ||
+    normSub.includes('topics, partitions') ||
+    normSub.includes('table scan') ||
+    normSub.includes('new architecture') ||
+    normSub.includes('sub_1') ||
+    normSub === 'core fundamentals' ||
+    normSub.includes('distributed locking');
+
   let template: QuestionTemplate;
 
-  if (matchedTrackKey) {
+  if (matchedTrackKey && isSubtopic1) {
     const bank = TRACK_QUESTIONS[matchedTrackKey];
     if (isReinforcement) {
       template = bank.reinforcement;
@@ -909,8 +1477,8 @@ export function getCatalogQuestion(
       template = bank.concepts[conceptIndex] || bank.concepts[1];
     }
   } else {
-    // Generate high-grade procedural question tailored to this topic & concept
-    template = buildProceduralQuestion(topicName, subtopicTitle, conceptIndex, isReinforcement);
+    // Generate high-grade procedural question tailored to this specific subtopic & concept
+    template = buildProceduralQuestion(topicName, subtopicTitle, conceptIndex, isReinforcement, previousMistake);
   }
 
   const options: QBLOption[] = template.options.map((opt) => ({

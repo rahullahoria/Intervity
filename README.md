@@ -102,12 +102,15 @@ Intervity puts active recall and Socratic learning front and center via the **Qu
 ```
 
 ### Key QBL Capabilities:
-1. **Graduated Difficulty Progression**: Concepts and sub-topics advance step-by-step through explicit, color-coded tiers (`🟢 BASIC` → `🟡 INTERMEDIATE` → `🟠 ADVANCED` → `🟣 PRO`). Sub-topic 1 starts from core definitions and foundational mental models (e.g. why full table scans occur) before progressing to low-level internal mechanisms (e.g. B+Tree leaf node sibling pointers) and staff-level trade-offs (e.g. cost-based optimizer selectivity thresholds).
-2. **Post-Topic Mistake Review Session**: SQLite tracks all failed turns (`is_correct = 0`). Once a topic is completed (or on-demand via the HUD/Roadmap), Teddy launches a dedicated interactive Mistake Review Session (`Trap X of N`) breaking down the candidate's trap choice, the structural autopsy of why it failed, the authoritative production pattern, and Teddy's mental model takeaways.
-3. **Zero Duplicate Questions**: Concept #1, Concept #2, Concept #3, and Reinforcement drills deliver distinct, rigorous technical trade-offs across storage engines, event pipelines, distributed consensus, and mobile architectures.
-4. **Procedural Question Synthesis**: Any custom topic entered by the candidate (e.g., *"PostgreSQL WAL"*, *"GraphQL"*, *"Docker Containerization"*) dynamically generates graduated multi-option question sets and sub-topic roadmaps.
-5. **Mascot Animation Coordination**: Teddy displays talk animations exclusively when the local LLM is actively streaming/generating output, ensuring natural, non-distracting conversation flow.
-6. **Focused Vertical Viewport**: Auto-scrolls cleanly to the active question or review card and collapses non-essential clutter so candidates can focus directly on architectural reasoning.
+1. **Pipelined Background Pre-generation (0ms Transitions)**: While the candidate analyzes Concept $N$, `QBLEngine` asynchronously pre-fetches Concept $N+1$ in the background. Tapping "Continue" renders the next challenge with **zero latency (0ms)**.
+2. **Deep Technical Prompt Engineering & Artifact Grounding**: Questions are systematically grounded in real engineering artifacts—executable TypeScript/Python/Go/SQL snippets, configuration knobs (`max.poll.interval.ms`, `min.insync.replicas`), and production telemetry (`p99 = 850ms`).
+3. **Token-Level GBNF Grammar Constrained Decoding**: Applies `QBL_JSON_GBNF` grammar to `llama.rn` sampling, mathematically guaranteeing strict 4-option JSON schema compliance and zero parse errors on edge NPUs.
+4. **Graduated Difficulty Progression**: Concepts advance step-by-step through explicit, color-coded tiers (`🟢 BASIC` → `🟡 INTERMEDIATE` → `🟠 ADVANCED` → `🟣 PRO`). Sub-topic 1 starts from core definitions and foundational mental models before progressing to low-level internal mechanisms and staff-level trade-offs.
+5. **Interactive Mistake Autopsy & Review Session**: SQLite tracks all failed turns (`is_correct = 0`). Candidates can tap `🔍 Review (N)` in the active topic HUD at any time or upon topic completion to review step-by-step autopsies comparing their trap choices against authoritative patterns.
+6. **Zero Duplicate Questions**: Concept #1, Concept #2, Concept #3, and Reinforcement drills deliver distinct, non-repeating technical trade-offs across all 5 subtopics.
+7. **Procedural Question Synthesis**: Any custom topic entered by the candidate dynamically generates graduated multi-option question sets and sub-topic roadmaps.
+8. **Mascot Animation Coordination**: Teddy displays talk animations exclusively when the local LLM is actively streaming/generating output, ensuring natural, non-distracting conversation flow.
+9. **Focused Vertical Viewport & Smooth Auto-Scroll**: Auto-scrolls smoothly to reveal diagnostic cards and Continue CTAs on evaluation, and anchors strictly at top (`y: 0`) on new questions to guarantee zero overlap.
 
 ---
 

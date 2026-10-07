@@ -51,6 +51,7 @@ android/app/*.keystore
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+scratch/
 
 # On-Device Model weights & Binary caches
 *.onnx
