@@ -9,8 +9,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useModelDownloads } from '../hooks/useModelDownloads';
@@ -51,19 +52,43 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
 
   const formatMB = (bytes: number) => Math.round(bytes / (1024 * 1024));
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: Math.max(insets.top, 16) + 8 }]}>
-        {/* Top Header */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <ChevronLeftIcon size={18} color="#38BDF8" />
-            <Text style={styles.backBtnText}>Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.appTag}>ON-DEVICE AI ASSET MANAGER</Text>
-          <View style={{ width: 40 }} />
-        </View>
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 48
+  );
+  const bottomInset = Math.max(insets.bottom, 24);
 
+  return (
+    <View style={styles.rootContainer}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} translucent={true} />
+
+      {/* Top Header - Protected from Dynamic Island & Notch Collision */}
+      <View style={[styles.topHeader, { paddingTop: topInset + 8 }]}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <ChevronLeftIcon size={18} color="#38BDF8" />
+          <Text style={styles.backBtnText}>Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.appTag}>ON-DEVICE AI ASSET MANAGER</Text>
+        <View style={styles.headerRightSpacer} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: bottomInset + 48 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={typography.h1}>Offline Model Weights</Text>
         <Text style={[typography.body, { marginBottom: 18 }]}>
           These models run directly on your smartphone NPU & GPU with zero cloud dependencies and zero latency.
@@ -218,12 +243,12 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
         visible={isDiagnosticsOpen}
         onClose={() => setIsDiagnosticsOpen(false)}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  rootContainer: {
     flex: 1,
     backgroundColor: colors.background,
   },
@@ -266,20 +291,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 6,
   },
-  container: {
-    padding: 20,
-    paddingBottom: 40,
+  scrollView: {
+    flex: 1,
   },
-  header: {
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: '#161E30',
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    minWidth: 64,
   },
   backBtnText: {
     color: colors.textSecondary,
@@ -291,6 +324,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.listeningCyan,
     letterSpacing: 1.2,
+  },
+  headerRightSpacer: {
+    minWidth: 64,
   },
   progressCard: {
     backgroundColor: colors.elevatedBackground,

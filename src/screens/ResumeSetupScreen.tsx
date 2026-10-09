@@ -64,7 +64,7 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
         <Text style={styles.appTag}>ON-DEVICE RESUME INGESTION</Text>
         <Text style={typography.h1}>Interview Setup</Text>
         <Text style={[typography.body, { marginBottom: 18 }]}>
@@ -164,6 +164,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
   },
   container: {
     padding: 20,

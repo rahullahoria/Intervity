@@ -223,7 +223,7 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
       <View
         style={[
           styles.headerRow,
-          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 0) + 8 },
+          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 48) + 8 },
         ]}
       >
         <TouchableOpacity
@@ -240,7 +240,13 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
         <View style={styles.headerRightSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+        ]}
+      >
         {/* Candidate Name Input */}
         <View style={styles.card}>
           <Text style={styles.sectionLabel}>CANDIDATE NAME</Text>
@@ -376,6 +382,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: '#0F172A',
+  },
+  scrollView: {
+    flex: 1,
   },
   headerRow: {
     flexDirection: 'row',

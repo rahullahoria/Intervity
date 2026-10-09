@@ -271,7 +271,7 @@ export const EngineDiagnosticsModal: React.FC<EngineDiagnosticsModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
-      <View style={[styles.container, { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 0) + 8 }]}>
+      <View style={[styles.container, { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 48) + 8 }]}>
         {/* Header */}
         <View style={styles.headerRow}>
           <View>
@@ -316,7 +316,14 @@ export const EngineDiagnosticsModal: React.FC<EngineDiagnosticsModalProps> = ({
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
           {/* TAB 1: STT */}
           {activeTab === 'STT' && (
             <View style={styles.card}>
@@ -671,6 +678,9 @@ const styles = StyleSheet.create({
   },
   tabButtonTextActive: {
     color: '#0B0F19',
+  },
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
     padding: 16,

@@ -101,7 +101,7 @@ export const SessionSummaryScreen: React.FC<SessionSummaryScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
         <Text style={styles.appTag}>POST-INTERVIEW AUTOPSY</Text>
         <Text style={typography.h1}>Session Performance</Text>
         <Text style={[typography.body, { marginBottom: 16 }]}>
@@ -162,6 +162,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  scrollView: {
+    flex: 1,
   },
   container: {
     padding: 20,
