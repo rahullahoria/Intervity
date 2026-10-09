@@ -20,8 +20,10 @@ import {
   QBLTurnResult,
   QBLDifficulty,
   QBLMistakeReviewItem,
+  QBLCurriculumHierarchy,
 } from '../../types';
 import { getCatalogQuestion } from './QBLQuestionCatalog';
+import { QBLCurriculumGenerator, HierarchyOptions } from './QBLCurriculumGenerator';
 
 export class QBLEngine {
   private llmEngine: OfflineLLMEngine;
@@ -272,32 +274,24 @@ Output JSON schema:
       console.warn('[QBLEngine] LLM generateQuestion error, using fallback:', err);
     }
 
+    const generator = QBLCurriculumGenerator.getInstance(this.llmEngine);
     const parsedQuestion = this.parseAndValidateQuestionJSON(generatedText) ||
       this.getDefaultQuestion(topicName, subtopic, conceptIndex, isReinforcement, previousMistake);
 
-    // Ensure options array has valid IDs and exactly one correct option
-    const options: QBLOption[] = (parsedQuestion.options as any[]).slice(0, 4).map((opt, idx) => ({
-      id: opt.id || ['A', 'B', 'C', 'D'][idx],
-      text: opt.text || `Option ${['A', 'B', 'C', 'D'][idx]}`,
-      isCorrect: Boolean(opt.isCorrect),
-      explanation: opt.explanation || (opt.isCorrect ? 'Correct application of principles.' : 'Incorrect option.'),
-    }));
+    const cognitiveLevel = generator.mapIndexToCognitiveLevel(conceptIndex, subtopic.totalConcepts || 3);
+    const questionType = generator.mapCognitiveLevelToQuestionType(cognitiveLevel, conceptIndex);
 
-    if (!options.some((o) => o.isCorrect)) {
-      options[0].isCorrect = true;
-    }
-
-    return {
-      id: `q_${Date.now()}_${conceptIndex}_${Math.random().toString(36).slice(2, 6)}`,
-      conceptTitle: parsedQuestion.conceptTitle || `Core Concept ${conceptIndex}`,
+    return generator.validateAndImproveQuestion(parsedQuestion, {
+      subject: topicName,
+      subtopicTitle: subtopic.title,
+      subtopicDescription: subtopic.description,
       conceptIndex,
-      questionText: parsedQuestion.questionText || `How does ${subtopic.title} operate in high-scale production?`,
-      options,
-      explanation: parsedQuestion.explanation || 'Mastering this architectural principle ensures resilience and low latency.',
-      coachingTip: parsedQuestion.coachingTip || 'Always reason from first principles and latency trade-offs.',
-      isReinforcement,
       difficulty,
-    };
+      cognitiveLevel,
+      questionType,
+      isReinforcement,
+      previousMistake,
+    });
   }
 
   /**
@@ -650,5 +644,36 @@ Answer their question directly, warmly, and concisely with an intuitive real-wor
     previousMistake?: string
   ): any {
     return getCatalogQuestion(topic, subtopic.title, conceptIndex, isReinforcement, previousMistake);
+  }
+
+  /**
+   * Generates a complete Subject -> Chapter -> Topic -> Sub-topic -> Question hierarchy
+   * following the 7-step pedagogical method. Can generate 20+ questions per subtopic.
+   */
+  async generateCurriculumHierarchy(
+    subject: string,
+    options?: HierarchyOptions
+  ): Promise<QBLCurriculumHierarchy> {
+    const generator = QBLCurriculumGenerator.getInstance(this.llmEngine);
+    return generator.generateHierarchy(subject, options);
+  }
+
+  /**
+   * Generates a batch of questions for a specific subtopic (supporting 20+ questions)
+   * sequenced across all 6 Bloom's Taxonomy cognitive tiers.
+   */
+  async generateSubtopicBatchQuestions(
+    subject: string,
+    subtopicTitle: string,
+    subtopicDescription: string,
+    count: number = 20
+  ): Promise<QBLQuestion[]> {
+    const generator = QBLCurriculumGenerator.getInstance(this.llmEngine);
+    return generator.generateBatchQuestions({
+      subject,
+      subtopicTitle,
+      subtopicDescription,
+      count,
+    });
   }
 }

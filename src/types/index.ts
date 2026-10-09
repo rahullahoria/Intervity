@@ -317,27 +317,105 @@ export interface QBLOption {
 
 export type QBLDifficulty = 'basic' | 'intermediate' | 'advanced' | 'pro';
 
+/**
+ * Bloom's Taxonomy Cognitive Levels for QBL
+ * Progresses from basic recall to higher-order creative engineering
+ */
+export type QBLCognitiveLevel =
+  | 'remember'   // What is it? Recall definition or primitive
+  | 'understand' // Why does it work? Explain the underlying mechanism
+  | 'apply'      // How would you use it? Implement or configure in practice
+  | 'analyze'    // What causes the difference? Contrast trade-offs, bottlenecks
+  | 'evaluate'   // Which approach is better and why? Select architectures under SLAs
+  | 'create';    // How would you design a solution? Architect resilient systems
+
+/**
+ * Pedagogical Question Formats for QBL
+ */
+export type QBLQuestionType =
+  | 'mcq'
+  | 'scenario'
+  | 'short_answer'
+  | 'open_ended'
+  | 'practical_exercise'
+  | 'real_world_problem';
+
 export interface QBLQuestion {
   id: string;
   conceptTitle: string;
-  conceptIndex: number; // 1, 2, or 3
+  conceptIndex: number; // 1, 2, or 3+
   questionText: string;
   options: QBLOption[];
   explanation: string;
   coachingTip?: string;
   isReinforcement?: boolean;
   difficulty?: QBLDifficulty;
+  // 7-Step Pedagogical Metadata:
+  cognitiveLevel?: QBLCognitiveLevel;
+  questionType?: QBLQuestionType;
+  expectedAnswer?: string;
+  hints?: string[];
+  sourceReference?: string;
+  learningObjective?: string;
+  subject?: string;
+  chapter?: string;
+  topic?: string;
+  subtopic?: string;
 }
 
 export interface QBLSubtopic {
   id: string;
   title: string;
   description: string;
-  conceptsMastered: number; // 0 to 3
-  totalConcepts: number; // default 3
+  conceptsMastered: number; // 0 to 3+
+  totalConcepts: number; // default 3, can be 20+
   masteryPercentage: number; // 0 to 100%
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   difficulty?: QBLDifficulty;
+  learningObjective?: string;
+  chapterId?: string;
+  topicId?: string;
+}
+
+/**
+ * Hierarchical Curriculum Types:
+ * Subject -> Chapter -> Topic -> Sub-topic -> Questions
+ */
+export interface QBLSubtopicNode {
+  id: string;
+  title: string;
+  description: string;
+  learningObjective: string;
+  difficulty: QBLDifficulty;
+  totalQuestions: number; // Supports 20+ questions per subtopic
+  questions?: QBLQuestion[];
+}
+
+export interface QBLTopicNode {
+  id: string;
+  title: string;
+  description: string;
+  learningObjectives: string[];
+  subtopics: QBLSubtopicNode[];
+}
+
+export interface QBLChapter {
+  id: string;
+  chapterNumber: number;
+  title: string;
+  description: string;
+  learningObjectives: string[];
+  topics: QBLTopicNode[];
+}
+
+export interface QBLCurriculumHierarchy {
+  subject: string;
+  learningObjectives: string[];
+  chapters: QBLChapter[];
+  totalChapters: number;
+  totalTopics: number;
+  totalSubtopics: number;
+  totalQuestions: number;
 }
 
 export interface QBLMistakeReviewItem {
