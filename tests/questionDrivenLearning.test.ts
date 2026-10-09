@@ -110,6 +110,44 @@ describe('Question-Driven Learning (QBL) Core Engine & Flow', () => {
       assert.strictEqual(currentSub.masteryPercentage, 100);
       assert.strictEqual(currentSub.status, 'COMPLETED');
     });
+
+    it('advances through all subtopics to the very last question and completes cleanly without getting stuck', async () => {
+      const session = await qblEngine.createNewSession('SQL Indexing & Sharding');
+      assert.ok(session.subtopics.length >= 5);
+
+      let finalOutcome: any = null;
+
+      // Progress through all subtopics up to the final concept of the final subtopic
+      for (let subIdx = 0; subIdx < session.subtopics.length; subIdx++) {
+        session.currentSubtopicIndex = subIdx;
+        const sub = session.subtopics[subIdx];
+        sub.status = 'IN_PROGRESS';
+
+        for (let conceptIdx = 1; conceptIdx <= 3; conceptIdx++) {
+          const question = await qblEngine.generateQuestion(session.topicName, sub, conceptIdx, false);
+          const correctOpt = question.options.find((o) => o.isCorrect)!;
+          finalOutcome = await qblEngine.evaluateAnswer(session, sub, question, correctOpt.id);
+        }
+
+        assert.strictEqual(sub.status, 'COMPLETED');
+        assert.strictEqual(sub.masteryPercentage, 100);
+      }
+
+      // Assert on the very last question of the entire session
+      assert.ok(finalOutcome);
+      assert.strictEqual(finalOutcome.isCorrect, true);
+      assert.strictEqual(finalOutcome.isSubtopicCompleted, true);
+      assert.strictEqual(finalOutcome.isSessionCompleted, true);
+      assert.strictEqual(session.status, 'COMPLETED');
+      assert.strictEqual(session.overallMasteryPercentage, 100);
+
+      // Verify SQLite persistence of completed session
+      const persisted = await qblEngine.resumeSession(session.sessionId);
+      assert.ok(persisted);
+      assert.strictEqual(persisted.status, 'COMPLETED');
+      assert.strictEqual(persisted.overallMasteryPercentage, 100);
+      assert.ok(persisted.subtopics.every((s) => s.status === 'COMPLETED'));
+    });
   });
 
   describe('Wrong Answer Flow: Diagnostics & Reinforcement', () => {

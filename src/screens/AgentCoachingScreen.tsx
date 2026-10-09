@@ -133,6 +133,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     nextMistake,
     previousMistake,
     exitReviewSession,
+    resetToTrackSelection,
   } = useQBLSession();
 
   const [inputText, setInputText] = useState('');
@@ -425,8 +426,8 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           </View>
         )}
 
-        {/* Welcome / Choice State: Resume Last Session Card OR Masterclass Tracks */}
-        {!currentQuestion && !isThinking && (
+        {/* Welcome / Choice State: When no session is active */}
+        {!session && !isThinking && (
           <View style={styles.welcomeContainer}>
 
             {/* Resume Last Session Banner */}
@@ -721,7 +722,9 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                   >
                     <Text style={styles.continueBtnText}>
                       {currentTurnResult.isSubtopicCompleted
-                        ? 'Continue to Next Sub-topic →'
+                        ? (session.currentSubtopicIndex === session.subtopics.length - 1
+                          ? '🏆 Complete Masterclass & View Results →'
+                          : 'Continue to Next Sub-topic →')
                         : currentTurnResult.isCorrect
                         ? `Continue to Concept #${Math.min(3, (currentSubtopic?.conceptsMastered || 0) + 1)} →`
                         : 'Continue to Reinforcement Drill →'}
@@ -860,7 +863,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             )}
 
             {/* 4. Masterclass 100% Completion Card */}
-            {!currentQuestion && !isReviewSessionActive && !isThinking && session.overallMasteryPercentage === 100 && (
+            {!currentQuestion && !isReviewSessionActive && !isThinking && (session.overallMasteryPercentage === 100 || session.status === 'COMPLETED') && (
               <View style={styles.completionCard}>
                 <Text style={styles.completionEmoji}>🏆</Text>
                 <Text style={styles.completionTitle}>Masterclass Complete!</Text>
@@ -884,6 +887,22 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                   activeOpacity={0.85}
                 >
                   <Text style={styles.continueBtnText}>Review Mastery Roadmap 🗺️</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.continueBtn, styles.completionActionBtnSecondary, { marginTop: 10 }]}
+                  onPress={resetToTrackSelection}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.completionActionBtnSecondaryText}>Start Another Masterclass 🚀</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.continueBtn, styles.completionActionBtnDashboard, { marginTop: 10 }]}
+                  onPress={() => navigation.navigate('Dashboard')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.completionActionBtnDashboardText}>Back to Dashboard 🏠</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1829,6 +1848,28 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: 20,
+  },
+  completionActionBtnSecondary: {
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+  },
+  completionActionBtnSecondaryText: {
+    color: '#38BDF8',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  completionActionBtnDashboard: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  completionActionBtnDashboardText: {
+    color: '#94A3B8',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   chatRow: {
     flexDirection: 'row',

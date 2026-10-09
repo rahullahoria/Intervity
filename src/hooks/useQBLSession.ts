@@ -192,6 +192,9 @@ export function useQBLSession() {
     try {
       const newSession = await qblEngine.current.createNewSession(topicName.trim());
       setSession(newSession);
+      setLatestSessionToResume(newSession);
+      const allSessions = await qblEngine.current.getAllSessions();
+      setPastSessions(allSessions);
       setSessionMistakes([]);
       setCurrentMistakeIndex(0);
       setIsReviewSessionActive(false);
@@ -248,6 +251,33 @@ export function useQBLSession() {
       setSessionMistakes(pastMistakes);
       setCurrentMistakeIndex(0);
       setIsReviewSessionActive(false);
+
+      // Check if session is already completed to avoid getting stuck in a loop on the last question!
+      const isCompleted =
+        loaded.status === 'COMPLETED' ||
+        loaded.overallMasteryPercentage === 100 ||
+        (loaded.subtopics.length > 0 && loaded.subtopics.every((s) => s.status === 'COMPLETED' || s.masteryPercentage === 100));
+
+      if (isCompleted) {
+        loaded.currentSubtopicIndex = loaded.subtopics.length - 1;
+        const lastSub = loaded.subtopics[loaded.subtopics.length - 1];
+        setCurrentSubtopic(lastSub);
+        setCurrentQuestion(null);
+        setSelectedOptionId(null);
+        setCurrentTurnResult(null);
+
+        if (pastMistakes.length > 0) {
+          const reviewMsg = `🏆 Resuming completed masterclass on "${loaded.topicName}"!\n\nReviewing ${pastMistakes.length} tricky trap${pastMistakes.length > 1 ? 's' : ''} to solidify your mental models! 🔍`;
+          setTeddyDialogue(reviewMsg);
+          setTeddyEmotion('puzzled');
+          setIsReviewSessionActive(true);
+        } else {
+          const completeMsg = `🏆 Welcome back! You have 100% completed all ${loaded.subtopics.length} sub-topics of "${loaded.topicName}" with zero mistakes! You are an elite architect! 🌟`;
+          setTeddyDialogue(completeMsg);
+          setTeddyEmotion('celebrating');
+        }
+        return;
+      }
 
       // Find first uncompleted subtopic, or default to last subtopic
       let activeSubIndex = loaded.subtopics.findIndex((s) => s.status !== 'COMPLETED');
@@ -387,12 +417,15 @@ export function useQBLSession() {
             const nextSubtopic = session.subtopics[nextIndex];
             nextSubtopic.status = 'IN_PROGRESS';
             setCurrentSubtopic(nextSubtopic);
+            setSession({ ...session });
+            await qblEngine.current.getRepository().saveSession(session);
 
             const nextSubMsg = `🎉 Congratulations on hitting 100% on "${currentSubtopic.title}"!\n\nMoving on to Sub-topic ${nextIndex + 1}/${session.subtopics.length}: "${nextSubtopic.title}". Let's test Concept #1!`;
             setTeddyDialogue(nextSubMsg);
 
             const nextQ = await qblEngine.current.generateQuestion(session.topicName, nextSubtopic, 1, false);
             setCurrentQuestion(nextQ);
+            setTeddyEmotion('idle');
 
             setChatMessages((prev) => [
               ...prev,
@@ -415,9 +448,20 @@ export function useQBLSession() {
             ]);
           } else {
             // Whole topic complete!
+            session.status = 'COMPLETED';
+            session.overallMasteryPercentage = 100;
+            await qblEngine.current.getRepository().saveSession(session);
+            setSession({ ...session });
+
             const mistakes = await qblEngine.current.getMistakesForSession(session.sessionId);
             setSessionMistakes(mistakes);
             setCurrentQuestion(null);
+
+            // Refresh latest session & past sessions
+            const allSessions = await qblEngine.current.getAllSessions();
+            const latest = await qblEngine.current.getLatestSession();
+            setPastSessions(allSessions);
+            setLatestSessionToResume(latest);
 
             if (mistakes.length > 0) {
               const reviewIntroMsg = `🏆 Topic Complete! You covered all ${session.subtopics.length} sub-topics of "${session.topicName}"!\n\nTo lock in your intuition, let's step through a dedicated Review Session for the ${mistakes.length} tricky trap${mistakes.length > 1 ? 's' : ''} you encountered! 🔍`;
@@ -464,6 +508,7 @@ export function useQBLSession() {
             false
           );
           setCurrentQuestion(nextQ);
+          setTeddyEmotion('idle');
 
           setChatMessages((prev) => [
             ...prev,
@@ -488,6 +533,7 @@ export function useQBLSession() {
           outcome.selectedOption?.text
         );
         setCurrentQuestion(reinforcementQ);
+        setTeddyEmotion('idle');
 
         setChatMessages((prev) => [
           ...prev,
@@ -510,7 +556,6 @@ export function useQBLSession() {
       console.warn('[useQBLSession] advanceToNextQuestion error:', err);
     } finally {
       setIsThinking(false);
-      setTeddyEmotion('idle');
     }
   }, [session, currentSubtopic, currentQuestion, currentTurnResult, isThinking]);
 
@@ -604,6 +649,19 @@ export function useQBLSession() {
     setTeddyDialogue(exitMsg);
   }, []);
 
+  const resetToTrackSelection = useCallback(() => {
+    setSession(null);
+    setCurrentSubtopic(null);
+    setCurrentQuestion(null);
+    setCurrentTurnResult(null);
+    setSelectedOptionId(null);
+    setIsReviewSessionActive(false);
+    setSessionMistakes([]);
+    setCurrentMistakeIndex(0);
+    setTeddyEmotion('idle');
+    setTeddyDialogue("Welcome! Ready to level up your engineering depth through Question-Driven Learning? 🐻");
+  }, []);
+
   return {
     session,
     pastSessions,
@@ -635,5 +693,6 @@ export function useQBLSession() {
     nextMistake,
     previousMistake,
     exitReviewSession,
+    resetToTrackSelection,
   };
 }
