@@ -14,6 +14,7 @@ try {
 import { HardwareAccelerationManager, HardwareAccelerationMode } from '../hardware/HardwareAccelerationManager';
 import { TeddyDialogueEngine } from '../agent/TeddyDialogueEngine';
 import { getCatalogQuestion } from '../qbl/QBLQuestionCatalog';
+import { getNodeJSQuestion } from '../qbl/domain/NodeJSDomain';
 
 /**
  * GBNF Grammar for Constrained Decoding
@@ -210,7 +211,7 @@ export class OfflineLLMEngine {
   async generateCompletion(
     prompt: string,
     systemPrompt?: string,
-    options?: { grammar?: string; n_predict?: number; temperature?: number }
+    options?: { grammar?: string; n_predict?: number; temperature?: number; skipPacing?: boolean }
   ): Promise<string> {
     if (!this.isLoaded) {
       await this.loadModel('MiniCPM5-2B-Q4_K_M.gguf');
@@ -245,7 +246,7 @@ export class OfflineLLMEngine {
       });
     }
 
-    if (process.env.NODE_ENV !== 'test') {
+    if (process.env.NODE_ENV !== 'test' && !options?.skipPacing) {
       // Natural conversational pacing while LLM generates output so candidate sees Teddy talking
       await new Promise((r) => setTimeout(r, 650));
     }
@@ -291,19 +292,29 @@ export class OfflineLLMEngine {
     }
 
     // 2. Question Generation Request (JSON object with 4 options)
-    if (promptLower.includes('multiple-choice') || promptLower.includes('qbl question') || promptLower.includes('options')) {
-      const topicMatch = prompt.match(/topic[:\s"']+([^"\n]+)/i);
+    const systemLower = (_systemPrompt || '').toLowerCase();
+    if (
+      promptLower.includes('multiple-choice') ||
+      promptLower.includes('qbl question') ||
+      promptLower.includes('options') ||
+      promptLower.includes('cognitive level') ||
+      systemLower.includes('qbl') ||
+      systemLower.includes('curriculum architect')
+    ) {
+      const topicMatch = prompt.match(/subject[:\s"']+([^"\n|]+)/i) || prompt.match(/topic[:\s"']+([^"\n|]+)/i) || _systemPrompt?.match(/subject[:\s"']+([^"\n|]+)/i);
       const rawTopic = topicMatch ? topicMatch[1].trim() : 'Software Engineering';
 
-      const subtopicMatch = prompt.match(/sub-topic[:\s"']+([^"\n(]+)/i);
+      const subtopicMatch = prompt.match(/sub-topic[:\s"']+([^"\n(|]+)/i) || prompt.match(/for "([^"]+)"/i) || _systemPrompt?.match(/sub-topic[:\s"']+([^"\n(|]+)/i);
       const rawSubtopic = subtopicMatch ? subtopicMatch[1].trim() : 'Core Fundamentals';
 
-      const conceptMatch = prompt.match(/concept\s*#?(\d+)/i);
+      const conceptMatch = prompt.match(/concept\s*#?(\d+)/i) || prompt.match(/index\s*#?(\d+)/i);
       const conceptIndex = conceptMatch ? parseInt(conceptMatch[1], 10) : 1;
 
       const isReinforcement = promptLower.includes('reinforce') || promptLower.includes('reinforcement');
-
-      const question = getCatalogQuestion(rawTopic, rawSubtopic, conceptIndex, isReinforcement);
+      const isNode = rawTopic.toLowerCase().includes('node') || rawSubtopic.toLowerCase().includes('node');
+      const question = isNode
+        ? getNodeJSQuestion(conceptIndex, { subject: rawTopic, subtopicTitle: rawSubtopic, subtopicDescription: rawSubtopic, conceptIndex })
+        : getCatalogQuestion(rawTopic, rawSubtopic, conceptIndex, isReinforcement);
       return JSON.stringify(question);
     }
 

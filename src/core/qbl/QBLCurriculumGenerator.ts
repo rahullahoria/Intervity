@@ -24,6 +24,8 @@ import {
   QBLSubtopicNode,
 } from '../../types';
 import { OfflineLLMEngine } from '../llm/OfflineLLMEngine';
+import { NODE_JS_CURRICULUM_CHAPTERS, getNodeJSQuestion } from './domain/NodeJSDomain';
+import { getCatalogQuestion } from './QBLQuestionCatalog';
 
 export interface HierarchyOptions {
   minChapters?: number;
@@ -214,6 +216,9 @@ export class QBLCurriculumGenerator {
   resolveSourceReference(subject: string, subtopicTitle: string): string {
     const lower = `${subject} ${subtopicTitle}`.toLowerCase();
 
+    if (lower.includes('node') || lower.includes('nodejs') || lower.includes('libuv') || lower.includes('v8')) {
+      return "Node.js Official Documentation & Architecture Specs, Bert Belder et al. - 'libuv Design Architecture', & Mario Casciaro - 'Node.js Design Patterns' (Packt)";
+    }
     if (lower.includes('kafka') || lower.includes('stream')) {
       return "Apache Kafka Protocol Specification & Neha Narkhede et al. - 'Kafka: The Definitive Guide' (O'Reilly)";
     }
@@ -424,7 +429,8 @@ STRICT OUTPUT FORMAT: A single JSON object matching:
   "coachingTip": "Teddy's memorable mental model..."
 }`;
 
-    const userPrompt = `Generate a ${cognitiveLevel.toUpperCase()} cognitive level question for "${options.subtopicTitle}".
+    const userPrompt = `Generate a QBL multiple-choice question with 4 options at ${cognitiveLevel.toUpperCase()} cognitive level for Concept #${options.conceptIndex || 1} of "${options.subtopicTitle}".
+Subject: "${options.subject}".
 Scope: ${options.subtopicDescription}.
 Prevent repetition from previous concepts: ${options.existingQuestions?.join(' | ') || 'None'}.`;
 
@@ -432,13 +438,19 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
     try {
       generatedText = await this.llmEngine.generateCompletion(userPrompt, systemPrompt, {
         temperature: 0.35,
+        skipPacing: true,
       });
     } catch (err) {
       console.warn('[QBLCurriculumGenerator] LLM generation error, using fallback:', err);
     }
 
     const parsed = this.parseJsonSafe(generatedText);
-    return this.validateAndImproveQuestion(parsed || {}, options);
+    const candidateQuestion =
+      parsed && parsed.questionText && Array.isArray(parsed.options) && parsed.options.length >= 2
+        ? parsed
+        : this.synthesizeDomainQuestion(options);
+
+    return this.validateAndImproveQuestion(candidateQuestion, options);
   }
 
   // =========================================================================
@@ -452,7 +464,61 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
     subtopicsPerTopic: number
   ): Promise<QBLChapter[]> {
     const chapters: QBLChapter[] = [];
+    const lowerSub = subject.toLowerCase();
 
+    // 1. Authoritative Domain Curriculum for Node.js
+    if (lowerSub.includes('node') || lowerSub.includes('nodejs')) {
+      const chapterCount = Math.max(minChapters, NODE_JS_CURRICULUM_CHAPTERS.length);
+      for (let c = 0; c < chapterCount; c++) {
+        const chapDef = NODE_JS_CURRICULUM_CHAPTERS[c % NODE_JS_CURRICULUM_CHAPTERS.length];
+        const chapterTitle = c < NODE_JS_CURRICULUM_CHAPTERS.length ? chapDef.title : `Chapter ${c + 1}: ${chapDef.title.replace(/^Chapter \d+:\s*/, '')}`;
+        const topics: QBLTopicNode[] = [];
+
+        const tCount = Math.max(topicsPerChapter, chapDef.topics.length);
+        for (let t = 0; t < tCount; t++) {
+          const topDef = chapDef.topics[t % chapDef.topics.length];
+          const topicTitle = t < chapDef.topics.length ? topDef.title : `${topDef.title} (Part ${t + 1})`;
+          const subtopics: QBLSubtopicNode[] = [];
+
+          const sCount = Math.max(subtopicsPerTopic, topDef.subtopics.length);
+          for (let s = 0; s < sCount; s++) {
+            const subDef = topDef.subtopics[s % topDef.subtopics.length];
+            const subTitle = s < topDef.subtopics.length ? subDef.title : `${subDef.title} (Part ${s + 1})`;
+            const diff: QBLDifficulty = subDef.difficulty || (s === 0 ? 'basic' : s === 1 ? 'intermediate' : 'advanced');
+
+            subtopics.push({
+              id: `sub_node_${c + 1}_${t + 1}_${s + 1}`,
+              title: subTitle,
+              description: subDef.description,
+              learningObjective: this.generateLearningObjective('Node.js', subTitle, 'understand'),
+              difficulty: diff,
+              totalQuestions: 3,
+            });
+          }
+
+          topics.push({
+            id: `topic_node_${c + 1}_${t + 1}`,
+            title: topicTitle,
+            description: topDef.description,
+            learningObjectives: topDef.learningObjectives,
+            subtopics,
+          });
+        }
+
+        chapters.push({
+          id: `chap_node_${c + 1}`,
+          chapterNumber: c + 1,
+          title: chapterTitle,
+          description: chapDef.description,
+          learningObjectives: chapDef.learningObjectives,
+          topics,
+        });
+      }
+
+      return chapters;
+    }
+
+    // 2. Generic / Other Domain Hierarchies
     const defaultChapterTitles = [
       {
         title: 'Core Fundamentals & Storage Engine Primitives',
@@ -529,7 +595,45 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
     return chapters;
   }
 
+  private synthesizeDomainQuestion(options: QuestionGenerationOptions): Partial<QBLQuestion> {
+    const lower = `${options.subject} ${options.subtopicTitle}`.toLowerCase();
+    const conceptIndex = options.conceptIndex || 1;
+
+    // Node.js specific domain questions (covers 25+ distinct scenarios)
+    if (lower.includes('node') || lower.includes('nodejs') || lower.includes('libuv') || lower.includes('v8')) {
+      return getNodeJSQuestion(conceptIndex, options);
+    }
+
+    // Default to catalog procedural synthesis
+    const catalogQ = getCatalogQuestion(
+      options.subject,
+      options.subtopicTitle,
+      conceptIndex,
+      Boolean(options.isReinforcement),
+      options.previousMistake
+    );
+
+    return {
+      ...catalogQ,
+      cognitiveLevel: options.cognitiveLevel || 'understand',
+      questionType: options.questionType || 'mcq',
+      learningObjective:
+        options.learningObjective ||
+        this.generateLearningObjective(options.subject, options.subtopicTitle, options.cognitiveLevel || 'understand'),
+      sourceReference: this.resolveSourceReference(options.subject, options.subtopicTitle),
+    };
+  }
+
   private generateThreeTierHints(subtopic: string, correctAnswer: string, level: QBLCognitiveLevel): string[] {
+    const lower = subtopic.toLowerCase();
+    if (lower.includes('node') || lower.includes('event loop') || lower.includes('stream') || lower.includes('phase')) {
+      return [
+        `💡 Hint 1 (Mental Model): Consider the single-threaded event loop and how libuv schedules macrotasks vs microtasks.`,
+        `🔍 Hint 2 (Mechanism Clue): Focus on whether this operation executes on the main thread, the libuv thread pool (UV_THREADPOOL_SIZE), or in OS kernel space.`,
+        `🎯 Hint 3 (Trade-off Insight): The production-grade approach prioritizes: "${correctAnswer.slice(0, 45)}..." without blocking the event loop.`,
+      ];
+    }
+
     return [
       `💡 Hint 1 (Mental Model): Consider the fundamental invariants of ${subtopic} and what happens to I/O when operations execute concurrently.`,
       `🔍 Hint 2 (Mechanism Clue): Focus on how the underlying state machine guarantees durability without acquiring exclusive locks on the hot path.`,
@@ -538,6 +642,36 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
   }
 
   private generateFallbackOptions(subtopic: string, level: QBLCognitiveLevel): QBLOption[] {
+    const lower = subtopic.toLowerCase();
+    if (lower.includes('node') || lower.includes('event loop') || lower.includes('phase') || lower.includes('stream')) {
+      return [
+        {
+          id: 'A',
+          text: `Pause the readable stream and resume consumption only when the destination emits the 'drain' event.`,
+          isCorrect: true,
+          explanation: `Correct: guarantees that internal stream buffers do not exceed highWaterMark, preventing memory leaks and backpressure overflow.`,
+        },
+        {
+          id: 'B',
+          text: `Buffer all incoming chunks in a global JavaScript array in memory and flush once per hour.`,
+          isCorrect: false,
+          explanation: `Incorrect: unconstrained array buffering exhausts V8 heap memory within seconds under production traffic.`,
+        },
+        {
+          id: 'C',
+          text: `Execute a synchronous busy-wait while(true) loop on the main thread until the buffer drains.`,
+          isCorrect: false,
+          explanation: `Incorrect: blocks the single event loop thread, preventing all asynchronous I/O and health checks.`,
+        },
+        {
+          id: 'D',
+          text: `Immediately terminate the Node.js process with exit code 0 whenever backpressure occurs.`,
+          isCorrect: false,
+          explanation: `Incorrect: abruptly terminates the service and causes massive request dropouts.`,
+        },
+      ];
+    }
+
     return [
       {
         id: 'A',

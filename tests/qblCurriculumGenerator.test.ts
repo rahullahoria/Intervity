@@ -239,4 +239,100 @@ describe('7-Step QBL Curriculum & Question Generator', () => {
       assert.ok(batch[0].hints);
     });
   });
+
+  describe('Node.js Comprehensive Curriculum & 20+ Questions Generation', () => {
+    it('generates a full Node.js curriculum hierarchy with 5 authoritative domain chapters', async () => {
+      const hierarchy = await generator.generateHierarchy('Node.js', {
+        minChapters: 5,
+        topicsPerChapter: 2,
+        subtopicsPerTopic: 2,
+        questionsPerSubtopic: 1,
+      });
+
+      assert.strictEqual(hierarchy.subject, 'Node.js');
+      assert.strictEqual(hierarchy.chapters.length, 5);
+
+      // Verify Chapter 1: Runtime, libuv & Event Loop
+      assert.ok(hierarchy.chapters[0].title.includes('Runtime Architecture') || hierarchy.chapters[0].title.includes('Event Loop'));
+      // Verify Chapter 2: V8 & Memory
+      assert.ok(hierarchy.chapters[1].title.includes('V8 Engine') || hierarchy.chapters[1].title.includes('Memory'));
+      // Verify Chapter 3: Streams & Backpressure
+      assert.ok(hierarchy.chapters[2].title.includes('Streams') || hierarchy.chapters[2].title.includes('Backpressure'));
+      // Verify Chapter 4: Concurrency & Worker Threads
+      assert.ok(hierarchy.chapters[3].title.includes('Clustering') || hierarchy.chapters[3].title.includes('Worker Threads'));
+      // Verify Chapter 5: Diagnostics & Production
+      assert.ok(hierarchy.chapters[4].title.includes('Diagnostics') || hierarchy.chapters[4].title.includes('Production'));
+
+      // Verify Subtopics & Questions in Chapter 1
+      const subtopic = hierarchy.chapters[0].topics[0].subtopics[0];
+      assert.ok(subtopic.title.length > 5);
+      assert.ok(subtopic.questions && subtopic.questions.length >= 1);
+
+      const q = subtopic.questions[0];
+      assert.ok(q.sourceReference?.includes('Node.js') || q.sourceReference?.includes('libuv'));
+      assert.strictEqual(q.options.length, 4);
+      assert.strictEqual(q.options.filter(o => o.isCorrect).length, 1);
+    });
+
+    it('generates 20+ distinct questions for a Node.js subtopic covering all Bloom cognitive tiers', async () => {
+      const questions = await generator.generateBatchQuestions({
+        subject: 'Node.js',
+        chapterTitle: 'Chapter 1: Node.js Runtime Architecture, libuv & The Event Loop',
+        topicTitle: 'Event Loop Phase Transitions & Callbacks',
+        subtopicTitle: 'Timers, Pending Callbacks, Poll, Check & Close Phases',
+        subtopicDescription: 'Execution order of libuv phases, setImmediate vs setTimeout, and starvation prevention',
+        count: 20,
+      });
+
+      assert.strictEqual(questions.length, 20);
+
+      // Verify all 20 questions are unique
+      const questionTexts = new Set(questions.map(q => q.questionText));
+      assert.strictEqual(questionTexts.size, 20, 'All 20 Node.js questions must have distinct question texts');
+
+      // Verify Bloom's cognitive level distribution
+      const levels = new Set(questions.map(q => q.cognitiveLevel));
+      assert.ok(levels.has('remember'), 'Must include Remember questions');
+      assert.ok(levels.has('understand'), 'Must include Understand questions');
+      assert.ok(levels.has('apply'), 'Must include Apply questions');
+      assert.ok(levels.has('analyze'), 'Must include Analyze questions');
+      assert.ok(levels.has('evaluate'), 'Must include Evaluate questions');
+      assert.ok(levels.has('create'), 'Must include Create questions');
+
+      // Verify 7-step criteria across all questions
+      questions.forEach((q, idx) => {
+        assert.ok(q.questionText.length > 20, `Q${idx + 1} text must be substantial`);
+        assert.strictEqual(q.options.length, 4, `Q${idx + 1} must have 4 options`);
+        assert.strictEqual(q.options.filter(o => o.isCorrect).length, 1, `Q${idx + 1} must have 1 correct option`);
+        assert.ok(q.hints && q.hints.length === 3, `Q${idx + 1} must have 3-tier progressive hints`);
+        assert.ok(q.hints?.[0]?.includes('Hint 1'), `Q${idx + 1} hint 1 missing`);
+        assert.ok(q.hints?.[1]?.includes('Hint 2'), `Q${idx + 1} hint 2 missing`);
+        assert.ok(q.hints?.[2]?.includes('Hint 3'), `Q${idx + 1} hint 3 missing`);
+        assert.ok(q.sourceReference?.includes('Node.js') || q.sourceReference?.includes('libuv'));
+        assert.strictEqual(q.subject, 'Node.js');
+        assert.strictEqual(q.subtopic, 'Timers, Pending Callbacks, Poll, Check & Close Phases');
+      });
+    });
+
+    it('generates Node.js questions through QBLEngine', async () => {
+      const qbl = new QBLEngine(llmEngine);
+      const hierarchy = await qbl.generateCurriculumHierarchy('Node.js', {
+        minChapters: 5,
+        topicsPerChapter: 2,
+        subtopicsPerTopic: 2,
+        questionsPerSubtopic: 1,
+      });
+
+      assert.strictEqual(hierarchy.chapters.length, 5);
+      const batch = await qbl.generateSubtopicBatchQuestions(
+        'Node.js',
+        'Backpressure Signaling: Handling write() === false & drain Event',
+        'Stream flow control and memory leak prevention',
+        20
+      );
+
+      assert.strictEqual(batch.length, 20);
+      assert.ok(batch[0].sourceReference?.includes('Node.js'));
+    });
+  });
 });
