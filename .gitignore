@@ -60,3 +60,8 @@ scratch/
 *.tar.bz2
 *.tar.gz
 *.zip
+
+# Build artifacts & releases
+release_artifacts/
+*.ipa
+*.apk
