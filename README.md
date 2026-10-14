@@ -2,6 +2,10 @@
 
 > **Free Learning by AI — 100% On-Device, Offline, Private AI Mock Interviews for Everyone.**
 
+[![Latest Release](https://img.shields.io/github/v/release/rahullahoria/Intervity?style=for-the-badge&color=2383E2&label=Latest%20Release)](https://github.com/rahullahoria/Intervity/releases/tag/v0.0.1)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(242%20MB)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.apk)
+[![Download iOS IPA](https://img.shields.io/badge/Download-iOS%20IPA%20(14%20MB)-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.ipa)
+
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![React Native](https://img.shields.io/badge/React%20Native-0.76%20(New%20Architecture)-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
 [![Offline First](https://img.shields.io/badge/Offline-100%25%20On--Device-success)](#)
@@ -11,6 +15,42 @@
 [![Rive](https://img.shields.io/badge/Mascot-Rive%20State%20Machine-ff5c8a?logo=rive&logoColor=white)](https://rive.app/)
 [![Attributions](https://img.shields.io/badge/Attributions-Models%20%26%20Assets-informational)](ATTRIBUTIONS.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+---
+
+## 📦 Latest Release: v0.0.1
+
+| Package | Platform | Size | Direct Download | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **Android APK** | Android 10+ (arm64-v8a) | `242 MB` | [📥 **Download `Intervity-v0.0.1.apk`**](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.apk) | Standalone release build with local runtime weights |
+| **iOS IPA** | iOS 16.0+ | `14 MB` | [📥 **Download `Intervity-v0.0.1.ipa`**](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.ipa) | Sideload via AltStore / TrollStore / TestFlight (`help.dina.intervity`) |
+
+> 🔗 **Full Release Notes & Checksums:** [View GitHub Release `v0.0.1`](https://github.com/rahullahoria/Intervity/releases/tag/v0.0.1)
+
+---
+
+## 📱 App Experience & Visual Showcase
+
+### 💡 Question-Driven Learning (QBL) & Mascot Companion Flow
+
+| Masterclass Hub & Companion | Active Architectural Challenge | Spot-On Celebration (+25 XP) | Mistake Diagnostics & Autopsy |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/01_masterclass_hub.png" width="220" alt="Masterclass Hub & Companion" /> | <img src="docs/screenshots/02_qbl_challenge.png" width="220" alt="Active Architectural Challenge" /> | <img src="docs/screenshots/03_diagnostics_feedback.png" width="220" alt="Spot-On Celebration" /> | <img src="docs/screenshots/03b_mistake_autopsy.png" width="220" alt="Mistake Diagnostics" /> |
+| **Track Selection & Teddy AI**<br>Curated masterclasses + custom topic synthesis | **4-Option Architecture Dilemma**<br>Concept counter, code artifacts & trade-offs | **Mastery Validation**<br>Immediate feedback, mental model & level XP | **Mistake Autopsy & Drills**<br>Why chosen trap fails & reinforcement queues |
+
+### 🧠 Edge AI Compute, Curriculum Roadmaps & Mastery Analytics
+
+| 5+ Sub-Topic Roadmap | On-Device AI Asset Manager | Bayesian EMA Mastery Radar | Post-Interview Autopsy |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/04_subtopic_roadmap.png" width="220" alt="5+ Sub-Topic Roadmap" /> | <img src="docs/screenshots/05_model_manager.png" width="220" alt="On-Device AI Asset Manager" /> | <img src="docs/screenshots/06_analytics_dashboard.png" width="220" alt="Bayesian EMA Mastery Radar" /> | <img src="docs/screenshots/07_session_summary.png" width="220" alt="Post-Interview Autopsy" /> |
+| **Autonomous Curriculum**<br>Gated 0-100% prerequisite milestones | **100% On-Device Compute**<br>Metal GPU / NPU acceleration & GGUF weights | **Competency Matrix**<br>Dynamic 6-axis skill tracking across sessions | **Performance Autopsy**<br>Prosody, filler words & golden L5 answers |
+
+### 🎙️ Live Voice Interviewing & Deliberate Practice
+
+| Full-Duplex Voice Session HUD | Biofeedback Reflex Trainer | 100% Local Resume Ingestion |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/08_voice_session.png" width="240" alt="Full-Duplex Voice Session HUD" /> | <img src="docs/screenshots/09_biofeedback_drill.png" width="240" alt="Biofeedback Reflex Trainer" /> | <img src="docs/screenshots/10_resume_setup.png" width="240" alt="100% Local Resume Ingestion" /> |
+| **Interactive Voice HUD**<br>Full-duplex AEC, Whisper STT & Kokoro TTS | **Zero-Filler Drill**<br>Real-time composure & cadence biofeedback | **Private Resume Parsing**<br>Zero-egress local NER & seniority extraction |
 
 ---
 
@@ -24,8 +64,6 @@ High-quality interview preparation shouldn't be a privilege reserved for candida
 1. **Absolute Privacy:** Your resume, voice samples, interview answers, and performance evaluations never touch a third-party cloud server or train corporate models.
 2. **True Equity & Accessibility:** Works on commuter trains, in low-bandwidth regions, and on consumer mobile hardware without recurring cloud API fees.
 3. **Sub-Second Conversational Fluidity:** Local C++ / JSI pipelines eliminate network hops, providing instant acoustic echo cancellation (AEC) and conversational barge-in.
-
----
 
 ## 🚀 Key Features
 

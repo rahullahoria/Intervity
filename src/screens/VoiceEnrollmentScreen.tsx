@@ -33,6 +33,7 @@ import {
   BrainIcon,
   SoundWaveBars,
 } from '../components/icons/AppIcons';
+import { colors } from '../theme/colors';
 
 interface VoiceEnrollmentScreenProps {
   navigation: any;
@@ -267,7 +268,7 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
         <View style={styles.novaCard}>
           <View style={styles.novaHeaderRow}>
             <View style={styles.novaBadge}>
-              <SparklesIcon size={13} color="#38BDF8" />
+              <SparklesIcon size={13} color={colors.notionBlueLight} />
               <Text style={styles.novaBadgeText}>Teddy AI Career Coach</Text>
             </View>
             <TouchableOpacity
@@ -276,7 +277,7 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
               disabled={isTeddySpeaking}
               activeOpacity={0.8}
             >
-              <VolumeHighIcon size={14} color="#38BDF8" />
+              <VolumeHighIcon size={14} color={colors.notionBlueLight} />
               <Text style={styles.hearBtnText}>
                 {isTeddySpeaking ? 'Speaking...' : 'Hear Teddy Speak'}
               </Text>
@@ -313,7 +314,7 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
             <SoundWaveBars
               level={isCalibrating ? audioLevel : isTeddySpeaking ? 0.6 : 0.05}
               active={isCalibrating || isTeddySpeaking}
-              color={isCalibrating ? '#22D3EE' : '#38BDF8'}
+              color={isCalibrating ? colors.notionGreen : colors.notionBlueLight}
               size={22}
             />
             <Text style={styles.statusText}>{statusMessage}</Text>
@@ -335,12 +336,12 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
           ) : (
             <View style={styles.enrolledSuccessBox}>
               <View style={styles.successIconBadge}>
-                <CheckIcon size={18} color="#10B981" />
+                <CheckIcon size={18} color={colors.notionGreen} />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.successTitle}>Voice Profile Calibrated</Text>
                 <Text style={styles.successSubtitle}>
-                  Enrolled as: <Text style={{ color: '#38BDF8', fontWeight: '700' }}>{candidateName}</Text> • 192-dim vector stored
+                  Enrolled as: <Text style={{ color: colors.notionBlueLight, fontWeight: '700' }}>{candidateName}</Text> • 192-dim vector stored
                 </Text>
               </View>
               <TouchableOpacity
@@ -472,13 +473,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 10,
+    borderRadius: 6,
   },
   novaBadgeText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -486,56 +487,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: colors.surfaceHover,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: colors.cardBorder,
   },
   hearBtnText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 11,
     fontWeight: '600',
   },
   novaPromptText: {
-    color: '#E2E8F0',
+    color: colors.textPrimary,
     fontSize: 13,
     lineHeight: 19,
     fontStyle: 'italic',
   },
   sentenceCard: {
-    backgroundColor: 'rgba(14, 116, 144, 0.12)',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(6, 182, 212, 0.35)',
+    borderColor: colors.cardBorder,
   },
   sentenceLabel: {
-    color: '#22D3EE',
+    color: colors.notionBlueLight,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
     marginBottom: 8,
   },
   sentenceText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
     lineHeight: 22,
     marginBottom: 10,
   },
   sentenceHint: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
     lineHeight: 16,
   },
   calibrationCard: {
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.cardBorder,
     gap: 12,
   },
   progressHeaderRow: {
@@ -544,24 +545,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   progressLabel: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '600',
   },
   progressPercentText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 12,
     fontWeight: '700',
   },
   progressTrack: {
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.background,
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.notionBlue,
     borderRadius: 3,
   },
   visualizerRow: {

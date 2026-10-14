@@ -44,6 +44,7 @@ import { colors } from '../theme/colors';
 
 interface AgentCoachingScreenProps {
   navigation: any;
+  route?: any;
 }
 
 interface MasterclassTrack {
@@ -61,7 +62,7 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     title: 'High-Scale Distributed Systems',
     badge: 'Staff / L6',
     description: 'PACELC trade-offs, Raft consensus, Byzantine resilience & p99 SLA defense',
-    accentColor: '#38BDF8',
+    accentColor: colors.notionBlueLight,
     tag: 'CONSENSUS & SCALE',
   },
   {
@@ -69,7 +70,7 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     title: 'Kafka & Event Streaming',
     badge: 'Data Platform',
     description: 'Partition ISR quorums, consumer rebalancing & exactly-once semantics',
-    accentColor: '#A855F7',
+    accentColor: colors.notionPurple,
     tag: 'EVENT ARCHITECTURE',
   },
   {
@@ -77,7 +78,7 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     title: 'React Native & Mobile Performance',
     badge: '60 FPS JSI',
     description: 'Fabric renderer, TurboModules, Hermes bytecode & offline SQLite sync',
-    accentColor: '#10B981',
+    accentColor: colors.notionGreen,
     tag: 'CLIENT ARCHITECTURE',
   },
   {
@@ -85,7 +86,7 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     title: 'SQL Indexing & Sharding',
     badge: 'Deep DB',
     description: 'B+Tree access paths, write-ahead logs (WAL), composite indexes & locks',
-    accentColor: '#F59E0B',
+    accentColor: colors.notionOrange,
     tag: 'STORAGE ENGINES',
   },
   {
@@ -93,12 +94,12 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     title: 'System Design at Scale',
     badge: 'Principal',
     description: 'Probabilistic caching (XFetch), idempotence, rate limiting & circuit breakers',
-    accentColor: '#F43F5E',
+    accentColor: colors.notionRed,
     tag: 'MICROSERVICES',
   },
 ];
 
-export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ navigation }) => {
+export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -141,6 +142,33 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
   const [isSessionsModalVisible, setIsSessionsModalVisible] = useState(false);
   const [showAllOptions, setShowAllOptions] = useState(false);
 
+  useEffect(() => {
+    if (!session) {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (route?.params?.autoStartTopic && !session && !isThinking) {
+      startNewTopic(route.params.autoStartTopic);
+    }
+  }, [route?.params?.autoStartTopic, session, isThinking, startNewTopic]);
+
+  useEffect(() => {
+    if (route?.params?.autoSelectOption && currentQuestion && !selectedOptionId && !currentTurnResult) {
+      const timer = setTimeout(() => {
+        selectOption(route.params.autoSelectOption);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [route?.params?.autoSelectOption, currentQuestion, selectedOptionId, currentTurnResult, selectOption]);
+
+  useEffect(() => {
+    if (route?.params?.openRoadmap && session) {
+      setIsRoadmapVisible(true);
+    }
+  }, [route?.params?.openRoadmap, session]);
+
   // When a new question arrives, ALWAYS scroll to top (y: 0) and reset option collapse so question is 100% visible
   useEffect(() => {
     if (currentQuestion) {
@@ -164,12 +192,12 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   }, [isReviewSessionActive, currentMistakeIndex]);
 
-  // Auto-scroll on free-form chat messages if no active question
+  // Auto-scroll on free-form chat messages if session is active and no active question
   useEffect(() => {
-    if (!currentQuestion && chatMessages.length > 0) {
+    if (session && !currentQuestion && chatMessages.length > 0) {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }
-  }, [chatMessages.length, currentQuestion]);
+  }, [session, chatMessages.length, currentQuestion]);
 
   const handleSend = () => {
     if (!inputText.trim() || isThinking) return;
@@ -189,7 +217,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       style={styles.rootContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#07090E" translucent={true} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} translucent={true} />
 
       {/* 1. Header HUD */}
       <View
@@ -209,7 +237,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             <View style={styles.levelCard}>
               <View style={styles.levelBadgeRow}>
                 <View style={styles.starBadge}>
-                  <StarIcon size={12} color="#38BDF8" />
+                  <StarIcon size={12} color={colors.notionYellow} />
                   <Text style={styles.starBadgeText}>Lv.{mascotLevel}</Text>
                 </View>
                 <Text style={styles.personalityTierText} numberOfLines={1}>
@@ -237,7 +265,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 activeOpacity={0.8}
                 accessibilityLabel="View Roadmap"
               >
-                <TargetIcon size={14} color="#38BDF8" />
+                <TargetIcon size={14} color={colors.notionBlueLight} />
                 <Text style={styles.roadmapBtnText}>Roadmap</Text>
               </TouchableOpacity>
             )}
@@ -248,7 +276,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               activeOpacity={0.8}
               accessibilityLabel="Past Sessions"
             >
-              <BrainIcon size={15} color="#94A3B8" />
+              <BrainIcon size={15} color={colors.textSecondary} />
               <Text style={styles.sessionsBtnText}>Sessions</Text>
             </TouchableOpacity>
 
@@ -258,7 +286,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               activeOpacity={0.8}
               accessibilityLabel="Settings"
             >
-              <SettingsIcon size={16} color="#94A3B8" />
+              <SettingsIcon size={16} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -266,7 +294,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         {/* Inline Model Download Banner (Only displayed if actively downloading) */}
         {modelStatus.isDownloading && (
           <View style={styles.modelStatusBanner}>
-            <ActivityIndicator size="small" color="#38BDF8" style={{ marginRight: 8 }} />
+            <ActivityIndicator size="small" color={colors.notionBlue} style={{ marginRight: 8 }} />
             <View style={{ flex: 1 }}>
               <Text style={styles.modelStatusText}>{modelStatus.statusText}</Text>
               <View style={styles.modelProgressTrack}>
@@ -287,7 +315,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               </Text>
               <View style={styles.headerRightBadges}>
                 <View style={styles.overallMasteryBadge}>
-                  <SparklesIcon size={11} color="#38BDF8" style={{ marginRight: 4 }} />
+                  <SparklesIcon size={11} color={colors.notionBlueLight} style={{ marginRight: 4 }} />
                   <Text style={styles.overallMasteryText}>
                     {session.overallMasteryPercentage}% Skill Mastered
                   </Text>
@@ -339,7 +367,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                       backgroundColor:
                         currentSubtopic.masteryPercentage === 100
                           ? colors.successGreen
-                          : '#38BDF8',
+                          : colors.notionBlue,
                     },
                   ]}
                 />
@@ -421,7 +449,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       >
         {isInitializing && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#38BDF8" />
+            <ActivityIndicator size="large" color={colors.notionBlue} />
             <Text style={styles.loadingText}>Waking up Teddy...</Text>
           </View>
         )}
@@ -553,7 +581,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 <View style={styles.questionCardHeader}>
                   <View style={styles.badgeRow}>
                     <View style={styles.conceptPill}>
-                      <SparklesIcon size={12} color="#38BDF8" style={{ marginRight: 4 }} />
+                      <SparklesIcon size={12} color={colors.notionBlueLight} style={{ marginRight: 4 }} />
                       <Text style={styles.conceptPillText}>
                         CONCEPT #{currentQuestion.conceptIndex} OF 3
                       </Text>
@@ -910,7 +938,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             {/* Thinking Indicator */}
             {isThinking && (
               <View style={styles.thinkingContainer}>
-                <ActivityIndicator size="small" color="#38BDF8" style={{ marginRight: 8 }} />
+                <ActivityIndicator size="small" color={colors.notionBlue} style={{ marginRight: 8 }} />
                 <Text style={styles.thinkingLabel}>Teddy is formulating your next question...</Text>
               </View>
             )}
@@ -932,7 +960,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               ? 'Enter any skill, topic, or language...'
               : 'Ask Teddy a question or ask for a hint...'
           }
-          placeholderTextColor="#64748B"
+          placeholderTextColor={colors.textTertiary}
           value={inputText}
           onChangeText={setInputText}
           onSubmitEditing={handleSend}
@@ -951,7 +979,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         >
           <SendIcon
             size={18}
-            color={inputText.trim() && !isThinking ? '#07090E' : '#475569'}
+            color={inputText.trim() && !isThinking ? '#FFFFFF' : colors.textTertiary}
           />
         </TouchableOpacity>
       </View>
@@ -976,7 +1004,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 onPress={() => setIsRoadmapVisible(false)}
                 style={styles.modalCloseBtn}
               >
-                <CloseIcon size={20} color="#94A3B8" />
+                <CloseIcon size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1034,7 +1062,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                             styles.roadmapFill,
                             {
                               width: `${sub.masteryPercentage}%`,
-                              backgroundColor: isCompleted ? colors.successGreen : '#38BDF8',
+                              backgroundColor: isCompleted ? colors.successGreen : colors.notionBlueLight,
                             },
                           ]}
                         />
@@ -1071,7 +1099,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 onPress={() => setIsSessionsModalVisible(false)}
                 style={styles.modalCloseBtn}
               >
-                <CloseIcon size={20} color="#94A3B8" />
+                <CloseIcon size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1122,14 +1150,14 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
 const styles = StyleSheet.create({
   rootContainer: {
     flex: 1,
-    backgroundColor: '#07090E',
+    backgroundColor: colors.background,
   },
   topHeader: {
-    backgroundColor: '#0B0F19',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#161E30',
+    borderBottomColor: colors.divider,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1147,7 +1175,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#38BDF8',
+    borderColor: colors.notionBlue,
     marginRight: 8,
   },
   levelCard: {
@@ -1161,7 +1189,7 @@ const styles = StyleSheet.create({
   starBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -1170,29 +1198,29 @@ const styles = StyleSheet.create({
   starBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     marginLeft: 3,
   },
   personalityTierText: {
     fontSize: 12,
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontWeight: '600',
     flex: 1,
   },
   xpFractionText: {
     fontSize: 10,
-    color: '#64748B',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   xpTrack: {
     height: 3,
-    backgroundColor: '#1C2538',
+    backgroundColor: colors.cardBorder,
     borderRadius: 2,
     overflow: 'hidden',
   },
   xpFill: {
     height: '100%',
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.notionBlue,
   },
   headerActions: {
     flexDirection: 'row',
@@ -1201,16 +1229,16 @@ const styles = StyleSheet.create({
   roadmapBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 8,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderColor: colors.notionBlue,
   },
   roadmapBtnText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 11,
     fontWeight: '600',
     marginLeft: 4,
@@ -1218,16 +1246,16 @@ const styles = StyleSheet.create({
   sessionsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131B2E',
+    backgroundColor: colors.cardBackground,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 8,
     marginRight: 6,
     borderWidth: 1,
-    borderColor: '#202B42',
+    borderColor: colors.cardBorder,
   },
   sessionsBtnText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '500',
     marginLeft: 4,
@@ -1236,51 +1264,51 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#131B2E',
+    backgroundColor: colors.cardBackground,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#202B42',
+    borderColor: colors.cardBorder,
   },
   modelStatusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131B2E',
+    backgroundColor: colors.cardBackground,
     padding: 8,
     borderRadius: 8,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.2)',
+    borderColor: colors.cardBorder,
   },
   modelStatusText: {
     fontSize: 11,
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontWeight: '600',
     marginBottom: 4,
   },
   modelProgressTrack: {
     height: 3,
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.surfaceHover,
     borderRadius: 2,
     overflow: 'hidden',
   },
   modelProgressFill: {
     height: '100%',
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.notionBlue,
   },
   modelPercentText: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: colors.textSecondary,
     marginLeft: 8,
     fontWeight: '700',
   },
   activeTopicBar: {
     marginTop: 8,
-    backgroundColor: '#0F1420',
+    backgroundColor: colors.cardBackground,
     padding: 10,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1C2538',
+    borderColor: colors.cardBorder,
   },
   topicInfoRow: {
     flexDirection: 'row',
@@ -1289,7 +1317,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   activeTopicName: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
     flex: 1,
@@ -1298,15 +1326,15 @@ const styles = StyleSheet.create({
   overallMasteryBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 7,
     paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: colors.cardBorder,
   },
   overallMasteryText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1318,7 +1346,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   subtopicNameText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
     flex: 1,
     marginRight: 6,
@@ -1331,24 +1359,24 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#334155',
+    backgroundColor: colors.cardBorder,
     marginRight: 4,
   },
   conceptDotMastered: {
-    backgroundColor: colors.successGreen,
+    backgroundColor: colors.notionGreen,
   },
   conceptDotCurrent: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.notionBlue,
   },
   subtopicMasteryText: {
-    color: '#CBD5E1',
+    color: colors.textPrimary,
     fontSize: 11,
     fontWeight: '700',
     marginLeft: 4,
   },
   subtopicTrack: {
     height: 3,
-    backgroundColor: '#07090E',
+    backgroundColor: colors.background,
     borderRadius: 2,
     overflow: 'hidden',
   },
@@ -1356,11 +1384,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   companionSection: {
-    backgroundColor: '#0A0E18',
+    backgroundColor: colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#161E30',
+    borderBottomColor: colors.divider,
   },
   companionRow: {
     flexDirection: 'row',
@@ -1369,22 +1397,22 @@ const styles = StyleSheet.create({
   mascotHalo: {
     width: 82,
     height: 82,
-    borderRadius: 20,
-    backgroundColor: '#111827',
+    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     overflow: 'hidden',
   },
   companionSpeechCard: {
     flex: 1,
     marginLeft: 12,
-    backgroundColor: '#121827',
+    backgroundColor: colors.cardBackground,
     padding: 10,
-    borderRadius: 14,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1F293D',
+    borderColor: colors.cardBorder,
   },
   companionHeaderRow: {
     flexDirection: 'row',
@@ -1393,13 +1421,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   companionNameBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   companionNameText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1408,33 +1436,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
-    backgroundColor: 'rgba(148, 163, 184, 0.15)',
+    backgroundColor: colors.surfaceHover,
   },
   emotionSpeaking: {
-    backgroundColor: 'rgba(56, 189, 248, 0.22)',
+    backgroundColor: colors.notionBlueBg,
   },
   emotionCelebrating: {
-    backgroundColor: 'rgba(34, 197, 94, 0.18)',
+    backgroundColor: colors.notionGreenBg,
   },
   emotionPuzzled: {
-    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    backgroundColor: colors.notionYellowBg,
   },
   emotionThinking: {
-    backgroundColor: 'rgba(168, 85, 247, 0.18)',
+    backgroundColor: colors.notionPurpleBg,
   },
   emotionEmoji: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#E2E8F0',
+    color: colors.textPrimary,
   },
   companionDialogueText: {
-    color: '#F1F5F9',
+    color: colors.textPrimary,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '500',
   },
   mainScroll: {
     flex: 1,
+    overflow: 'hidden',
   },
   mainContent: {
     padding: 16,
@@ -1445,7 +1474,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
   },
   loadingText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 13,
     marginTop: 8,
   },
@@ -1453,22 +1482,18 @@ const styles = StyleSheet.create({
   resumeHeroCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#101726',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#38BDF8',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.notionBlue,
     marginBottom: 8,
   },
   resumeHeroIconContainer: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    borderRadius: 8,
+    backgroundColor: colors.notionBlueBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1482,28 +1507,28 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   resumeTagText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   resumePercentBadge: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 11,
     fontWeight: '700',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 4,
   },
   resumeTopicTitle: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 2,
   },
   resumeSubMeta: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 12,
   },
   sectionDivider: {
@@ -1514,10 +1539,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#161E30',
+    backgroundColor: colors.divider,
   },
   dividerTitle: {
-    color: '#64748B',
+    color: colors.textTertiary,
     fontSize: 10,
     fontWeight: '800',
     paddingHorizontal: 8,
@@ -1527,11 +1552,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   trackCard: {
-    backgroundColor: '#0F1422',
-    borderRadius: 14,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#1D273B',
+    borderColor: colors.cardBorder,
     borderLeftWidth: 4,
   },
   trackCardHeader: {
@@ -1557,13 +1582,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   trackCardTitle: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 4,
   },
   trackCardDesc: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 17,
     marginBottom: 8,
@@ -1574,7 +1599,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   trackSubtopicsCount: {
-    color: '#64748B',
+    color: colors.textTertiary,
     fontSize: 11,
     fontWeight: '500',
   },
@@ -1585,13 +1610,13 @@ const styles = StyleSheet.create({
   customTopicPromptBox: {
     marginTop: 14,
     padding: 12,
-    borderRadius: 12,
-    backgroundColor: '#111827',
+    borderRadius: 8,
+    backgroundColor: colors.cardBackground,
     borderWidth: 1,
-    borderColor: '#1E293B',
+    borderColor: colors.cardBorder,
   },
   customTopicPromptText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
@@ -1600,11 +1625,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   questionCardContainer: {
-    backgroundColor: '#0E1524',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#1E2B45',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   questionCardHeader: {
     flexDirection: 'row',
@@ -1615,30 +1640,30 @@ const styles = StyleSheet.create({
   conceptPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   conceptPillText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   reinforcementBadge: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    backgroundColor: colors.notionOrangeBg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
   reinforcementBadgeText: {
-    color: '#F59E0B',
+    color: colors.notionOrange,
     fontSize: 10,
     fontWeight: '700',
   },
   questionScenarioText: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 21,
@@ -1650,27 +1675,27 @@ const styles = StyleSheet.create({
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131B2C',
-    borderRadius: 10,
+    backgroundColor: colors.surfaceHover,
+    borderRadius: 8,
     padding: 11,
     borderWidth: 1,
-    borderColor: '#23304A',
+    borderColor: colors.cardBorder,
   },
   optionButtonSelected: {
-    borderColor: '#38BDF8',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderColor: colors.notionBlue,
+    backgroundColor: colors.notionBlueBg,
   },
   optionButtonCorrect: {
-    borderColor: '#22C55E',
-    backgroundColor: 'rgba(34, 197, 94, 0.16)',
+    borderColor: colors.notionGreen,
+    backgroundColor: colors.notionGreenBg,
   },
   optionButtonWrong: {
-    borderColor: '#EF4444',
-    backgroundColor: 'rgba(239, 68, 68, 0.16)',
+    borderColor: colors.notionRed,
+    backgroundColor: colors.notionRedBg,
   },
   optionButtonRevealCorrect: {
-    borderColor: '#10B981',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    borderColor: colors.notionGreen,
+    backgroundColor: colors.notionGreenBg,
   },
   optionButtonDisabled: {
     opacity: 0.65,
@@ -1678,34 +1703,34 @@ const styles = StyleSheet.create({
   optionLetterBadge: {
     width: 26,
     height: 26,
-    borderRadius: 13,
-    backgroundColor: '#1E293B',
+    borderRadius: 6,
+    backgroundColor: colors.cardBackground,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   optionLetterSelected: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.notionBlue,
   },
   optionLetterCorrect: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.notionGreen,
   },
   optionLetterWrong: {
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.notionRed,
   },
   optionLetterRevealCorrect: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.notionGreen,
   },
   optionLetterText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '800',
   },
   optionLetterTextSelected: {
-    color: '#07090E',
+    color: '#FFFFFF',
   },
   optionLetterTextCorrect: {
-    color: '#07090E',
+    color: '#FFFFFF',
     fontWeight: '800',
   },
   optionLetterTextWrong: {
@@ -1713,19 +1738,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   optionContentText: {
-    color: '#E2E8F0',
+    color: colors.textPrimary,
     fontSize: 13,
     flex: 1,
     lineHeight: 18,
   },
   correctIndicatorTag: {
-    color: '#22C55E',
+    color: colors.notionGreen,
     fontSize: 11,
     fontWeight: '700',
     marginTop: 4,
   },
   wrongIndicatorTag: {
-    color: '#EF4444',
+    color: colors.notionRed,
     fontSize: 11,
     fontWeight: '700',
     marginTop: 4,
@@ -1743,23 +1768,23 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   toggleOptionsBtnText: {
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
   feedbackCard: {
-    borderRadius: 14,
+    borderRadius: 8,
     padding: 14,
-    borderWidth: 1.5,
+    borderWidth: 1,
     marginTop: 10,
   },
   feedbackCardCorrect: {
-    backgroundColor: '#063B2C',
-    borderColor: '#10B981',
+    backgroundColor: colors.notionGreenBg,
+    borderColor: colors.notionGreen,
   },
   feedbackCardWrong: {
-    backgroundColor: '#38160B',
-    borderColor: '#F59E0B',
+    backgroundColor: colors.notionRedBg,
+    borderColor: colors.notionRed,
   },
   feedbackHeaderRow: {
     flexDirection: 'row',
@@ -1768,7 +1793,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   feedbackTitleText: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -1779,18 +1804,18 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   feedbackStatusCorrect: {
-    backgroundColor: '#10B981',
+    backgroundColor: colors.notionGreen,
   },
   feedbackStatusWrong: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.notionRed,
   },
   feedbackStatusBadgeText: {
-    color: '#07090E',
+    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '800',
   },
   feedbackBodyText: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 13,
     lineHeight: 20,
   },
@@ -1798,37 +1823,30 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#38BDF8',
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: colors.notionBlue,
   },
   continueBtnCorrect: {
-    backgroundColor: '#10B981',
-    shadowColor: '#10B981',
+    backgroundColor: colors.notionGreen,
   },
   continueBtnReinforce: {
-    backgroundColor: '#F59E0B',
-    shadowColor: '#F59E0B',
+    backgroundColor: colors.notionOrange,
   },
   continueBtnText: {
-    color: '#07090E',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.4,
   },
   completionCard: {
-    backgroundColor: '#0E1524',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 24,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#38BDF8',
+    borderWidth: 1,
+    borderColor: colors.notionBlue,
     marginTop: 20,
   },
   completionEmoji: {
@@ -1836,26 +1854,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   completionTitle: {
-    color: '#FFFFFF',
+    color: colors.textPrimary,
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 8,
     textAlign: 'center',
   },
   completionDesc: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
     marginBottom: 20,
   },
   completionActionBtnSecondary: {
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
-    borderColor: '#38BDF8',
+    borderColor: colors.notionBlue,
   },
   completionActionBtnSecondaryText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.4,
@@ -1863,10 +1881,10 @@ const styles = StyleSheet.create({
   completionActionBtnDashboard: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.cardBorder,
   },
   completionActionBtnDashboardText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.4,
@@ -1884,24 +1902,24 @@ const styles = StyleSheet.create({
   chatBubble: {
     maxWidth: '85%',
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 8,
   },
   chatBubbleTeddy: {
-    backgroundColor: '#121827',
-    borderBottomLeftRadius: 4,
+    backgroundColor: colors.cardBackground,
+    borderBottomLeftRadius: 2,
     borderWidth: 1,
-    borderColor: '#1F293D',
+    borderColor: colors.cardBorder,
   },
   chatBubbleUser: {
-    backgroundColor: '#0284C7',
-    borderBottomRightRadius: 4,
+    backgroundColor: colors.notionBlue,
+    borderBottomRightRadius: 2,
   },
   chatText: {
     fontSize: 13,
     lineHeight: 19,
   },
   chatTextTeddy: {
-    color: '#F1F5F9',
+    color: colors.textPrimary,
   },
   chatTextUser: {
     color: '#FFFFFF',
@@ -1911,12 +1929,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
-    backgroundColor: '#0F172A',
-    borderRadius: 10,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   thinkingLabel: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 12,
     fontStyle: 'italic',
   },
@@ -1925,47 +1945,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingTop: 8,
-    backgroundColor: '#0B0F19',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#161E30',
+    borderTopColor: colors.divider,
   },
   textInput: {
     flex: 1,
     height: 42,
-    backgroundColor: '#131B2E',
-    borderRadius: 21,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     paddingHorizontal: 16,
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 13,
     borderWidth: 1,
-    borderColor: '#23304A',
+    borderColor: colors.cardBorder,
   },
   sendBtn: {
     width: 42,
     height: 42,
-    borderRadius: 21,
-    backgroundColor: '#38BDF8',
+    borderRadius: 8,
+    backgroundColor: colors.notionBlue,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
   },
   sendBtnDisabled: {
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.surfaceHover,
     opacity: 0.4,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#0F1422',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     padding: 16,
     maxHeight: '80%',
     borderWidth: 1,
-    borderColor: '#1E2B45',
+    borderColor: colors.cardBorder,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1973,15 +1993,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#161E30',
+    borderBottomColor: colors.divider,
   },
   modalTitle: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
   modalSubtitle: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 12,
     marginTop: 2,
   },
@@ -1992,19 +2012,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   roadmapItemCard: {
-    backgroundColor: '#131B2C',
-    borderRadius: 12,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#223048',
+    borderColor: colors.cardBorder,
   },
   roadmapItemCurrent: {
-    borderColor: '#38BDF8',
-    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderColor: colors.notionBlue,
+    backgroundColor: colors.notionBlueBg,
   },
   roadmapItemCompleted: {
-    borderColor: colors.successGreen,
+    borderColor: colors.notionGreen,
   },
   roadmapItemHeader: {
     flexDirection: 'row',
@@ -2013,16 +2033,16 @@ const styles = StyleSheet.create({
   roadmapIndexBadge: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: '#26344F',
+    borderRadius: 6,
+    backgroundColor: colors.surfaceHover,
     alignItems: 'center',
     justifyContent: 'center',
   },
   roadmapIndexCurrent: {
-    backgroundColor: '#38BDF8',
+    backgroundColor: colors.notionBlue,
   },
   roadmapIndexCompleted: {
-    backgroundColor: colors.successGreen,
+    backgroundColor: colors.notionGreen,
   },
   roadmapIndexText: {
     color: '#FFFFFF',
@@ -2030,13 +2050,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   roadmapItemTitle: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
     marginBottom: 2,
   },
   roadmapItemDesc: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
     lineHeight: 16,
   },
@@ -2048,7 +2068,7 @@ const styles = StyleSheet.create({
   roadmapTrack: {
     flex: 1,
     height: 4,
-    backgroundColor: '#07090E',
+    backgroundColor: colors.background,
     borderRadius: 2,
     overflow: 'hidden',
     marginRight: 8,
@@ -2057,7 +2077,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   roadmapMasteryText: {
-    color: '#CBD5E1',
+    color: colors.textPrimary,
     fontSize: 10,
     fontWeight: '700',
   },
@@ -2069,42 +2089,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptySessionsText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
   },
   sessionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#131B2C',
+    backgroundColor: colors.cardBackground,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#223048',
+    borderColor: colors.cardBorder,
   },
   sessionCardActive: {
-    borderColor: '#38BDF8',
+    borderColor: colors.notionBlue,
   },
   sessionCardTitle: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 2,
   },
   sessionCardMeta: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
   },
   sessionMasteryBadge: {
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+    backgroundColor: colors.notionBlueBg,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     marginLeft: 8,
   },
   sessionMasteryText: {
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -2121,20 +2141,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   difficultyBadgeBasic: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: 'rgba(16, 185, 129, 0.4)',
+    backgroundColor: colors.notionGreenBg,
+    borderColor: colors.notionGreen,
   },
   difficultyBadgeIntermediate: {
-    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-    borderColor: 'rgba(245, 158, 11, 0.4)',
+    backgroundColor: colors.notionYellowBg,
+    borderColor: colors.notionYellow,
   },
   difficultyBadgeAdvanced: {
-    backgroundColor: 'rgba(249, 115, 22, 0.15)',
-    borderColor: 'rgba(249, 115, 22, 0.4)',
+    backgroundColor: colors.notionOrangeBg,
+    borderColor: colors.notionOrange,
   },
   difficultyBadgePro: {
-    backgroundColor: 'rgba(168, 85, 247, 0.15)',
-    borderColor: 'rgba(168, 85, 247, 0.4)',
+    backgroundColor: colors.notionPurpleBg,
+    borderColor: colors.notionPurple,
   },
   difficultyText: {
     fontSize: 10,
@@ -2142,23 +2162,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   difficultyTextBasic: {
-    color: '#10B981',
+    color: colors.notionGreen,
   },
   difficultyTextIntermediate: {
-    color: '#F59E0B',
+    color: colors.notionYellow,
   },
   difficultyTextAdvanced: {
-    color: '#F97316',
+    color: colors.notionOrange,
   },
   difficultyTextPro: {
-    color: '#A855F7',
+    color: colors.notionPurple,
   },
   reviewCardContainer: {
-    backgroundColor: '#0F1420',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 16,
-    borderWidth: 1.5,
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderWidth: 1,
+    borderColor: colors.notionRed,
     marginBottom: 16,
   },
   reviewHeaderRow: {
@@ -2174,28 +2194,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reviewTitleBadge: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: colors.notionRedBg,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.notionRed,
   },
   reviewTitleBadgeText: {
-    color: '#EF4444',
+    color: colors.notionRed,
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   reviewCounterBadge: {
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.surfaceHover,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   reviewCounterText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -2203,12 +2223,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.cardBorder,
   },
   reviewExitBtnText: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -2219,40 +2239,40 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reviewSubtopicText: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
     flex: 1,
     marginRight: 8,
   },
   reviewQuestionBox: {
-    backgroundColor: '#131B2E',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
     padding: 14,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#1C2538',
+    borderColor: colors.cardBorder,
   },
   reviewQuestionLabel: {
-    color: '#64748B',
+    color: colors.textTertiary,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
     marginBottom: 6,
   },
   reviewQuestionText: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 14,
     lineHeight: 21,
     fontWeight: '500',
   },
   reviewTrapBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.06)',
-    borderRadius: 12,
+    backgroundColor: colors.notionRedBg,
+    borderRadius: 8,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.notionRed,
   },
   reviewBoxHeader: {
     flexDirection: 'row',
@@ -2261,78 +2281,78 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   reviewTrapHeaderTag: {
-    color: '#EF4444',
+    color: colors.notionRed,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   reviewOptionLetter: {
-    color: '#EF4444',
+    color: colors.notionRed,
     fontSize: 11,
     fontWeight: '700',
   },
   reviewOptionText: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '600',
   },
   reviewDivider: {
     height: 1,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    backgroundColor: colors.cardBorder,
     marginVertical: 10,
   },
   reviewAutopsyLabel: {
-    color: '#F87171',
+    color: colors.notionRed,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   reviewAutopsyText: {
-    color: '#CBD5E1',
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
   },
   reviewPatternBox: {
-    backgroundColor: 'rgba(16, 185, 129, 0.06)',
-    borderRadius: 12,
+    backgroundColor: colors.notionGreenBg,
+    borderRadius: 8,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: colors.notionGreen,
   },
   reviewPatternHeaderTag: {
-    color: '#10B981',
+    color: colors.notionGreen,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   reviewPatternLetter: {
-    color: '#10B981',
+    color: colors.notionGreen,
     fontSize: 11,
     fontWeight: '700',
   },
   reviewPatternText: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '600',
   },
   reviewDividerGreen: {
     height: 1,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: colors.cardBorder,
     marginVertical: 10,
   },
   reviewPatternDetailLabel: {
-    color: '#34D399',
+    color: colors.notionGreen,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   reviewPatternDetailText: {
-    color: '#CBD5E1',
+    color: colors.textSecondary,
     fontSize: 12,
     lineHeight: 18,
   },
@@ -2344,27 +2364,27 @@ const styles = StyleSheet.create({
   },
   reviewNavBtn: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: colors.surfaceHover,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.cardBorder,
   },
   reviewNavBtnDisabled: {
     opacity: 0.4,
   },
   reviewNavBtnText: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '600',
   },
   reviewNavBtnTextDisabled: {
-    color: '#64748B',
+    color: colors.textTertiary,
   },
   reviewNavBtnPrimary: {
-    backgroundColor: '#0284C7',
-    borderColor: '#38BDF8',
+    backgroundColor: colors.notionBlue,
+    borderColor: colors.notionBlue,
   },
   reviewNavBtnPrimaryText: {
     color: '#FFFFFF',
@@ -2372,8 +2392,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   reviewNavBtnComplete: {
-    backgroundColor: '#059669',
-    borderColor: '#10B981',
+    backgroundColor: colors.notionGreen,
+    borderColor: colors.notionGreen,
   },
   reviewNavBtnCompleteText: {
     color: '#FFFFFF',
@@ -2381,16 +2401,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   reviewMistakesHudBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    backgroundColor: colors.notionRedBg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     marginLeft: 6,
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.35)',
+    borderColor: colors.notionRed,
   },
   reviewMistakesHudText: {
-    color: '#EF4444',
+    color: colors.notionRed,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -2399,27 +2419,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   roadmapReviewMistakesBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: colors.notionRedBg,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
     marginBottom: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderColor: colors.notionRed,
   },
   roadmapReviewMistakesText: {
-    color: '#EF4444',
+    color: colors.notionRed,
     fontSize: 12,
     fontWeight: '700',
   },
   reviewMistakesCompletionBtn: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: 'rgba(239, 68, 68, 0.4)',
+    backgroundColor: colors.notionRedBg,
+    borderColor: colors.notionRed,
     marginTop: 12,
   },
   reviewMistakesCompletionBtnText: {
-    color: '#EF4444',
+    color: colors.notionRed,
     fontSize: 14,
     fontWeight: '700',
   },

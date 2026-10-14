@@ -72,7 +72,7 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ChevronLeftIcon size={18} color="#38BDF8" />
+          <ChevronLeftIcon size={18} color={colors.notionBlueLight} />
           <Text style={styles.backBtnText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.appTag}>ON-DEVICE AI ASSET MANAGER</Text>
@@ -169,7 +169,7 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
           activeOpacity={0.8}
         >
           <View style={styles.diagnosticsIconWrap}>
-            <SparklesIcon size={18} color="#38BDF8" />
+            <SparklesIcon size={18} color={colors.notionBlueLight} />
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.diagnosticsBtnTitle}>Test STT, LLM & TTS Individually</Text>
@@ -255,39 +255,34 @@ const styles = StyleSheet.create({
   diagnosticsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(56, 189, 248, 0.12)',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: 'rgba(56, 189, 248, 0.4)',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     padding: 14,
     marginBottom: 18,
-    shadowColor: '#38BDF8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
   },
   diagnosticsIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 10,
-    backgroundColor: 'rgba(56, 189, 248, 0.2)',
+    borderRadius: 6,
+    backgroundColor: colors.notionBlueBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   diagnosticsBtnTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#F8FAFC',
+    color: colors.textPrimary,
   },
   diagnosticsBtnSubtitle: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   diagnosticsBtnArrow: {
     fontSize: 16,
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
     fontWeight: '700',
     marginLeft: 6,
   },
@@ -306,7 +301,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#161E30',
+    borderBottomColor: colors.divider,
   },
   backBtn: {
     flexDirection: 'row',
@@ -322,15 +317,15 @@ const styles = StyleSheet.create({
   appTag: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.listeningCyan,
+    color: colors.notionBlueLight,
     letterSpacing: 1.2,
   },
   headerRightSpacer: {
     minWidth: 64,
   },
   progressCard: {
-    backgroundColor: colors.elevatedBackground,
-    borderRadius: 14,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -348,7 +343,7 @@ const styles = StyleSheet.create({
   progressPercentText: {
     fontSize: 16,
     fontWeight: '800',
-    color: colors.listeningCyan,
+    color: colors.notionBlueLight,
   },
   progressBarTrack: {
     height: 8,
@@ -359,14 +354,14 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.listeningCyan,
+    backgroundColor: colors.notionBlue,
   },
   hardwareCard: {
-    backgroundColor: colors.elevatedBackground,
-    borderRadius: 14,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: colors.cardBorder,
     marginBottom: 16,
   },
   hardwareHeaderRow: {
@@ -379,7 +374,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1,
-    color: '#38BDF8',
+    color: colors.notionBlueLight,
   },
   hardwareBadge: {
     paddingHorizontal: 8,

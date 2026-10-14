@@ -30,6 +30,10 @@ On app launch, Teddy greets the candidate and evaluates whether an active sessio
 - If a session is in progress, Teddy presents a **Continue Where You Left Off** hero banner displaying current skill completion percentage, topic name, and sub-topic count.
 - Below the resume banner, candidates can choose from **Featured Masterclass Tracks** or type any custom topic into the search bar.
 
+<p align="center">
+  <img src="screenshots/01_masterclass_hub.png" width="320" alt="Session Initialization & Masterclass Hub" />
+</p>
+
 ### Step 2: Autonomous Sub-topic Planning
 When a new topic is initiated (e.g. `SQL Indexing & Sharding` or an arbitrary string like `Docker & Kubernetes`):
 - `QBLEngine.planSubtopics(...)` queries the offline LLM engine (`MiniCPM5-2B` via `llama.rn` or offline catalog fallback).
@@ -41,12 +45,20 @@ When a new topic is initiated (e.g. `SQL Indexing & Sharding` or an arbitrary st
   5. *Staff-Level Architectural Trade-offs & Leadership*
 - Sub-topic 1 is marked `IN_PROGRESS`, while subsequent sub-topics remain `PENDING`.
 
+<p align="center">
+  <img src="screenshots/04_subtopic_roadmap.png" width="320" alt="Autonomous Sub-topic Roadmap" />
+</p>
+
 ### Step 3: Progressive Concept Presentation (One-by-One Flow)
 Each sub-topic requires mastering **3 core concepts**:
 - `QBLEngine.generateQuestion(...)` generates a rigorous multiple-choice challenge with exactly 4 options (`A`, `B`, `C`, `D`).
 - Exactly one option is marked `isCorrect = true`.
 - Every option contains an architectural explanation detailing *why* that choice is either valid or problematic in production.
 - To prevent cognitive fatigue and UI clutter, only **one active question** is presented at a time with smooth vertical clearance.
+
+<p align="center">
+  <img src="screenshots/02_qbl_challenge.png" width="320" alt="Progressive Concept Presentation" />
+</p>
 
 ### Step 4: Instant Diagnostics & Mistake Autopsy
 When the candidate selects an option:
@@ -61,6 +73,11 @@ When the candidate selects an option:
   - Details exactly why the chosen option failed in practice.
   - Highlights what the correct option is and the architectural rationale behind it.
   - Automatically queues a targeted **reinforcement drill** to re-test the underlying principle from a different angle before permitting advancement.
+
+| Correct Selection (+25 XP) | Mistake Trap Autopsy (+5 Learning XP) |
+| :---: | :---: |
+| <img src="screenshots/03_diagnostics_feedback.png" width="300" alt="Spot On Celebration" /> | <img src="screenshots/03b_mistake_autopsy.png" width="300" alt="Mistake Diagnostics" /> |
+| **Instant Positive Feedback & Mental Model** | **Diagnostic Breakdown & Reinforcement Queue** |
 
 ### Step 5: 100% Mastery Gating
 - A sub-topic is only completed when all 3 concepts (plus any needed reinforcement drills) are mastered.
