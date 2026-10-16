@@ -130,6 +130,9 @@ export class QBLStorageManager implements IQBLRepository {
     }
 
 
+    const isZeroToHero =
+      subtopics.length > 5 || /zero\s*to\s*hero/i.test(String(row.topic_name || ''));
+
     return {
       sessionId: row.session_id,
       topicName: row.topic_name,
@@ -140,6 +143,7 @@ export class QBLStorageManager implements IQBLRepository {
       overallMasteryPercentage: row.overall_mastery_percentage ?? 0,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      mode: isZeroToHero ? 'zero_to_hero' : 'standard',
     };
   }
 }

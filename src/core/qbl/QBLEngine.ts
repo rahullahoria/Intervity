@@ -14,6 +14,7 @@ import { OfflineLLMEngine, QBL_JSON_GBNF } from '../llm/OfflineLLMEngine';
 import { IQBLRepository, QBLStorageManager } from '../../database';
 import {
   QBLSession,
+  QBLSessionOptions,
   QBLSubtopic,
   QBLQuestion,
   QBLOption,
@@ -24,11 +25,13 @@ import {
 } from '../../types';
 import { getCatalogQuestion } from './QBLQuestionCatalog';
 import { QBLCurriculumGenerator, HierarchyOptions } from './QBLCurriculumGenerator';
+import { NODE_JS_CURRICULUM_CHAPTERS } from './domain/NodeJSDomain';
 
 export class QBLEngine {
   private llmEngine: OfflineLLMEngine;
   private repository: IQBLRepository;
   private prefetchCache: Map<string, Promise<QBLQuestion>> = new Map();
+  private askedQuestionsBySubtopic: Map<string, Map<string, string[]>> = new Map();
 
   constructor(
     llmEngine?: OfflineLLMEngine,
@@ -54,10 +57,11 @@ export class QBLEngine {
   }
 
   /**
-   * Clears the background prefetch cache
+   * Clears the background prefetch cache and session question tracking
    */
   clearPrefetchCache(): void {
     this.prefetchCache.clear();
+    this.askedQuestionsBySubtopic.clear();
   }
 
   /**
@@ -101,10 +105,25 @@ export class QBLEngine {
   }
 
   /**
-   * Plans 5+ comprehensive sub-topics for any skill or topic.
+   * Plans 5+ comprehensive sub-topics for any skill or topic (or up to 20 sub-topics in 'zero_to_hero' mode).
    */
-  async planSubtopics(topicName: string): Promise<QBLSubtopic[]> {
+  async planSubtopics(topicName: string, options?: QBLSessionOptions): Promise<QBLSubtopic[]> {
     const cleanTopic = topicName.trim();
+    const lowerTopic = cleanTopic.toLowerCase();
+    const generator = QBLCurriculumGenerator.getInstance(this.llmEngine);
+    const totalConcepts = Math.max(1, options?.conceptsPerSubtopic || 3);
+
+    // Full Zero-to-Hero multi-chapter curriculum mode
+    if (
+      options?.mode === 'zero_to_hero' ||
+      lowerTopic.includes('zero to hero')
+    ) {
+      return generator.planSubjectSubtopics(cleanTopic, {
+        mode: 'zero_to_hero',
+        conceptsPerSubtopic: totalConcepts,
+      });
+    }
+
     const systemPrompt = `You are Teddy's Curriculum Planner, an elite engineering mentor.
 Your task is to break down the user's skill/topic into 5 or more logically ordered, comprehensive sub-topics for Question-Driven Learning (QBL).
 Output MUST be strictly a JSON array of objects with keys:
@@ -141,18 +160,47 @@ Do not output any markdown headers or commentary outside the JSON array.`;
       parsedSubtopics = this.getDefaultCurriculum(cleanTopic);
     }
 
+    const isNodeTopic =
+      lowerTopic.includes('node.js') ||
+      lowerTopic.includes('nodejs') ||
+      lowerTopic === 'node' ||
+      lowerTopic.includes('libuv');
+
     return parsedSubtopics.map((item, index) => {
       const difficulty: QBLDifficulty =
         index === 0 ? 'basic' : index === 1 ? 'intermediate' : index === 2 ? 'advanced' : 'pro';
+      const nodeChap = isNodeTopic
+        ? NODE_JS_CURRICULUM_CHAPTERS[index % NODE_JS_CURRICULUM_CHAPTERS.length]
+        : undefined;
+      const chapterTitle = nodeChap
+        ? nodeChap.title
+        : `Chapter ${index + 1}: ${item.title}`;
+      const topicTitle = nodeChap
+        ? nodeChap.topics[0]?.title || item.title
+        : item.title;
+      const cogLevel =
+        difficulty === 'basic'
+          ? 'understand'
+          : difficulty === 'intermediate'
+          ? 'apply'
+          : difficulty === 'advanced'
+          ? 'analyze'
+          : 'evaluate';
+
       return {
         id: item.id || `sub_${index + 1}`,
         title: item.title,
         description: item.description,
         conceptsMastered: 0,
-        totalConcepts: 3,
+        totalConcepts,
         masteryPercentage: 0,
         status: index === 0 ? 'IN_PROGRESS' : 'PENDING',
         difficulty,
+        learningObjective: generator.generateLearningObjective(cleanTopic, item.title, cogLevel),
+        chapterId: `chap_${index + 1}`,
+        chapterTitle,
+        topicId: `topic_${index + 1}_1`,
+        topicTitle,
       };
     });
   }
@@ -165,7 +213,7 @@ Do not output any markdown headers or commentary outside the JSON array.`;
   async generateQuestion(
     topicName: string,
     subtopic: QBLSubtopic,
-    conceptIndex: number, // 1, 2, or 3
+    conceptIndex: number, // 1, 2, or 3+
     isReinforcement: boolean = false,
     previousMistake?: string
   ): Promise<QBLQuestion> {
@@ -215,6 +263,23 @@ Do not output any markdown headers or commentary outside the JSON array.`;
       ? 'intermediate'
       : 'basic';
 
+    // Gather questions already generated in OTHER subtopics (or earlier concepts of this subtopic)
+    const topicKey = topicName.trim().toLowerCase();
+    let subMap = this.askedQuestionsBySubtopic.get(topicKey);
+    if (!subMap) {
+      subMap = new Map<string, string[]>();
+      this.askedQuestionsBySubtopic.set(topicKey, subMap);
+    }
+    const existingQuestions: string[] = [];
+    for (const [subId, qList] of subMap.entries()) {
+      if (subId !== subtopic.id) {
+        existingQuestions.push(...qList);
+      } else {
+        // Include only questions from earlier concept indices in the same subtopic
+        existingQuestions.push(...qList.slice(0, isReinforcement ? qList.length : Math.max(0, conceptIndex - 1)));
+      }
+    }
+
     const artifactGuidance = difficulty === 'basic'
       ? `Include a concrete mental model or foundational code/schema snippet. Focus on core primitives, fundamental invariants, and basic architectural definitions. Distractors should represent common junior/mid misconceptions.`
       : difficulty === 'intermediate'
@@ -247,7 +312,7 @@ CRITICAL REQUIREMENTS:
 Topic: ${topicName}
 Sub-topic: ${subtopic.title}
 Sub-topic Scope: ${subtopic.description}
-Concept #${conceptIndex} of 3
+Concept #${conceptIndex} of ${subtopic.totalConcepts || 3}
 Difficulty Tier: ${difficulty.toUpperCase()}${reinforcementClause}
 
 Output JSON schema:
@@ -275,23 +340,40 @@ Output JSON schema:
     }
 
     const generator = QBLCurriculumGenerator.getInstance(this.llmEngine);
-    const parsedQuestion = this.parseAndValidateQuestionJSON(generatedText) ||
-      this.getDefaultQuestion(topicName, subtopic, conceptIndex, isReinforcement, previousMistake);
+    const rawParsed = this.parseAndValidateQuestionJSON(generatedText);
+    const existingSet = new Set(existingQuestions.map(q => q.trim()));
+    const parsedQuestion =
+      rawParsed && !existingSet.has(rawParsed.questionText.trim())
+        ? rawParsed
+        : this.getDefaultQuestion(topicName, subtopic, conceptIndex, isReinforcement, previousMistake, existingQuestions);
 
     const cognitiveLevel = generator.mapIndexToCognitiveLevel(conceptIndex, subtopic.totalConcepts || 3);
     const questionType = generator.mapCognitiveLevelToQuestionType(cognitiveLevel, conceptIndex);
 
-    return generator.validateAndImproveQuestion(parsedQuestion, {
+    const validated = generator.validateAndImproveQuestion(parsedQuestion, {
       subject: topicName,
+      chapterTitle: subtopic.chapterTitle,
+      topicTitle: subtopic.topicTitle,
       subtopicTitle: subtopic.title,
       subtopicDescription: subtopic.description,
+      learningObjective: subtopic.learningObjective,
       conceptIndex,
       difficulty,
       cognitiveLevel,
       questionType,
       isReinforcement,
       previousMistake,
+      existingQuestions,
     });
+
+    // Record this question in the subtopic's history list
+    const subHistory = subMap.get(subtopic.id) || [];
+    if (!subHistory.includes(validated.questionText)) {
+      subHistory.push(validated.questionText);
+      subMap.set(subtopic.id, subHistory);
+    }
+
+    return validated;
   }
 
   /**
@@ -385,9 +467,10 @@ Output JSON schema:
     }
 
     // Update overall session mastery percentage
-    const totalPossibleConcepts = session.subtopics.length * 3;
+    const totalPossibleConcepts = session.subtopics.reduce((sum, s) => sum + (s.totalConcepts || 3), 0);
     const totalMasteredConcepts = session.subtopics.reduce((sum, s) => sum + s.conceptsMastered, 0);
-    session.overallMasteryPercentage = Math.round((totalMasteredConcepts / totalPossibleConcepts) * 100);
+    session.overallMasteryPercentage =
+      totalPossibleConcepts > 0 ? Math.round((totalMasteredConcepts / totalPossibleConcepts) * 100) : 0;
 
     const isSessionCompleted = session.subtopics.every((s) => s.status === 'COMPLETED');
     if (isSessionCompleted) {
@@ -443,9 +526,11 @@ Output JSON schema:
   /**
    * Starts a brand new QBL session for a given skill or topic
    */
-  async createNewSession(topicName: string): Promise<QBLSession> {
+  async createNewSession(topicName: string, options?: QBLSessionOptions): Promise<QBLSession> {
     this.clearPrefetchCache();
-    const subtopics = await this.planSubtopics(topicName);
+    const subtopics = await this.planSubtopics(topicName, options);
+    const isZeroToHero =
+      options?.mode === 'zero_to_hero' || topicName.toLowerCase().includes('zero to hero');
     const session: QBLSession = {
       sessionId: `qbl_${Date.now()}`,
       topicName: topicName.trim(),
@@ -456,6 +541,7 @@ Output JSON schema:
       overallMasteryPercentage: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      mode: isZeroToHero ? 'zero_to_hero' : 'standard',
     };
 
     await this.repository.saveSession(session);
@@ -469,10 +555,44 @@ Output JSON schema:
   }
 
   /**
-   * Resumes a previous session by ID
+   * Starts a complete Zero-to-Hero deep subject mastery session across all chapters,
+   * topics, and subtopics (e.g. 20 subtopics for Node.js, 10+ subtopics for any subject).
+   */
+  async createZeroToHeroSession(topicName: string, conceptsPerSubtopic: number = 3): Promise<QBLSession> {
+    return this.createNewSession(topicName, {
+      mode: 'zero_to_hero',
+      conceptsPerSubtopic,
+    });
+  }
+
+  /**
+   * Resumes a previous session by ID and hydrates asked question history from SQLite
    */
   async resumeSession(sessionId: string): Promise<QBLSession | null> {
-    return this.repository.getSession(sessionId);
+    const session = await this.repository.getSession(sessionId);
+    if (!session) return null;
+
+    try {
+      const turns = await this.repository.getTurnsForSession(sessionId);
+      const topicKey = session.topicName.trim().toLowerCase();
+      let subMap = this.askedQuestionsBySubtopic.get(topicKey);
+      if (!subMap) {
+        subMap = new Map<string, string[]>();
+        this.askedQuestionsBySubtopic.set(topicKey, subMap);
+      }
+      for (const t of turns) {
+        if (!t.questionText) continue;
+        const existing = subMap.get(t.subtopicId) || [];
+        if (!existing.includes(t.questionText)) {
+          existing.push(t.questionText);
+          subMap.set(t.subtopicId, existing);
+        }
+      }
+    } catch (err) {
+      console.warn('[QBLEngine] Error hydrating turn history on resumeSession:', err);
+    }
+
+    return session;
   }
 
   /**
@@ -495,7 +615,7 @@ Output JSON schema:
   async getMistakesForSession(sessionId: string): Promise<QBLMistakeReviewItem[]> {
     const turns = await this.repository.getMistakesForSession(sessionId);
     return turns.map((t) => {
-      let options: QBLOption[] = [];
+      let options: QBLOption[];
       try {
         options = JSON.parse(t.optionsJson);
       } catch {
@@ -536,6 +656,28 @@ Output JSON schema:
     currentQuestion?: QBLQuestion,
     subtopic?: QBLSubtopic
   ): Promise<string> {
+    const queryLower = userText.toLowerCase();
+
+    // If the learner is asking for a hint, clue, or explanation of the current QBL question,
+    // surface the 3-tier progressive hints and mental model directly without spoiling the letter.
+    if (
+      currentQuestion &&
+      (queryLower.includes('hint') ||
+        queryLower.includes('clue') ||
+        queryLower.includes('help') ||
+        queryLower.includes('stuck') ||
+        queryLower.includes('explain') ||
+        queryLower.includes('why') ||
+        queryLower.includes('how'))
+    ) {
+      const hint1 = currentQuestion.hints?.[0] || `Focus on the core architectural invariant of ${currentQuestion.conceptTitle}.`;
+      const hint2 = currentQuestion.hints?.[1] ? `\n${currentQuestion.hints[1]}` : '';
+      const tip = currentQuestion.coachingTip
+        ? `\n\n💡 Teddy's Mental Model: ${currentQuestion.coachingTip}`
+        : '';
+      return `Here is a progressive nudge for **${currentQuestion.conceptTitle}** (${subtopic?.title || 'current concept'}):\n\n${hint1}${hint2}${tip}\n\nUse this lens to compare Options A, B, C, and D—you've got this! 🐻`;
+    }
+
     const systemPrompt = `You are Teddy, an encouraging AI friend and engineering tutor.
 The user is currently studying the sub-topic "${subtopic?.title || 'Engineering Architecture'}".
 Current question context: "${currentQuestion?.questionText || 'Mastery Question'}".
@@ -544,13 +686,16 @@ Answer their question directly, warmly, and concisely with an intuitive real-wor
     try {
       const resp = await this.llmEngine.generateCompletion(userText, systemPrompt);
       if (resp && resp.trim().length > 5) {
+        if (currentQuestion?.hints?.[0] && !resp.includes('Hint')) {
+          return `${resp.trim()}\n\n${currentQuestion.hints[0]}`;
+        }
         return resp.trim();
       }
     } catch {
       // Fallback
     }
 
-    return `Think of this like an assembly line! When you want reliability, you never want a single bottleneck or unverified handoff. Look closely at the options that guarantee synchronization! You've got this! 🐻`;
+    return `Think of this like an assembly line! When you want reliability in ${subtopic?.title || 'production systems'}, you never want a single bottleneck or unverified handoff. ${currentQuestion?.hints?.[0] || 'Look closely at the options that guarantee synchronization!'} You've got this! 🐻`;
   }
 
   /**
@@ -558,6 +703,31 @@ Answer their question directly, warmly, and concisely with an intuitive real-wor
    */
   private getDefaultCurriculum(topic: string): Array<{ title: string; description: string }> {
     const tLower = topic.toLowerCase();
+
+    if (tLower.includes('node.js') || tLower.includes('nodejs') || tLower === 'node' || tLower.includes('libuv')) {
+      return [
+        {
+          title: 'Timers, Pending Callbacks, Poll, Check & Close Phases',
+          description: 'Execution sequence of the six libuv phases, microtask queues (process.nextTick vs Promise), and scheduling guarantees.',
+        },
+        {
+          title: 'New Space Scavenge vs Old Space Mark-Sweep-Compact & Buffers',
+          description: 'V8 generational garbage collection, closure retainment leak diagnosis, and the 8KB FastBuffer slab allocator.',
+        },
+        {
+          title: 'Backpressure Signaling: Handling write() === false, drain & stream.pipeline',
+          description: 'Stream highWaterMark tuning, flow control invariants, async iterators, and memory-safe stream composition.',
+        },
+        {
+          title: 'Multi-Core Cluster IPC, SO_REUSEPORT & worker_threads SharedArrayBuffer',
+          description: 'Scaling across CPU cores with cluster vs lock-free shared-memory concurrency using worker_threads and Atomics.',
+        },
+        {
+          title: 'AsyncLocalStorage Tracing, monitorEventLoopDelay & Production Hardening',
+          description: 'Distributed context propagation, HDR latency histograms, graceful SIGTERM draining, and ReDoS/Prototype Pollution defense.',
+        },
+      ];
+    }
 
     if (tLower.includes('kafka') || tLower.includes('event')) {
       return [
@@ -641,9 +811,10 @@ Answer their question directly, warmly, and concisely with an intuitive real-wor
     subtopic: QBLSubtopic,
     conceptIndex: number,
     isReinforcement: boolean,
-    previousMistake?: string
+    previousMistake?: string,
+    existingQuestions?: string[]
   ): any {
-    return getCatalogQuestion(topic, subtopic.title, conceptIndex, isReinforcement, previousMistake);
+    return getCatalogQuestion(topic, subtopic.title, conceptIndex, isReinforcement, previousMistake, existingQuestions);
   }
 
   /**

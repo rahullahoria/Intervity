@@ -15,8 +15,17 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { useInteractiveDrill, DrillConfig } from '../hooks/useInteractiveDrill';
+import {
+  ChevronLeftIcon,
+  MicIcon,
+  RefreshIcon,
+  BoltIcon,
+  AlertCircleIcon,
+  CheckIcon,
+} from '../components/icons/AppIcons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -46,7 +55,8 @@ export const MistakeDrillScreen: React.FC<MistakeDrillScreenProps> = ({ route, n
     drillConfig = {
       type: 'ZERO_FILLER',
       title: 'Zero-Filler Biofeedback Reflex Trainer',
-      prompt: 'Explain how database indexing improves B-Tree query latency in 45 seconds without using a single filler word (avoid "um", "uh", "like", "basically", "actually", "ya").',
+      prompt:
+        'Explain how database indexing improves B-Tree query latency in 45 seconds without using a single filler word (avoid "um", "uh", "like", "basically", "actually", "ya").',
       targetSkillId: 'communication_structure',
       timeLimitSeconds: 45,
     };
@@ -54,7 +64,8 @@ export const MistakeDrillScreen: React.FC<MistakeDrillScreenProps> = ({ route, n
     drillConfig = {
       type: 'STAR_PITCH',
       title: '60-Second STAR Elevator Pitch',
-      prompt: 'Describe a high-severity production outage you personally resolved. Articulate Situation, Task, your individual Action, and the quantified Result before the timer expires.',
+      prompt:
+        'Describe a high-severity production outage you personally resolved. Articulate Situation, Task, your individual Action, and the quantified Result before the timer expires.',
       targetSkillId: 'behavioral',
       timeLimitSeconds: 60,
     };
@@ -85,37 +96,56 @@ export const MistakeDrillScreen: React.FC<MistakeDrillScreenProps> = ({ route, n
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
-        {/* Top Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtnText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.appTag}>LEVEL-UP COACHING DRILL</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
+      {/* Top Navigation Bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.75}
+        >
+          <ChevronLeftIcon size={16} color={colors.textSecondary} />
+          <Text style={styles.backBtnText}>Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>Targeted Voice Drill</Text>
+        <View style={styles.topBarSpacer} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={typography.h1}>{drillConfig.title}</Text>
 
         {/* Drill Instructions Card */}
         <View style={styles.promptCard}>
-          <Text style={styles.promptLabel}>Coaching Directive:</Text>
-          <Text style={styles.promptText}>"{drillConfig.prompt}"</Text>
+          <View style={styles.promptHeaderRow}>
+            <View style={styles.promptDot} />
+            <Text style={styles.promptLabel}>Coaching Directive</Text>
+          </View>
+          <Text style={styles.promptText}>{drillConfig.prompt}</Text>
         </View>
 
         {/* Timer & Biofeedback Display */}
         <View style={styles.timerContainer}>
           <View style={[styles.timerCircle, drillState === 'RECORDING' && styles.timerCircleActive]}>
             <Text style={styles.timerNumber}>{secondsRemaining}</Text>
-            <Text style={styles.timerUnit}>SEC</Text>
+            <Text style={styles.timerUnit}>sec</Text>
           </View>
 
           {drillConfig.type === 'ZERO_FILLER' && drillState === 'RECORDING' ? (
             <View style={styles.biofeedbackBadge}>
-              <Text style={styles.biofeedbackText}>
-                ⚠️ Filler Words Detected: <Text style={styles.boldRed}>{hapticCount}</Text>
+              <View style={styles.biofeedbackRow}>
+                <AlertCircleIcon size={14} color={colors.interruptedAmber} />
+                <Text style={styles.biofeedbackText}>
+                  Disfluencies Detected: <Text style={styles.boldRed}>{hapticCount}</Text>
+                </Text>
+              </View>
+              <Text style={styles.biofeedbackSubtext}>
+                Haptic feedback pulses on detected filler words
               </Text>
-              <Text style={typography.caption}>Haptic pulses triggered on disfluencies</Text>
             </View>
           ) : null}
         </View>
@@ -123,7 +153,7 @@ export const MistakeDrillScreen: React.FC<MistakeDrillScreenProps> = ({ route, n
         {/* Transcript Preview */}
         {candidateTranscript ? (
           <View style={styles.transcriptBox}>
-            <Text style={styles.transcriptLabel}>Your Spoken Re-attempt:</Text>
+            <Text style={styles.transcriptLabel}>Live Speech Transcript</Text>
             <Text style={styles.transcriptText}>{candidateTranscript}</Text>
           </View>
         ) : null}
@@ -131,12 +161,27 @@ export const MistakeDrillScreen: React.FC<MistakeDrillScreenProps> = ({ route, n
         {/* Result & Mastery Bonus Banner */}
         {drillState === 'PASSED' ? (
           <View style={styles.resultBannerPassed}>
-            <Text style={styles.resultTitle}>🎉 DRILL MASTERED! (+{scoreAwarded} PTS)</Text>
+            <View style={styles.resultHeaderRow}>
+              <View style={styles.resultTitleGroup}>
+                <View style={styles.passedIconCircle}>
+                  <CheckIcon size={12} color="#FFFFFF" />
+                </View>
+                <Text style={styles.resultTitle}>Drill Mastered</Text>
+              </View>
+              <View style={styles.bonusPill}>
+                <Text style={styles.bonusPillText}>+{scoreAwarded} pts</Text>
+              </View>
+            </View>
             <Text style={styles.resultBody}>{feedback}</Text>
           </View>
         ) : drillState === 'FAILED' ? (
           <View style={styles.resultBannerFailed}>
-            <Text style={styles.resultTitle}>NEEDS RETRY</Text>
+            <View style={styles.resultHeaderRow}>
+              <View style={styles.resultTitleGroup}>
+                <AlertCircleIcon size={15} color={colors.errorRed} />
+                <Text style={styles.resultTitle}>Refinement Needed</Text>
+              </View>
+            </View>
             <Text style={styles.resultBody}>{feedback}</Text>
           </View>
         ) : null}
@@ -144,43 +189,58 @@ export const MistakeDrillScreen: React.FC<MistakeDrillScreenProps> = ({ route, n
         {/* Controls */}
         <View style={styles.controlsSection}>
           {drillState === 'INTRO' || drillState === 'FAILED' || drillState === 'PASSED' ? (
-            <TouchableOpacity style={styles.startBtn} onPress={startDrill}>
+            <TouchableOpacity style={styles.startBtn} onPress={startDrill} activeOpacity={0.85}>
+              {drillState === 'INTRO' ? (
+                <MicIcon size={17} color="#FFFFFF" />
+              ) : (
+                <RefreshIcon size={16} color="#FFFFFF" />
+              )}
               <Text style={styles.startBtnText}>
-                {drillState === 'INTRO' ? 'Start Voice Drill 🎙️' : 'Re-attempt Drill 🔄'}
+                {drillState === 'INTRO' ? 'Start Voice Drill' : 'Re-attempt Drill'}
               </Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles.finishBtn}
               onPress={() => finishDrill()}
+              activeOpacity={0.85}
             >
-              <Text style={styles.finishBtnText}>Finish & Evaluate Answer ⚡</Text>
+              <BoltIcon size={16} color="#FFFFFF" />
+              <Text style={styles.finishBtnText}>Finish & Evaluate Response</Text>
             </TouchableOpacity>
           )}
 
           {/* Simulation Helper Buttons for Testing */}
           {drillState === 'RECORDING' ? (
             <View style={styles.simHelpers}>
-              <Text style={styles.simHelperLabel}>Test Input Shortcut:</Text>
+              <Text style={styles.simHelperLabel}>Simulation Presets</Text>
               <TouchableOpacity
                 style={styles.simBtn}
                 onPress={() => {
                   if (drillConfig.type === 'ZERO_FILLER') {
-                    onCandidateSpokeChunk('Database indexes use balanced B-Trees to guarantee logarithmic lookups.');
+                    onCandidateSpokeChunk(
+                      'Database indexes use balanced B-Trees to guarantee logarithmic lookups.'
+                    );
                   } else {
-                    onCandidateSpokeChunk('I resolved the cache stampede by implementing probabilistic early expiration with distributed mutex locks.');
+                    onCandidateSpokeChunk(
+                      'I resolved the cache stampede by implementing probabilistic early expiration with distributed mutex locks.'
+                    );
                   }
                 }}
+                activeOpacity={0.75}
               >
-                <Text style={styles.simBtnText}>Speak Flawless Senior Answer</Text>
+                <Text style={styles.simBtnText}>Simulate Flawless Senior Response</Text>
               </TouchableOpacity>
 
               {drillConfig.type === 'ZERO_FILLER' ? (
                 <TouchableOpacity
                   style={[styles.simBtn, { marginTop: 6 }]}
-                  onPress={() => onCandidateSpokeChunk('Um, basically, ya, we just added an index.')}
+                  onPress={() =>
+                    onCandidateSpokeChunk('Um, basically, ya, we just added an index.')
+                  }
+                  activeOpacity={0.75}
                 >
-                  <Text style={styles.simBtnText}>Speak Filler Word (Trigger Haptic)</Text>
+                  <Text style={styles.simBtnText}>Simulate Filler Word (Trigger Haptic)</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -196,6 +256,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  backBtnText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  topBarTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  topBarSpacer: {
+    width: 60,
+  },
   scrollView: {
     flex: 1,
   },
@@ -203,163 +297,225 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  backBtnText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  appTag: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.listeningCyan,
-    letterSpacing: 1.2,
-  },
   promptCard: {
     backgroundColor: colors.cardBackground,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 16,
-    marginVertical: 14,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  promptHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  promptDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.notionBlueLight,
   },
   promptLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.listeningCyan,
-    marginBottom: 6,
-    textTransform: 'uppercase',
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.notionBlueLight,
   },
   promptText: {
-    ...typography.bodyBold,
+    fontSize: 14,
+    fontWeight: '500',
     color: colors.textPrimary,
     lineHeight: 22,
   },
   timerContainer: {
     alignItems: 'center',
-    marginVertical: 18,
+    marginVertical: 20,
   },
   timerCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: colors.elevatedBackground,
-    borderWidth: 2,
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1.5,
     borderColor: colors.cardBorder,
     justifyContent: 'center',
     alignItems: 'center',
   },
   timerCircleActive: {
-    borderColor: colors.listeningCyan,
+    borderColor: colors.notionBlue,
+    backgroundColor: colors.notionBlueBg,
   },
   timerNumber: {
     fontSize: 36,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.textPrimary,
+    letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
   },
   timerUnit: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textTertiary,
   },
   biofeedbackBadge: {
-    marginTop: 12,
+    marginTop: 14,
     alignItems: 'center',
+    backgroundColor: colors.notionOrangeBg,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  biofeedbackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   biofeedbackText: {
     color: colors.interruptedAmber,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
+  },
+  biofeedbackSubtext: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   boldRed: {
     color: colors.errorRed,
-    fontWeight: '800',
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   transcriptBox: {
-    backgroundColor: colors.elevatedBackground,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.notionBlue,
+    borderRadius: 10,
     padding: 14,
     marginVertical: 10,
   },
   transcriptLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textTertiary,
     marginBottom: 4,
   },
   transcriptText: {
     color: colors.textPrimary,
-    fontStyle: 'italic',
+    fontSize: 13,
+    lineHeight: 20,
   },
   resultBannerPassed: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderColor: colors.speakingEmerald,
+    backgroundColor: colors.notionGreenBg,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 16,
-    marginVertical: 14,
+    marginVertical: 12,
   },
   resultBannerFailed: {
-    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-    borderColor: colors.errorRed,
+    backgroundColor: colors.notionRedBg,
+    borderColor: 'rgba(239, 68, 68, 0.35)',
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 16,
-    marginVertical: 14,
+    marginVertical: 12,
+  },
+  resultHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  resultTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  passedIconCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.speakingEmerald,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   resultTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 6,
+  },
+  bonusPill: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  bonusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.speakingEmerald,
+    fontVariant: ['tabular-nums'],
   },
   resultBody: {
-    ...typography.body,
+    fontSize: 13,
+    lineHeight: 20,
     color: colors.textPrimary,
   },
   controlsSection: {
-    marginTop: 20,
+    marginTop: 16,
   },
   startBtn: {
-    backgroundColor: colors.accentPrimary,
-    paddingVertical: 16,
-    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.accentPrimary,
+    paddingVertical: 15,
+    borderRadius: 10,
   },
   startBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
   },
   finishBtn: {
-    backgroundColor: colors.speakingEmerald,
-    paddingVertical: 16,
-    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.speakingEmerald,
+    paddingVertical: 15,
+    borderRadius: 10,
   },
   finishBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
   },
   simHelpers: {
     marginTop: 16,
     backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     borderRadius: 10,
     padding: 12,
   },
   simHelperLabel: {
     fontSize: 11,
+    fontWeight: '500',
     color: colors.textTertiary,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   simBtn: {
-    backgroundColor: colors.elevatedBackground,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     borderRadius: 8,
     padding: 10,
     alignItems: 'center',

@@ -17,6 +17,7 @@ import { SQLiteClient } from '../src/database/SQLiteClient';
 import { QBLStorageManager } from '../src/database/QBLStorageManager';
 import { QBLEngine } from '../src/core/qbl/QBLEngine';
 import { OfflineLLMEngine, QBL_JSON_GBNF } from '../src/core/llm/OfflineLLMEngine';
+import { AgentCoachingHarness } from '../src/core/agent/AgentCoachingHarness';
 
 describe('Question-Driven Learning (QBL) Core Engine & Flow', () => {
   let db: SQLiteClient;
@@ -499,5 +500,194 @@ describe('Question-Driven Learning (QBL) Core Engine & Flow', () => {
       assert.strictEqual(parsed.options[0].isCorrect, true);
     });
   });
+
+  describe('Complete Subject Mastery: Node.js Zero to Hero & Multi-Track E2E', () => {
+    it('masters a complete Node.js 5-chapter session with zero duplicate questions across all concepts, subtopics, and reinforcement drills', async () => {
+      const session = await qblEngine.createNewSession('Node.js');
+      assert.strictEqual(session.subtopics.length, 5);
+
+      // Verify all 5 Node.js domain chapters are represented in the roadmap
+      assert.ok(
+        session.subtopics[0].title.includes('Timers') ||
+        session.subtopics[0].title.includes('Event Loop') ||
+        session.subtopics[0].title.includes('libuv')
+      );
+      assert.ok(session.subtopics[1].title.includes('V8') || session.subtopics[1].title.includes('Memory') || session.subtopics[1].title.includes('Scavenge'));
+      assert.ok(session.subtopics[2].title.includes('Streams') || session.subtopics[2].title.includes('Backpressure'));
+      assert.ok(session.subtopics[3].title.includes('Worker Threads') || session.subtopics[3].title.includes('Cluster') || session.subtopics[3].title.includes('worker_threads'));
+      assert.ok(session.subtopics[4].title.includes('AsyncLocalStorage') || session.subtopics[4].title.includes('Security') || session.subtopics[4].title.includes('Production'));
+
+      const allAskedQuestions: string[] = [];
+
+      // Simulate an initial wrong answer on Subtopic 0 Concept 1 to test reinforcement + hint flow
+      const sub0 = session.subtopics[0];
+      const firstQ = await qblEngine.generateQuestion(session.topicName, sub0, 1, false);
+      const hintReply = await qblEngine.answerFreeformQuestion('Can you give me a hint?', firstQ, sub0);
+      assert.ok(hintReply.includes('Hint 1') || hintReply.includes('mental model'));
+
+      const wrongOpt = firstQ.options.find((o) => !o.isCorrect)!;
+      const wrongResult = await qblEngine.evaluateAnswer(session, sub0, firstQ, wrongOpt.id);
+      assert.strictEqual(wrongResult.isCorrect, false);
+
+      const reinforceQ = await qblEngine.generateQuestion(session.topicName, sub0, 1, true, wrongOpt.text);
+      assert.strictEqual(reinforceQ.isReinforcement, true);
+      assert.notStrictEqual(reinforceQ.questionText, firstQ.questionText, 'Reinforcement drill must be distinct from the initial question');
+      allAskedQuestions.push(reinforceQ.questionText);
+
+      // Now complete all 5 subtopics x 3 concepts = 15 concepts
+      for (let subIdx = 0; subIdx < session.subtopics.length; subIdx++) {
+        session.currentSubtopicIndex = subIdx;
+        const sub = session.subtopics[subIdx];
+        sub.status = 'IN_PROGRESS';
+
+        for (let conceptIdx = 1; conceptIdx <= 3; conceptIdx++) {
+          const q = await qblEngine.generateQuestion(session.topicName, sub, conceptIdx, false);
+          assert.ok(q.learningObjective && q.learningObjective.length > 10);
+          assert.ok(q.cognitiveLevel);
+          assert.ok(q.hints && q.hints.length === 3);
+          assert.ok(q.sourceReference && (q.sourceReference.includes('Node.js') || q.sourceReference.includes('libuv') || q.sourceReference.includes('V8')));
+
+          allAskedQuestions.push(q.questionText);
+          const correctOpt = q.options.find((o) => o.isCorrect)!;
+          await qblEngine.evaluateAnswer(session, sub, q, correctOpt.id);
+        }
+
+        assert.strictEqual(sub.status, 'COMPLETED');
+        assert.strictEqual(sub.masteryPercentage, 100);
+      }
+
+      // Every single question across the 15 concepts + 1 reinforcement (16 total) must be 100% unique
+      const uniqueSet = new Set(allAskedQuestions);
+      assert.strictEqual(
+        uniqueSet.size,
+        allAskedQuestions.length,
+        `Expected all ${allAskedQuestions.length} Node.js questions to be unique, but got ${uniqueSet.size}`
+      );
+      assert.strictEqual(session.status, 'COMPLETED');
+      assert.strictEqual(session.overallMasteryPercentage, 100);
+    });
+
+    it('masters a complete 20-subtopic Node.js Zero to Hero session across all 5 chapters from foundational to Staff/Hero level', async () => {
+      const session = await qblEngine.createZeroToHeroSession('Node.js: Zero to Hero');
+      assert.strictEqual(session.mode, 'zero_to_hero');
+      assert.strictEqual(session.subtopics.length, 20, 'Node.js Zero to Hero must include all 20 subtopics across 5 chapters');
+
+      // Verify chapter metadata and graduated difficulty progression across the 20 subtopics
+      assert.strictEqual(session.subtopics[0].difficulty, 'basic');
+      assert.ok(session.subtopics[0].chapterTitle?.includes('Chapter 1'));
+      assert.strictEqual(session.subtopics[4].difficulty, 'intermediate');
+      assert.ok(session.subtopics[4].chapterTitle?.includes('Chapter 2'));
+      assert.strictEqual(session.subtopics[11].difficulty, 'advanced');
+      assert.ok(session.subtopics[8].chapterTitle?.includes('Chapter 3'));
+      assert.strictEqual(session.subtopics[15].difficulty, 'pro');
+      assert.ok(session.subtopics[12].chapterTitle?.includes('Chapter 4'));
+      assert.strictEqual(session.subtopics[19].difficulty, 'pro');
+      assert.ok(session.subtopics[16].chapterTitle?.includes('Chapter 5'));
+
+      for (let subIdx = 0; subIdx < session.subtopics.length; subIdx++) {
+        session.currentSubtopicIndex = subIdx;
+        const sub = session.subtopics[subIdx];
+        sub.status = 'IN_PROGRESS';
+        const subtopicQuestions: string[] = [];
+
+        for (let conceptIdx = 1; conceptIdx <= sub.totalConcepts; conceptIdx++) {
+          const q = await qblEngine.generateQuestion(session.topicName, sub, conceptIdx, false);
+          subtopicQuestions.push(q.questionText);
+          const correctOpt = q.options.find((o) => o.isCorrect)!;
+          await qblEngine.evaluateAnswer(session, sub, questionWithValidOptions(q), correctOpt.id);
+        }
+
+        // Within every subtopic, all 3 concept questions must be strictly distinct
+        assert.strictEqual(
+          new Set(subtopicQuestions).size,
+          sub.totalConcepts,
+          `Subtopic ${subIdx + 1} (${sub.title}) must have distinct questions for all concepts`
+        );
+        assert.strictEqual(sub.status, 'COMPLETED');
+        assert.strictEqual(sub.masteryPercentage, 100);
+      }
+
+      assert.strictEqual(session.status, 'COMPLETED');
+      assert.strictEqual(session.overallMasteryPercentage, 100);
+    });
+
+    it('guarantees zero duplicate questions across full 5-subtopic sessions for Kafka, React Native, SQL, and Distributed Systems', async () => {
+      const tracks = [
+        'Kafka & Event Streaming',
+        'React Native Architecture',
+        'SQL Indexing & Sharding',
+        'Distributed Systems',
+      ];
+
+      for (const track of tracks) {
+        const session = await qblEngine.createNewSession(track);
+        const trackQuestions: string[] = [];
+
+        for (let subIdx = 0; subIdx < session.subtopics.length; subIdx++) {
+          session.currentSubtopicIndex = subIdx;
+          const sub = session.subtopics[subIdx];
+          sub.status = 'IN_PROGRESS';
+
+          for (let conceptIdx = 1; conceptIdx <= 3; conceptIdx++) {
+            const q = await qblEngine.generateQuestion(session.topicName, sub, conceptIdx, false);
+            trackQuestions.push(q.questionText);
+            const correctOpt = q.options.find((o) => o.isCorrect)!;
+            await qblEngine.evaluateAnswer(session, sub, q, correctOpt.id);
+          }
+        }
+
+        const uniqueTrackQuestions = new Set(trackQuestions);
+        assert.strictEqual(
+          uniqueTrackQuestions.size,
+          trackQuestions.length,
+          `Track "${track}" must have 100% unique questions across all ${trackQuestions.length} concepts, got ${uniqueTrackQuestions.size}`
+        );
+        assert.strictEqual(session.status, 'COMPLETED');
+        assert.strictEqual(session.overallMasteryPercentage, 100);
+      }
+    });
+
+    it('synchronizes completed QBL subject mastery into AgentCoachingHarness career memory and mascot XP', async () => {
+      const harness = new AgentCoachingHarness(llmEngine, undefined, db);
+      await harness.initialize();
+      const initialXp = harness.getMascotProfile().xp;
+
+      const session = await qblEngine.createNewSession('Node.js');
+      for (let subIdx = 0; subIdx < session.subtopics.length; subIdx++) {
+        session.currentSubtopicIndex = subIdx;
+        const sub = session.subtopics[subIdx];
+        for (let conceptIdx = 1; conceptIdx <= 3; conceptIdx++) {
+          const q = await qblEngine.generateQuestion(session.topicName, sub, conceptIdx, false);
+          const correctOpt = q.options.find((o) => o.isCorrect)!;
+          await qblEngine.evaluateAnswer(session, sub, q, correctOpt.id);
+        }
+      }
+
+      await harness.syncWithQBLSession(session);
+      const memory = harness.getUserMemory();
+      const mascot = harness.getMascotProfile();
+
+      assert.ok(memory.validatedSkills.includes('Node.js'), 'Node.js subject must be recorded in validatedSkills');
+      assert.ok(
+        memory.validatedSkills.includes(session.subtopics[0].title),
+        'Completed Node.js subtopics must be recorded in validatedSkills'
+      );
+      assert.ok(mascot.xp >= initialXp + 100, 'Mascot XP must increase upon completing a QBL subject');
+
+      // Also verify Node.js analogy support in AgentCoachingHarness
+      const turnOutcome = await harness.processUserSpeechTurn(
+        'How does the Node.js event loop and libuv handle non-blocking I/O and backpressure?',
+        1
+      );
+      assert.ok(turnOutcome.responseClause.length > 20);
+      assert.ok(harness.getUserMemory().strengths.includes('event loop'));
+      assert.ok(harness.getUserMemory().strengths.includes('libuv'));
+    });
+  });
 });
+
+function questionWithValidOptions<T>(q: T): T {
+  return q;
+}
+
 

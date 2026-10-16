@@ -6,7 +6,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
 import { InterviewState } from '../types';
 
 interface SubtitleBarProps {
@@ -21,16 +20,28 @@ export const SubtitleBar: React.FC<SubtitleBarProps> = ({
   activeQuestion,
 }) => {
   const isCandidateSpeaking = state === 'USER_SPEAKING' || state === 'INTERRUPTED';
-  const speakerTitle = isCandidateSpeaking ? 'Candidate:' : 'Interviewer (Bengaluru Lead):';
+  const speakerTitle = isCandidateSpeaking ? 'Your Response' : 'Interviewer';
+  const speakerMeta = isCandidateSpeaking ? 'Live Transcript' : 'Bengaluru Tech Lead';
   const displayText = isCandidateSpeaking
     ? (transcript || 'Listening to your voice...')
     : (activeQuestion || 'Preparing question...');
 
   return (
     <View style={styles.container}>
-      <Text style={styles.speakerLabel}>{speakerTitle}</Text>
-      <Text style={[typography.body, styles.subtitleText]} numberOfLines={3}>
-        "{displayText}"
+      <View style={styles.headerRow}>
+        <View style={styles.speakerBadge}>
+          <View
+            style={[
+              styles.speakerDot,
+              { backgroundColor: isCandidateSpeaking ? colors.speakingEmerald : colors.notionBlueLight },
+            ]}
+          />
+          <Text style={styles.speakerLabel}>{speakerTitle}</Text>
+        </View>
+        <Text style={styles.speakerMetaText}>{speakerMeta}</Text>
+      </View>
+      <Text style={styles.subtitleText} numberOfLines={3}>
+        {displayText}
       </Text>
     </View>
   );
@@ -39,27 +50,47 @@ export const SubtitleBar: React.FC<SubtitleBarProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     marginHorizontal: 16,
-    marginVertical: 10,
-    minHeight: 80,
+    marginVertical: 8,
+    minHeight: 88,
     justifyContent: 'center',
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  speakerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  speakerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
   speakerLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: -0.1,
+  },
+  speakerMetaText: {
     fontSize: 11,
-    fontWeight: '700',
     color: colors.textTertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    fontWeight: '500',
   },
   subtitleText: {
+    fontSize: 14,
     color: colors.textPrimary,
-    fontStyle: 'italic',
-    lineHeight: 22,
+    lineHeight: 21,
+    fontWeight: '400',
   },
 });

@@ -218,21 +218,22 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
 
       {/* Top Header */}
       <View
         style={[
           styles.headerRow,
-          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 48) + 8 },
+          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 12) },
         ]}
       >
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
-          <ChevronLeftIcon size={20} color="#F8FAFC" />
+          <ChevronLeftIcon size={16} color={colors.textSecondary} />
+          <Text style={styles.backBtnText}>Back</Text>
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Voice Profile Calibration</Text>
@@ -247,19 +248,20 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 24) + 40 },
         ]}
+        showsVerticalScrollIndicator={false}
       >
         {/* Candidate Name Input */}
         <View style={styles.card}>
-          <Text style={styles.sectionLabel}>CANDIDATE NAME</Text>
+          <Text style={styles.sectionLabel}>Candidate Name</Text>
           <Text style={styles.sectionDescription}>
-            Teddy will address you by this name during coaching and voice calibration.
+            Your coach will address you by this name during sessions and voice calibration.
           </Text>
           <TextInput
             style={styles.nameInput}
             value={candidateName}
             onChangeText={handleNameChange}
             placeholder="Enter your name (e.g. Rahul)"
-            placeholderTextColor="#64748B"
+            placeholderTextColor={colors.textTertiary}
             autoCapitalize="words"
           />
         </View>
@@ -277,33 +279,32 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
               disabled={isTeddySpeaking}
               activeOpacity={0.8}
             >
-              <VolumeHighIcon size={14} color={colors.notionBlueLight} />
+              <VolumeHighIcon size={13} color={colors.notionBlueLight} />
               <Text style={styles.hearBtnText}>
-                {isTeddySpeaking ? 'Speaking...' : 'Hear Teddy Speak'}
+                {isTeddySpeaking ? 'Speaking...' : 'Preview Greeting'}
               </Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.novaPromptText}>
-            "{prompt.spokenGreeting}"
-          </Text>
+          <Text style={styles.novaPromptText}>{prompt.spokenGreeting}</Text>
         </View>
 
         {/* Calibration Sentence Card */}
         <View style={styles.sentenceCard}>
-          <Text style={styles.sentenceLabel}>CALIBRATION SENTENCE TO READ ALOUD</Text>
-          <Text style={styles.sentenceText}>
-            "{prompt.calibrationSentence}"
-          </Text>
-          <Text style={styles.sentenceHint}>
-            💡 Speak naturally at your normal pace. 3 seconds is all it takes to lock in your voiceprint.
-          </Text>
+          <Text style={styles.sentenceLabel}>Calibration Sentence to Read Aloud</Text>
+          <Text style={styles.sentenceText}>"{prompt.calibrationSentence}"</Text>
+          <View style={styles.sentenceHintRow}>
+            <View style={styles.hintDot} />
+            <Text style={styles.sentenceHint}>
+              Speak naturally at your normal pace — 3 seconds locks in your 192-dim voiceprint.
+            </Text>
+          </View>
         </View>
 
         {/* Calibration Progress & Visualizer */}
         <View style={styles.calibrationCard}>
           <View style={styles.progressHeaderRow}>
-            <Text style={styles.progressLabel}>Biometric Extraction</Text>
+            <Text style={styles.progressLabel}>Biometric Embedding Extraction</Text>
             <Text style={styles.progressPercentText}>{progressPercent}%</Text>
           </View>
           <View style={styles.progressTrack}>
@@ -326,27 +327,34 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
               style={[styles.primaryActionBtn, isCalibrating && styles.primaryActionBtnActive]}
               onPress={startCalibration}
               disabled={isCalibrating}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <MicIcon size={20} color="#FFFFFF" />
+              <MicIcon size={18} color="#FFFFFF" />
               <Text style={styles.primaryActionBtnText}>
-                {isCalibrating ? 'Calibrating Your Voice...' : `Start Voice Calibration for ${candidateName}`}
+                {isCalibrating
+                  ? 'Calibrating Your Voice...'
+                  : `Calibrate Voice Profile for ${candidateName}`}
               </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.enrolledSuccessBox}>
               <View style={styles.successIconBadge}>
-                <CheckIcon size={18} color={colors.notionGreen} />
+                <CheckIcon size={16} color={colors.notionGreen} />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.successTitle}>Voice Profile Calibrated</Text>
                 <Text style={styles.successSubtitle}>
-                  Enrolled as: <Text style={{ color: colors.notionBlueLight, fontWeight: '700' }}>{candidateName}</Text> • 192-dim vector stored
+                  Enrolled as:{' '}
+                  <Text style={{ color: colors.notionBlueLight, fontWeight: '600' }}>
+                    {candidateName}
+                  </Text>{' '}
+                  • 192-dim vector stored
                 </Text>
               </View>
               <TouchableOpacity
                 style={styles.recalibrateBtn}
                 onPress={handleResetCalibration}
+                activeOpacity={0.75}
               >
                 <Text style={styles.recalibrateBtnText}>Reset</Text>
               </TouchableOpacity>
@@ -356,9 +364,9 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 
         {/* Biometrics & Privacy Guarantee */}
         <View style={styles.privacyNoteCard}>
-          <BrainIcon size={15} color="#818CF8" />
+          <BrainIcon size={15} color={colors.notionPurple} />
           <Text style={styles.privacyNoteText}>
-            100% On-Device Biometrics: Your voiceprint never leaves this phone. It is stored as an encrypted vector in SQLite and used exclusively to authenticate your speech turns.
+            100% On-Device Biometrics: Your voiceprint never leaves this phone. It is stored as an encrypted vector in local SQLite and used exclusively to authenticate your speech turns.
           </Text>
         </View>
       </ScrollView>
@@ -368,10 +376,10 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
         <TouchableOpacity
           style={[styles.continueBtn, !isEnrolled && styles.continueBtnSecondary]}
           onPress={() => navigation.navigate('AgentCoaching')}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
         >
           <Text style={styles.continueBtnText}>
-            {isEnrolled ? `Continue Coaching with Teddy 🚀` : 'Skip for Now & Continue'}
+            {isEnrolled ? 'Continue to Masterclass' : 'Skip for Now & Continue'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -382,7 +390,7 @@ export const VoiceEnrollmentScreen: React.FC<VoiceEnrollmentScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: colors.background,
   },
   scrollView: {
     flex: 1,
@@ -391,77 +399,85 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+    borderBottomColor: colors.divider,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  backBtnText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   headerTitleWrap: {
     alignItems: 'center',
   },
   headerTitle: {
-    color: '#F8FAFC',
-    fontSize: 16,
-    fontWeight: '700',
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   headerSubtitle: {
-    color: '#64748B',
+    color: colors.textTertiary,
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 1,
   },
   headerRightSpacer: {
-    width: 38,
+    width: 60,
   },
   scrollContent: {
-    padding: 16,
+    padding: 20,
     gap: 14,
     paddingBottom: 32,
   },
   card: {
-    backgroundColor: 'rgba(30, 41, 59, 0.7)',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: colors.cardBorder,
   },
   sectionLabel: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
     marginBottom: 4,
   },
   sectionDescription: {
-    color: '#64748B',
+    color: colors.textSecondary,
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 17,
     marginBottom: 12,
   },
   nameInput: {
-    backgroundColor: '#0F172A',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
-    color: '#FFFFFF',
-    fontSize: 15,
+    borderColor: colors.cardBorder,
+    color: colors.textPrimary,
+    fontSize: 14,
     fontWeight: '600',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
   },
   novaCard: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    borderRadius: 16,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.25)',
+    borderColor: colors.cardBorder,
   },
   novaHeaderRow: {
     flexDirection: 'row',
@@ -474,25 +490,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 6,
   },
   novaBadgeText: {
     color: colors.notionBlueLight,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   hearBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surfaceHover,
+    gap: 5,
+    backgroundColor: colors.surface,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: colors.borderSubtle,
   },
   hearBtnText: {
     color: colors.notionBlueLight,
@@ -500,40 +516,50 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   novaPromptText: {
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     fontSize: 13,
-    lineHeight: 19,
-    fontStyle: 'italic',
+    lineHeight: 20,
   },
   sentenceCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   sentenceLabel: {
     color: colors.notionBlueLight,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontWeight: '600',
     marginBottom: 8,
   },
   sentenceText: {
     color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     lineHeight: 22,
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  sentenceHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  hintDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.textTertiary,
   },
   sentenceHint: {
     color: colors.textSecondary,
     fontSize: 11,
     lineHeight: 16,
+    flex: 1,
   },
   calibrationCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -553,10 +579,11 @@ const styles = StyleSheet.create({
     color: colors.notionBlueLight,
     fontSize: 12,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   progressTrack: {
-    height: 6,
-    backgroundColor: colors.background,
+    height: 5,
+    backgroundColor: colors.surface,
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -572,8 +599,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   statusText: {
-    color: '#CBD5E1',
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: 12,
     fontWeight: '500',
     flex: 1,
   },
@@ -581,59 +608,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#0284C7',
+    gap: 8,
+    backgroundColor: colors.accentPrimary,
     paddingVertical: 14,
-    borderRadius: 14,
-    shadowColor: '#0284C7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: 10,
   },
   primaryActionBtnActive: {
-    backgroundColor: '#0369A1',
+    opacity: 0.85,
   },
   primaryActionBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
   enrolledSuccessBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    borderRadius: 14,
+    backgroundColor: colors.notionGreenBg,
+    borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.35)',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
   successIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: 'rgba(16, 185, 129, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   successTitle: {
-    color: '#10B981',
+    color: colors.speakingEmerald,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   successSubtitle: {
-    color: '#94A3B8',
+    color: colors.textSecondary,
     fontSize: 11,
     marginTop: 2,
   },
   recalibrateBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
   },
   recalibrateBtnText: {
-    color: '#CBD5E1',
+    color: colors.textSecondary,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -641,38 +665,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    borderRadius: 14,
+    backgroundColor: colors.notionPurpleBg,
+    borderRadius: 10,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.25)',
+    borderColor: 'rgba(139, 92, 246, 0.25)',
   },
   privacyNoteText: {
-    color: '#A5B4FC',
+    color: colors.textSecondary,
     fontSize: 11,
     lineHeight: 16,
     flex: 1,
   },
   bottomBar: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'android' ? 18 : 8,
-    backgroundColor: '#0F172A',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'android' ? 18 : 10,
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: colors.divider,
   },
   continueBtn: {
-    backgroundColor: '#0284C7',
-    paddingVertical: 15,
-    borderRadius: 14,
+    backgroundColor: colors.accentPrimary,
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
   continueBtnSecondary: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   continueBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

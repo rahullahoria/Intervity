@@ -10,6 +10,7 @@
  */
 
 import { QBLQuestion, QBLOption, QBLDifficulty } from '../../types';
+import { getNodeJSQuestion } from './domain/NodeJSDomain';
 
 interface QuestionTemplate {
   conceptTitle: string;
@@ -885,6 +886,42 @@ function buildProceduralQuestion(
 
   // 2. Broker Architecture / Replication / ISR Theme
   if (subLower.includes('broker') || subLower.includes('replication') || subLower.includes('isr')) {
+    if (isReinforcement) {
+      return {
+        conceptTitle: 'Leader Epoch Fencing & Log Divergence Prevention',
+        difficulty: 'pro',
+        questionText: `Let's reinforce your broker replication mental model: Why did Kafka replace simple High Watermark (HW) truncation with "Leader Epochs" (KIP-101) during follower recovery and leader failovers?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Relying solely on local High Watermark updates caused data loss or log divergence during rapid consecutive restarts; Leader Epochs deterministically fence stale leaders and reconcile exact truncation offsets.',
+            isCorrect: true,
+            explanation: 'Because High Watermark updates lag by one fetch round-trip, a follower restarting right before learning the new HW could truncate committed messages. Leader Epochs track exact (epoch, startOffset) boundaries.',
+          },
+          {
+            id: 'B',
+            text: 'Leader Epochs compress broker log files into ZIP archives every hour.',
+            isCorrect: false,
+            explanation: 'Leader Epochs are replication consensus metadata, not file compression utilities.',
+          },
+          {
+            id: 'C',
+            text: 'Leader Epochs allow followers to accept direct write requests from producers.',
+            isCorrect: false,
+            explanation: 'Only the partition leader accepts producer writes in Kafka.',
+          },
+          {
+            id: 'D',
+            text: 'Leader Epochs disable all disk fsync operations permanently.',
+            isCorrect: false,
+            explanation: 'Leader Epochs strengthen durability and log consistency; they do not disable disk persistence.',
+          },
+        ],
+        explanation: 'Leader Epochs map each leadership term to its starting log offset, enabling recovering replicas to query the active leader for the exact end offset of any prior epoch without race conditions.',
+        coachingTip: 'Think of Leader Epochs like versioned Git tags on the commit log—every time leadership changes, a new epoch marks the exact offset boundary.',
+      };
+    }
+
     if (conceptIndex === 1) {
       return {
         conceptTitle: 'Broker Leader-Follower Replication & High Watermark',
@@ -929,7 +966,7 @@ function buildProceduralQuestion(
         options: [
           {
             id: 'A',
-            text: 'The sole surviving broker rejects write requests with a \`NotEnoughReplicasException\` because the active ISR count (1) is less than min.insync.replicas (2).',
+            text: 'The sole surviving broker rejects write requests with a `NotEnoughReplicasException` because the active ISR count (1) is less than min.insync.replicas (2).',
             isCorrect: true,
             explanation: 'When active ISR drops below min.insync.replicas, the broker refuses new writes with acks=all to prevent consistency degradation, prioritizing CP over AP.',
           },
@@ -994,6 +1031,42 @@ function buildProceduralQuestion(
 
   // 3. Consumer Rebalancing & Partition Assignment Theme
   if (subLower.includes('consumer') || subLower.includes('rebalanc') || subLower.includes('group') || subLower.includes('offset')) {
+    if (isReinforcement) {
+      return {
+        conceptTitle: 'Static Group Membership (group.instance.id) & Rolling Deployments',
+        difficulty: 'pro',
+        questionText: `Let's reinforce consumer group coordination: During a Kubernetes rolling restart of 50 Kafka consumer pods, how does configuring Static Group Membership (\`group.instance.id\`) prevent unnecessary partition rebalances?`,
+        options: [
+          {
+            id: 'A',
+            text: 'The broker GroupCoordinator recognizes the persistent group.instance.id and holds the member’s partition assignment up to session.timeout.ms without triggering a rebalance on transient restarts.',
+            isCorrect: true,
+            explanation: 'With static membership, restarting pods rejoin with the same group.instance.id within session.timeout.ms and immediately resume their existing partitions without triggering a group rebalance.',
+          },
+          {
+            id: 'B',
+            text: 'It permanently locks partitions to hardware MAC addresses so no failover can ever happen.',
+            isCorrect: false,
+            explanation: 'If the pod stays down longer than session.timeout.ms, normal failover rebalancing still occurs.',
+          },
+          {
+            id: 'C',
+            text: 'It forces consumers to read all partitions from offset 0 on every deployment.',
+            isCorrect: false,
+            explanation: 'Static membership preserves committed offsets and existing partition assignments.',
+          },
+          {
+            id: 'D',
+            text: 'It disables consumer heartbeats completely.',
+            isCorrect: false,
+            explanation: 'Heartbeats remain active to detect true node failures exceeding session.timeout.ms.',
+          },
+        ],
+        explanation: 'Without static membership, every pod termination sends a LeaveGroup request that triggers two full rebalances (one on leave, one on rejoin). Static membership eliminates rebalance churn during rolling deployments.',
+        coachingTip: 'Combine CooperativeStickyAssignor with a deterministic group.instance.id (like StatefulSet pod ordinal) for zero-rebalance rolling deployments!',
+      };
+    }
+
     if (conceptIndex === 1) {
       return {
         conceptTitle: 'Consumer Group Partition Allocation & Scale Bounds',
@@ -1104,186 +1177,726 @@ function buildProceduralQuestion(
   // 4. React Native Architecture & UI Thread Theme
   if (topLower.includes('react') || topLower.includes('mobile')) {
     if (subLower.includes('ui') || subLower.includes('fps') || subLower.includes('render') || subLower.includes('schedul')) {
+      if (isReinforcement) {
+        return {
+          conceptTitle: 'FlashList Cell Recycling vs FlatList Mount Thrashing',
+          difficulty: 'pro',
+          questionText: `Let's reinforce 60/120 FPS mobile list rendering: Why does Shopify's \`FlashList\` eliminate blank white cells during fast scrolling compared to React Native's standard \`FlatList\`?`,
+          options: [
+            {
+              id: 'A',
+              text: 'FlashList recycles existing native view instances and rebinds data props in-place without unmounting/remounting React component trees on every scroll frame.',
+              isCorrect: true,
+              explanation: 'FlatList destroys off-screen views and mounts brand-new React components on scroll, causing GC churn and frame drops. FlashList reuses native view pools like RecyclerView/UICollectionView.',
+            },
+            {
+              id: 'B',
+              text: 'FlashList pre-renders 100,000 list items into a single 4GB bitmap image on startup.',
+              isCorrect: false,
+              explanation: 'Rendering all items upfront would immediately crash mobile memory.',
+            },
+            {
+              id: 'C',
+              text: 'FlashList disables touch scrolling velocity above 100 pixels per second.',
+              isCorrect: false,
+              explanation: 'FlashList preserves native scroll physics while optimizing cell recycling.',
+            },
+            {
+              id: 'D',
+              text: 'FlashList runs exclusively on remote cloud GPUs.',
+              isCorrect: false,
+              explanation: 'FlashList executes locally on the mobile device.',
+            },
+          ],
+          explanation: 'View recycling eliminates expensive React mount/unmount lifecycles and native view allocation during high-velocity scrolling.',
+          coachingTip: 'Specify accurate estimatedItemSize in FlashList and keep cell components memoized without inline object allocations!',
+        };
+      }
+
+      if (conceptIndex === 1) {
+        return {
+          conceptTitle: '60 FPS Main Thread Scheduling & Bridge Congestion',
+          difficulty: 'basic',
+          questionText: `In a React Native application, what causes UI micro-stutters (frame drops below 60 FPS) when scrolling a complex feed with animations running simultaneously?`,
+          options: [
+            {
+              id: 'A',
+              text: 'Heavy JS event handlers executing synchronous computational work on the single JavaScript event loop, delaying the serialization and dispatch of layout updates to the native UI thread.',
+              isCorrect: true,
+              explanation: 'The JavaScript thread must yield within 16.6ms to maintain 60 FPS. Long-running JS operations block touch response and bridge updates.',
+            },
+            {
+              id: 'B',
+              text: 'The mobile device GPU has run out of registers to store strings.',
+              isCorrect: false,
+              explanation: 'GPUs rasterize textures and vertices, not application-level JS strings.',
+            },
+            {
+              id: 'C',
+              text: 'React Native automatically limits scrolling to 30 FPS on all Android devices.',
+              isCorrect: false,
+              explanation: 'React Native targets native 60/120Hz display refresh rates on all supported hardware.',
+            },
+            {
+              id: 'D',
+              text: 'The device battery temperature drops below 0 degrees Celsius.',
+              isCorrect: false,
+              explanation: 'Battery temperature does not explain JS thread scheduling bottlenecks.',
+            },
+          ],
+          explanation: 'Offloading layout transitions to native driver animations or Worklets keeps 60 FPS silky smooth even when the JS thread is momentarily busy.',
+          coachingTip: 'Always use useNativeDriver: true or Reanimated Worklets so gesture animations execute directly on the UI thread without crossing threads.',
+        };
+      }
+
+      if (conceptIndex === 2) {
+        return {
+          conceptTitle: 'Reanimated UI Thread Worklets vs JS Thread Animations',
+          difficulty: 'intermediate',
+          questionText: `How do React Native Reanimated Worklets (\`'worklet'\` directive) guarantee zero-latency 120Hz gesture-driven animations even when the main JavaScript thread is blocked parsing a 5MB JSON response?`,
+          options: [
+            {
+              id: 'A',
+              text: 'Worklets are extracted and executed inside a dedicated secondary JavaScript VM running synchronously on the Native UI Thread, completely bypassing the main JS thread.',
+              isCorrect: true,
+              explanation: 'Reanimated spawns a lightweight JS runtime on the UI thread for worklets, allowing gesture frames to compute layout updates within the 8.33ms (120Hz) vsync budget.',
+            },
+            {
+              id: 'B',
+              text: 'Worklets terminate the network request whenever the user touches the screen.',
+              isCorrect: false,
+              explanation: 'Worklets run independently of network I/O on the main JS thread.',
+            },
+            {
+              id: 'C',
+              text: 'Worklets lower the screen resolution to 240p during animations.',
+              isCorrect: false,
+              explanation: 'Display resolution is unaffected by Reanimated worklets.',
+            },
+            {
+              id: 'D',
+              text: 'Worklets convert all React components into static HTML tables.',
+              isCorrect: false,
+              explanation: 'React Native renders native platform views (UIView / android.view.View), not HTML.',
+            },
+          ],
+          explanation: 'By running SharedValues and worklet functions directly on the UI thread, gesture-driven animations never wait for the main JS event loop.',
+          coachingTip: 'Use SharedValue instead of React useState for continuous gesture coordinates (x, y, scale) to avoid triggering 60 React re-renders per second!',
+        };
+      }
+
       return {
-        conceptTitle: '60 FPS Main Thread Scheduling & Bridge Congestion',
-        difficulty: conceptIndex === 1 ? 'basic' : conceptIndex === 2 ? 'intermediate' : 'advanced',
-        questionText: `In a React Native application, what causes UI micro-stutters (frame drops below 60 FPS) when scrolling a complex feed with animations running simultaneously?`,
+        conceptTitle: 'React 18 Concurrent Renderer & startTransition Priority Lanes',
+        difficulty: 'advanced',
+        questionText: `When rendering a high-frequency live search input alongside a 500-item filtered result tree in React Native New Architecture (Fabric), how does wrapping the filter state update in \`startTransition\` prevent input lag?`,
         options: [
           {
             id: 'A',
-            text: 'Heavy JS event handlers executing synchronous computational work on the single JavaScript event loop, delaying the serialization and dispatch of layout updates to the native UI thread.',
+            text: 'Fabric schedules the transition in a low-priority interruptible lane, yielding to urgent keystroke updates so the text input remains immediately responsive.',
             isCorrect: true,
-            explanation: 'The JavaScript thread must yield within 16.6ms to maintain 60 FPS. Long-running JS operations block touch response and bridge updates.',
+            explanation: 'Concurrent rendering in Fabric allows React to interrupt in-progress non-urgent tree reconciliation whenever a high-priority user input event arrives.',
           },
           {
             id: 'B',
-            text: 'The mobile device GPU has run out of registers to store strings.',
+            text: 'startTransition delays all state updates by a hardcoded 10-second timer.',
             isCorrect: false,
-            explanation: 'GPUs rasterize textures and vertices, not application-level JS strings.',
+            explanation: 'Transitions begin immediately and only yield if urgent updates arrive.',
           },
           {
             id: 'C',
-            text: 'React Native automatically limits scrolling to 30 FPS on all Android devices.',
+            text: 'startTransition offloads React component rendering to the device camera ISP.',
             isCorrect: false,
-            explanation: 'React Native targets native 60/120Hz display refresh rates on all supported hardware.',
+            explanation: 'Component reconciliation runs on the CPU via Hermes.',
           },
           {
             id: 'D',
-            text: 'The device battery temperature drops below 0 degrees Celsius.',
+            text: 'startTransition disables diffing and forces a full application restart.',
             isCorrect: false,
-            explanation: 'Battery temperature does not explain JS thread scheduling bottlenecks.',
+            explanation: 'It prioritizes fiber reconciliation lanes without restarting the app.',
           },
         ],
-        explanation: 'Offloading layout transitions to native driver animations or Worklets keeps 60 FPS silky smooth even when the JS thread is momentarily busy.',
-        coachingTip: 'Always use useNativeDriver: true or Reanimated Worklets so gesture animations execute directly on the UI thread without crossing threads.',
+        explanation: 'Fabric unlocks React 18+ concurrent features (startTransition, useDeferredValue, Suspense) by replacing asynchronous batched shadow updates with synchronous C++ shadow tree cloning.',
+        coachingTip: 'Keep text input state urgent, and wrap heavy derived list updates in startTransition() or useDeferredValue()!',
       };
     }
 
     if (subLower.includes('jsi') || subLower.includes('fabric') || subLower.includes('turbo')) {
+      if (isReinforcement) {
+        return {
+          conceptTitle: 'Codegen Static Type Enforcement across JSI & TurboModules',
+          difficulty: 'pro',
+          questionText: `Let's solidify your New Architecture mental model: What is the architectural purpose of React Native's \`Codegen\` step when building TurboModules and Fabric native components?`,
+          options: [
+            {
+              id: 'A',
+              text: 'Codegen parses TypeScript/Flow specs at build time to generate C++, Objective-C++, and Java/JNI interface stubs, ensuring compile-time type safety and eliminating runtime reflection overhead across JSI.',
+              isCorrect: true,
+              explanation: 'Instead of dynamic runtime reflection over JSON, Codegen generates strongly-typed C++ JSI glue code directly from TypeScript specifications.',
+            },
+            {
+              id: 'B',
+              text: 'Codegen minifies PNG and JPEG assets into SVG vectors.',
+              isCorrect: false,
+              explanation: 'Codegen generates native C++/ObjC/Java binding code, not image assets.',
+            },
+            {
+              id: 'C',
+              text: 'Codegen converts JavaScript into Python scripts for iOS devices.',
+              isCorrect: false,
+              explanation: 'iOS executes Hermes bytecode and native Objective-C++/Swift.',
+            },
+            {
+              id: 'D',
+              text: 'Codegen is a runtime debugger that only runs in Chrome DevTools.',
+              isCorrect: false,
+              explanation: 'Codegen is a build-time static code generator.',
+            },
+          ],
+          explanation: 'Codegen eliminates the runtime type-checking and reflection costs of the old NativeModules system by enforcing contracts at C++ compile time.',
+          coachingTip: 'Define strict NativeModule TypeScript specs (`TurboModuleRegistry.getEnforcing`) so Codegen catches boundary mismatches at compile time!',
+        };
+      }
+
+      if (conceptIndex === 1) {
+        return {
+          conceptTitle: 'JSI Direct Memory Invocation vs Legacy JSON Bridge',
+          difficulty: 'basic',
+          questionText: `How does the JavaScript Interface (JSI) in React Native's New Architecture eliminate the serialization bottleneck of the legacy architecture?`,
+          options: [
+            {
+              id: 'A',
+              text: 'JSI provides C++ host objects directly to the JavaScript runtime, allowing JS code to invoke native C++ methods synchronously in shared memory without JSON stringification.',
+              isCorrect: true,
+              explanation: 'The legacy bridge serialized all calls to asynchronous JSON strings across threads. JSI uses direct C++ pointers, eliminating serialization and enabling synchronous native calls.',
+            },
+            {
+              id: 'B',
+              text: 'JSI compiles all JavaScript into binary machine code ahead of time at build time only.',
+              isCorrect: false,
+              explanation: 'JSI is a runtime bridging interface that allows direct memory object references between C++ and Hermes/V8.',
+            },
+            {
+              id: 'C',
+              text: 'JSI disables native iOS Objective-C and Android Java layers completely.',
+              isCorrect: false,
+              explanation: 'Native platform layers remain; TurboModules interact with them via C++ JSI bindings.',
+            },
+            {
+              id: 'D',
+              text: 'JSI runs all native modules on a remote cloud server.',
+              isCorrect: false,
+              explanation: 'JSI is an on-device embedded bridging interface.',
+            },
+          ],
+          explanation: 'JSI exposes C++ host objects to the JS engine via host object references. This unlocks zero-copy synchronous communication without JSON serialization overhead.',
+          coachingTip: 'Think of the legacy bridge like two people mailing letters back and forth in JSON. JSI is both people sitting at the same table sharing the same memory notebook!',
+        };
+      }
+
+      if (conceptIndex === 2) {
+        return {
+          conceptTitle: 'TurboModules Lazy Initialization vs Legacy Eager NativeModules',
+          difficulty: 'intermediate',
+          questionText: `How do TurboModules significantly reduce cold-start Time-To-Interactive (TTI) in large React Native applications with 80+ native modules?`,
+          options: [
+            {
+              id: 'A',
+              text: 'Legacy NativeModules eagerly instantiated all 80+ modules at app launch before JS could run; TurboModules lazily initialize each native module via JSI only when first invoked by JavaScript.',
+              isCorrect: true,
+              explanation: 'By deferring native module instantiation until first use, TurboModules shave hundreds of milliseconds off cold-start launch time.',
+            },
+            {
+              id: 'B',
+              text: 'TurboModules delete unused native modules from the app binary after installation.',
+              isCorrect: false,
+              explanation: 'App binaries are immutable on disk; TurboModules optimize runtime instantiation.',
+            },
+            {
+              id: 'C',
+              text: 'TurboModules force all native code to run inside a single WebView.',
+              isCorrect: false,
+              explanation: 'TurboModules invoke native C++/ObjC/Kotlin APIs directly via JSI.',
+            },
+            {
+              id: 'D',
+              text: 'TurboModules require the user to manually reboot their phone before launching the app.',
+              isCorrect: false,
+              explanation: 'Lazy loading happens transparently in milliseconds during runtime execution.',
+            },
+          ],
+          explanation: 'Eager initialization of dozens of native modules (camera, bluetooth, geolocation, payments) on startup blocked legacy app launch. TurboModules load on-demand via JSI lookup.',
+          coachingTip: 'Audit your startup path to ensure you do not accidentally import and invoke heavy TurboModules inside root index.js!',
+        };
+      }
+
       return {
-        conceptTitle: 'JSI Direct Memory Invocation vs Legacy JSON Bridge',
-        difficulty: 'intermediate',
-        questionText: `How does the JavaScript Interface (JSI) in React Native's New Architecture eliminate the serialization bottleneck of the legacy architecture?`,
+        conceptTitle: 'Fabric C++ Immutable Shadow Tree & Synchronous Layout',
+        difficulty: 'advanced',
+        questionText: `Why does the Fabric renderer eliminate the "layout jump / visual flicker" bug that occurred in legacy React Native when measuring view dimensions to position tooltips or popovers?`,
         options: [
           {
             id: 'A',
-            text: 'JSI provides C++ host objects directly to the JavaScript runtime, allowing JS code to invoke native C++ methods synchronously in shared memory without JSON stringification.',
+            text: 'Fabric maintains an immutable C++ Shadow Tree shared across threads and runs Yoga layout synchronously via JSI during `useLayoutEffect`, committing the measured position in the exact same paint frame.',
             isCorrect: true,
-            explanation: 'The legacy bridge serialized all calls to asynchronous JSON strings across threads. JSI uses direct C++ pointers, eliminating serialization and enabling synchronous native calls.',
+            explanation: 'In legacy RN, onLayout was asynchronous across the JSON bridge, causing 1-2 frames of unpositioned flicker. Fabric enables synchronous Yoga layout reads and commits inside useLayoutEffect.',
           },
           {
             id: 'B',
-            text: 'JSI compiles all JavaScript into binary machine code ahead of time at build time only.',
+            text: 'Fabric hides the entire screen for 500ms whenever a component mounts.',
             isCorrect: false,
-            explanation: 'JSI is a runtime bridging interface that allows direct memory object references between C++ and Hermes/V8.',
+            explanation: 'Hiding the screen would degrade UX; Fabric resolves layout synchronously within a single frame.',
           },
           {
             id: 'C',
-            text: 'JSI disables native iOS Objective-C and Android Java layers completely.',
+            text: 'Fabric replaces Yoga Flexbox with fixed pixel coordinates only.',
             isCorrect: false,
-            explanation: 'Native platform layers remain; TurboModules interact with them via C++ JSI bindings.',
+            explanation: 'Fabric still uses the C++ Yoga Flexbox layout engine.',
           },
           {
             id: 'D',
-            text: 'JSI runs all native modules on a remote cloud server.',
+            text: 'Fabric delegates layout measurement to an external HTTP microservice.',
             isCorrect: false,
-            explanation: 'JSI is an on-device embedded bridging interface.',
+            explanation: 'Layout calculation runs locally in C++ via Yoga.',
           },
         ],
-        explanation: 'JSI exposes C++ host objects to the JS engine via host object references. This unlocks zero-copy synchronous communication without JSON serialization overhead.',
-        coachingTip: 'Think of the legacy bridge like two people mailing letters back and forth in JSON. JSI is both people sitting at the same table sharing the same memory notebook!',
+        explanation: 'By sharing immutable C++ Shadow Nodes across the JS and UI threads, Fabric enables synchronous `useLayoutEffect` measurements without bridge round-trip delays.',
+        coachingTip: 'In Fabric (New Architecture), use `useLayoutEffect` with synchronous `ref.current.measure()` for zero-flicker dynamic positioning!',
       };
     }
   }
 
   // 5. High-Scale Optimization & Performance Theme
   if (subLower.includes('scale') || subLower.includes('optimization') || subLower.includes('throughput') || subLower.includes('performance')) {
+    if (isReinforcement) {
+      return {
+        conceptTitle: `Tail Latency Amplification & Head-of-Line Blocking in ${cleanSubtopic}`,
+        difficulty: 'pro',
+        questionText: `Let's reinforce high-scale performance engineering for "${cleanSubtopic}" in "${cleanTopic}": Why does a single slow request taking 200ms cause p99 latency across thousands of fast 1ms requests to spike when using a shared FIFO queue without concurrency partitioning?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Head-of-Line (HoL) blocking stalls fast requests queued behind the slow operation, and fan-out tail latency amplification compounds p99 probability across downstream calls.',
+            isCorrect: true,
+            explanation: 'In shared queues or single-threaded loops, one slow task blocks all queued tasks behind it (Head-of-Line blocking). Separating fast/slow lanes and bounding work quanta eliminates HoL stalls.',
+          },
+          {
+            id: 'B',
+            text: 'The CPU clock speed permanently drops to 1 MHz after any 200ms request.',
+            isCorrect: false,
+            explanation: 'Modern CPUs dynamically boost clock frequency under load rather than locking at 1 MHz.',
+          },
+          {
+            id: 'C',
+            text: 'Network routers delete TCP packets whenever a response takes longer than 100ms.',
+            isCorrect: false,
+            explanation: 'Routers forward packets normally; the delay occurs inside application queueing layers.',
+          },
+          {
+            id: 'D',
+            text: 'FIFO queues reverse the byte order of all memory pointers.',
+            isCorrect: false,
+            explanation: 'Queue ordering affects scheduling latency, not memory endianness.',
+          },
+        ],
+        explanation: 'Eliminating Head-of-Line blocking via workload isolation (separate fast/heavy queues), connection multiplexing, and hedged requests keeps p99 tail latencies tight.',
+        coachingTip: 'Never mix heavy analytical queries or bulk exports on the same worker queue as real-time interactive user requests!',
+      };
+    }
+
+    if (conceptIndex === 1) {
+      return {
+        conceptTitle: `High-Scale Production Optimization in ${cleanSubtopic}`,
+        difficulty: 'basic',
+        questionText: `When scaling "${cleanTopic}" to sustain 100,000 requests/sec with p99 latency guarantees under 15ms, which optimization delivers the highest reduction in OS context switching and I/O wait?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Leveraging non-blocking epoll/kqueue event loops, batch I/O operations, connection pooling, and zero-copy data transfer (e.g. sendfile).',
+            isCorrect: true,
+            explanation: 'Non-blocking I/O event loops multiplex thousands of connections per worker thread, eliminating thread context-switching overhead and disk-to-socket memory copy cycles.',
+          },
+          {
+            id: 'B',
+            text: 'Spawning one dedicated OS thread per incoming network connection without bounds.',
+            isCorrect: false,
+            explanation: 'Thread-per-connection architectures cause severe thread contention, high memory overhead per thread stack, and catastrophic context-switching churn.',
+          },
+          {
+            id: 'C',
+            text: 'Disabling all caching layers and querying spinning hard drives directly.',
+            isCorrect: false,
+            explanation: 'Disk I/O without caching increases latency by orders of magnitude.',
+          },
+          {
+            id: 'D',
+            text: 'Compressing all network payloads with maximum level gzip compression on every micro-packet.',
+            isCorrect: false,
+            explanation: 'Max level gzip consumes excessive CPU cycles and increases serialization latency for micro-packets.',
+          },
+        ],
+        explanation: 'Modern high-throughput engines rely on non-blocking event loops, kernel zero-copy transfers, and amortizing network and disk syscalls across batched requests.',
+        coachingTip: 'The fastest I/O is the I/O you never execute. Use connection pooling, pagecache zero-copy, and smart batching to keep CPU caches hot.',
+      };
+    }
+
+    if (conceptIndex === 2) {
+      return {
+        conceptTitle: `Amortizing Syscall Overhead via Adaptive Micro-Batching in ${cleanSubtopic}`,
+        difficulty: 'intermediate',
+        questionText: `In "${cleanSubtopic}" for "${cleanTopic}", why does coalescing individual writes into bounded micro-batches (e.g. flushing every 5ms or 64KB) increase throughput by 10x–50x over per-record synchronous flushes?`,
+        options: [
+          {
+            id: 'A',
+            text: 'It amortizes expensive user-to-kernel syscall transitions, TCP packet headers, and disk fsync commits across hundreds of records while enabling higher compression ratios.',
+            isCorrect: true,
+            explanation: 'Each individual syscall and fsync incurs hardware interrupt and context-switch overhead. Micro-batching turns 10,000 tiny random I/Os into a single sequential vector write.',
+          },
+          {
+            id: 'B',
+            text: 'Micro-batching skips writing data to the network or disk altogether.',
+            isCorrect: false,
+            explanation: 'All records are still durably transmitted; they are simply grouped into contiguous frames.',
+          },
+          {
+            id: 'C',
+            text: 'Micro-batching forces clients to wait 24 hours before receiving any response.',
+            isCorrect: false,
+            explanation: 'Adaptive micro-batching uses tight bounds (e.g. 2–10ms linger window) that remain imperceptible to clients.',
+          },
+          {
+            id: 'D',
+            text: 'Micro-batching disables TCP checksum verification in the NIC hardware.',
+            isCorrect: false,
+            explanation: 'Transport checksums remain fully intact.',
+          },
+        ],
+        explanation: 'Sequential batched I/O aligns with OS page-cache blocks, NVMe flash pages, and TCP MTU frames, unlocking massive throughput gains.',
+        coachingTip: 'Always bound micro-batches by BOTH byte size (e.g. 64KB) AND time window (e.g. 5ms) so low-traffic periods never experience high latency!',
+      };
+    }
+
     return {
-      conceptTitle: `High-Scale Production Optimization in ${cleanSubtopic}`,
-      difficulty: conceptIndex === 1 ? 'basic' : conceptIndex === 2 ? 'intermediate' : 'advanced',
-      questionText: `When scaling "${cleanTopic}" to sustain 100,000 requests/sec with p99 latency guarantees under 15ms, which optimization delivers the highest reduction in OS context switching and I/O wait?`,
+      conceptTitle: `Lock-Free Partitioning & Cache-Line Contention Elimination in ${cleanSubtopic}`,
+      difficulty: 'advanced',
+      questionText: `When scaling "${cleanSubtopic}" across a 64-core server in "${cleanTopic}", throughput plateaus at 16 cores due to CPU L1/L2 cache-line bouncing ("false sharing") and mutex contention. What architectural pattern restores linear multi-core scalability?`,
       options: [
         {
           id: 'A',
-          text: 'Leveraging non-blocking epoll/kqueue event loops, batch I/O operations, connection pooling, and zero-copy data transfer (e.g. sendfile).',
+          text: 'Adopting a shared-nothing, shard-per-core architecture where each CPU core owns partitioned state exclusively and communicates via lock-free ring buffers or cache-line-aligned (64-byte padded) atomics.',
           isCorrect: true,
-          explanation: 'Non-blocking I/O event loops multiplex thousands of connections per worker thread, eliminating thread context-switching overhead and disk-to-socket memory copy cycles.',
+          explanation: 'Eliminating cross-core mutex locks and padding concurrent counters to 64-byte CPU cache lines prevents MESI cache invalidation storms across cores.',
         },
         {
           id: 'B',
-          text: 'Spawning one dedicated OS thread per incoming network connection without bounds.',
+          text: 'Replacing fine-grained locks with a single global process-wide mutex lock.',
           isCorrect: false,
-          explanation: 'Thread-per-connection architectures cause severe thread contention, high memory overhead per thread stack, and catastrophic context-switching churn.',
+          explanation: 'A global lock serializes all 64 cores into single-threaded execution (Amdahl’s Law bottleneck).',
         },
         {
           id: 'C',
-          text: 'Disabling all caching layers and querying spinning hard drives directly.',
+          text: 'Disabling CPU L1, L2, and L3 hardware caches in the BIOS.',
           isCorrect: false,
-          explanation: 'Disk I/O without caching increases latency by orders of magnitude.',
+          explanation: 'Disabling CPU caches degrades instruction execution speed by 100x.',
         },
         {
           id: 'D',
-          text: 'Compressing all network payloads with maximum level gzip compression on every micro-packet.',
+          text: 'Running 10,000 threads per core with continuous spinlocks.',
           isCorrect: false,
-          explanation: 'Max level gzip consumes excessive CPU cycles and increases serialization latency for micro-packets.',
+          explanation: 'Excessive spinlocking threads saturate CPU cores with wasted cycles and scheduler thrashing.',
         },
       ],
-      explanation: 'Modern high-throughput engines rely on non-blocking event loops, kernel zero-copy transfers, and amortizing network and disk syscalls across batched requests.',
-      coachingTip: 'The fastest I/O is the I/O you never execute. Use connection pooling, pagecache zero-copy, and smart batching to keep CPU caches hot.',
+      explanation: 'By Amdahl’s Law and Universal Scalability Law (USL), cross-core coherence chatter causes retrograde throughput at high core counts. Shard-per-core designs achieve near-linear scaling.',
+      coachingTip: 'Remember the Universal Scalability Law: Contention flattens throughput, while Coherence delay (cache-line bouncing) actually makes throughput DROP as you add more cores!',
     };
   }
 
   // 6. Concurrency, Failure Modes & Bottlenecks Theme
   if (subLower.includes('failure') || subLower.includes('bottleneck') || subLower.includes('edge case') || subLower.includes('concurrency')) {
+    if (isReinforcement) {
+      return {
+        conceptTitle: `Exponential Backoff with Full Jitter & Retry Storm Prevention in ${cleanSubtopic}`,
+        difficulty: 'pro',
+        questionText: `Let's solidify resilience engineering in "${cleanSubtopic}": When a downstream cluster recovers from a 30-second brownout, why do fixed-interval retries (or un-jittered exponential backoff) from 10,000 clients immediately crash the recovering service again?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Clients remain synchronized in lockstep waves ("thundering herd"), hammering the recovering node simultaneously; adding Full Jitter (`random(0, min(cap, base * 2^attempt))`) desynchronizes load uniformly over time.',
+            isCorrect: true,
+            explanation: 'Without randomness (jitter), exponential backoff merely spaces out synchronized traffic spikes (at 1s, 2s, 4s, 8s). Full jitter spreads client retries evenly across the entire backoff interval.',
+          },
+          {
+            id: 'B',
+            text: 'Exponential multiplication overflows 64-bit floating-point registers on the first retry.',
+            isCorrect: false,
+            explanation: 'Capped backoff intervals stay well within standard integer ranges.',
+          },
+          {
+            id: 'C',
+            text: 'Fixed retries permanently corrupt TLS certificates on the load balancer.',
+            isCorrect: false,
+            explanation: 'Retries create traffic volume spikes, not cryptographic certificate corruption.',
+          },
+          {
+            id: 'D',
+            text: 'Servers reject any request that arrives on an even-numbered second.',
+            isCorrect: false,
+            explanation: 'Servers fail due to synchronized concurrency saturation, not timestamp parity.',
+          },
+        ],
+        explanation: 'AWS architecture benchmarks prove that Exponential Backoff with Full Jitter reduces total server work and completion time by over 60% during contention recovery compared to un-jittered backoff.',
+        coachingTip: 'Combine Exponential Backoff + Full Jitter with a client-side Retry Budget (e.g. max 10% of requests can be retries) to prevent retry amplification!',
+      };
+    }
+
+    if (conceptIndex === 1) {
+      return {
+        conceptTitle: `Failure Modes & Graceful Degradation in ${cleanSubtopic}`,
+        difficulty: 'basic',
+        questionText: `During a sudden upstream dependency slowdown in "${cleanTopic}", what mechanism prevents downstream thread exhaustion and cascading system collapse?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Deploying a Circuit Breaker with bounded concurrency limits, explicit fallback defaults, and aggressive timeout thresholds.',
+            isCorrect: true,
+            explanation: 'When dependency latencies spike, circuit breakers trip open immediately, rejecting requests fast without occupying thread pools or connection sockets.',
+          },
+          {
+            id: 'B',
+            text: 'Extending all network timeouts to infinite so no requests ever fail.',
+            isCorrect: false,
+            explanation: 'Infinite timeouts tie up threads indefinitely, causing thread pool starvation and bringing down the entire application.',
+          },
+          {
+            id: 'C',
+            text: 'Immediately executing 10 tight retry attempts for every failed request without backoff.',
+            isCorrect: false,
+            explanation: 'Aggressive retries create a thundering herd that amplifies pressure and ensures total dependency failure.',
+          },
+          {
+            id: 'D',
+            text: 'Disabling all error logging and health check endpoints.',
+            isCorrect: false,
+            explanation: 'Hiding errors blinds operations and prevents automated recovery.',
+          },
+        ],
+        explanation: 'Fail fast, shed load, and isolate blast radius. Circuit breakers and bounded queues ensure that degraded dependencies do not drag down healthy upstream services.',
+        coachingTip: 'Always fail fast! A quick 503 error is 1,000x better than hanging for 60 seconds and hoarding threads until your server runs out of memory.',
+      };
+    }
+
+    if (conceptIndex === 2) {
+      return {
+        conceptTitle: `Bulkhead Isolation & Bounded Queue Load Shedding in ${cleanSubtopic}`,
+        difficulty: 'intermediate',
+        questionText: `In "${cleanSubtopic}", a microservice calls three downstream dependencies (Auth, Billing, Recommendations). If Recommendations slows down by 50x, how does the Bulkhead Pattern keep Auth and Billing 100% healthy?`,
+        options: [
+          {
+            id: 'A',
+            text: 'By partitioning connection pools, worker queues, and semaphores into isolated per-dependency compartments so a saturated Recommendations pool can never consume threads reserved for Auth or Billing.',
+            isCorrect: true,
+            explanation: 'Like watertight compartments in a ship hull, bulkheads ensure that resource exhaustion in one downstream client is strictly contained to its dedicated pool.',
+          },
+          {
+            id: 'B',
+            text: 'By merging all three services into a single shared unbounded thread pool.',
+            isCorrect: false,
+            explanation: 'A shared pool allows the slowest dependency to monopolize 100% of threads, starving all other dependencies.',
+          },
+          {
+            id: 'C',
+            text: 'By shutting down the entire API gateway whenever Recommendations returns an error.',
+            isCorrect: false,
+            explanation: 'Shutting down the gateway turns a partial non-critical degradation into a total outage.',
+          },
+          {
+            id: 'D',
+            text: 'By storing Billing data inside client browser localStorage.',
+            isCorrect: false,
+            explanation: 'Client storage does not solve server-side thread pool saturation.',
+          },
+        ],
+        explanation: 'Without bulkheads, any single slow dependency will drain the shared HTTP agent or worker pool and take down the entire service. Isolate pools per upstream dependency.',
+        coachingTip: 'Pair Bulkheads with LIFO queue shedding and CoDel (Controlled Delay) so stale requests waiting longer than the client timeout are dropped immediately!',
+      };
+    }
+
     return {
-      conceptTitle: `Failure Modes & Graceful Degradation in ${cleanSubtopic}`,
-      difficulty: conceptIndex === 1 ? 'basic' : conceptIndex === 2 ? 'intermediate' : 'advanced',
-      questionText: `During a sudden upstream dependency slowdown in "${cleanTopic}", what mechanism prevents downstream thread exhaustion and cascading system collapse?`,
+      conceptTitle: `Deadlock Prevention, Lock Ordering & Split-Brain Recovery in ${cleanSubtopic}`,
+      difficulty: 'advanced',
+      questionText: `When two concurrent workers in "${cleanSubtopic}" acquire locks on resources $R_1$ and $R_2$ in opposite orders ($T_A: R_1 \\rightarrow R_2$ vs $T_B: R_2 \\rightarrow R_1$), a circular wait deadlock occurs. Which architectural invariant deterministically prevents this deadlock?`,
       options: [
         {
           id: 'A',
-          text: 'Deploying a Circuit Breaker with bounded concurrency limits, explicit fallback defaults, and aggressive timeout thresholds.',
+          text: 'Enforcing a strict global total ordering on lock acquisition (e.g., always sorting resource IDs lexicographically before locking) combined with bounded lock lease timeouts.',
           isCorrect: true,
-          explanation: 'When dependency latencies spike, circuit breakers trip open immediately, rejecting requests fast without occupying thread pools or connection sockets.',
+          explanation: 'By Coffman’s deadlock conditions, enforcing a strict global acquisition order makes a circular wait cycle mathematically impossible.',
         },
         {
           id: 'B',
-          text: 'Extending all network timeouts to infinite so no requests ever fail.',
+          text: 'Increasing thread priority to real-time so locks are acquired faster.',
           isCorrect: false,
-          explanation: 'Infinite timeouts tie up threads indefinitely, causing thread pool starvation and bringing down the entire application.',
+          explanation: 'Faster execution actually increases the probability of hitting the race window that triggers the circular wait.',
         },
         {
           id: 'C',
-          text: 'Immediately executing 10 tight retry attempts for every failed request without backoff.',
+          text: 'Catching exceptions and ignoring failed unlock calls.',
           isCorrect: false,
-          explanation: 'Aggressive retries create a thundering herd that amplifies pressure and ensures total dependency failure.',
+          explanation: 'Swallowing unlock errors leaves locks permanently orphaned, worsening deadlocks.',
         },
         {
           id: 'D',
-          text: 'Disabling all error logging and health check endpoints.',
+          text: 'Adding a 500ms sleep between acquiring R1 and R2.',
           isCorrect: false,
-          explanation: 'Hiding errors blinds operations and prevents automated recovery.',
+          explanation: 'Sleeping while holding R1 widens the window during which another worker acquires R2, guaranteeing a deadlock.',
         },
       ],
-      explanation: 'Fail fast, shed load, and isolate blast radius. Circuit breakers and bounded queues ensure that degraded dependencies do not drag down healthy upstream services.',
-      coachingTip: 'Always fail fast! A quick 503 error is 1,000x better than hanging for 60 seconds and hoarding threads until your server runs out of memory.',
+      explanation: 'Deadlocks require four simultaneous Coffman conditions (Mutual Exclusion, Hold and Wait, No Preemption, Circular Wait). Deterministic lock ordering eliminates Circular Wait completely.',
+      coachingTip: 'Whenever locking multiple entities (e.g. transferring funds between Account A and Account B), always lock `min(idA, idB)` first and `max(idA, idB)` second!',
     };
   }
 
   // 7. Staff-Level Trade-offs & Architecture Theme
   if (subLower.includes('staff') || subLower.includes('trade-off') || subLower.includes('leadership')) {
+    if (isReinforcement) {
+      return {
+        conceptTitle: `Staff-Level Reliability Governance & Error Budgets: ${cleanSubtopic}`,
+        difficulty: 'pro',
+        questionText: `Let's reinforce Staff-level architectural governance for "${cleanTopic}": When a service exhausts its monthly 99.95% SLO Error Budget (21.6 minutes of downtime) due to rapid feature deployments, what policy balances innovation velocity with production stability?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Enforce an automated Error Budget policy: freeze non-urgent feature rollouts and redirect engineering capacity to resilience, automated canary rollback gates, and P0 postmortem remediation until the rolling SLO recovers.',
+            isCorrect: true,
+            explanation: 'Error budgets convert reliability conflicts between Product and SRE into an objective data-driven control loop.',
+          },
+          {
+            id: 'B',
+            text: 'Delete all monitoring alerts so future outages are not recorded against the SLA.',
+            isCorrect: false,
+            explanation: 'Hiding metrics violates engineering ethics and causes customer-facing outages to go undetected.',
+          },
+          {
+            id: 'C',
+            text: 'Permanently ban all code deployments for the next 5 years.',
+            isCorrect: false,
+            explanation: 'Freezing all changes indefinitely halts business value and prevents deploying bug fixes.',
+          },
+          {
+            id: 'D',
+            text: 'Deploy features directly to production without running unit or integration tests.',
+            isCorrect: false,
+            explanation: 'Skipping verification accelerates error budget exhaustion.',
+          },
+        ],
+        explanation: 'At the Staff+ level, architecture includes socio-technical feedback loops: SLOs, error budgets, progressive canary rollouts, and blameless postmortems.',
+        coachingTip: 'Frame Staff trade-offs around measurable business SLAs (RPO, RTO, p99 latency, and Error Budgets) rather than subjective preferences.',
+      };
+    }
+
+    if (conceptIndex === 1) {
+      return {
+        conceptTitle: `Staff-Level Architectural Trade-offs: ${cleanSubtopic}`,
+        difficulty: 'basic',
+        questionText: `As a Staff Architect evaluating a mission-critical persistence layer for "${cleanTopic}", how do you evaluate the fundamental trade-off between Synchronous Multi-Region Replication vs Asynchronous Replication?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Synchronous replication guarantees Recovery Point Objective (RPO) = 0 (zero data loss) across region failures, but forces write latencies to absorb cross-region speed-of-light network round trips (e.g. 50-80ms p99 write penalty).',
+            isCorrect: true,
+            explanation: 'Physics dictates cross-region packet latency. Synchronous replication guarantees zero data loss (RPO=0) at the expense of write latency, whereas asynchronous replication offers low local latency with the risk of loss during ungraceful failover.',
+          },
+          {
+            id: 'B',
+            text: 'Synchronous replication executes faster than local memory cache reads.',
+            isCorrect: false,
+            explanation: 'Cross-region network transit is limited by the speed of light in fiber and is thousands of times slower than local RAM.',
+          },
+          {
+            id: 'C',
+            text: 'Asynchronous replication guarantees zero data loss under any power outage.',
+            isCorrect: false,
+            explanation: 'If the primary datacenter suffers sudden total failure before replicating pending WAL buffers, those records are lost.',
+          },
+          {
+            id: 'D',
+            text: 'Database sharding eliminates all speed-of-light networking constraints.',
+            isCorrect: false,
+            explanation: 'Sharding distributes data volume across nodes, but cross-region consensus still obeys networking physics.',
+          },
+        ],
+        explanation: 'Staff engineering decisions are defined by navigating fundamental trade-offs: RPO=0 zero data loss requires synchronous quorum at the cost of cross-region latency.',
+        coachingTip: 'There are no silver bullets in distributed systems—only carefully chosen trade-offs aligned with real business SLAs and physics.',
+      };
+    }
+
+    if (conceptIndex === 2) {
+      return {
+        conceptTitle: `Cell-Based Architecture & Blast Radius Containment: ${cleanSubtopic}`,
+        difficulty: 'intermediate',
+        questionText: `To prevent a poison-pill request or noisy enterprise tenant from taking down a global multi-tenant deployment of "${cleanTopic}", why do Staff Architects partition infrastructure into independent "Cells" (Cell-Based Architecture)?`,
+        options: [
+          {
+            id: 'A',
+            text: 'Each Cell is a self-contained, independently deployable stack serving a bounded subset of tenants (e.g. 5% of traffic) with zero shared state across cells, capping the maximum blast radius of any failure.',
+            isCorrect: true,
+            explanation: 'In a monolithic global cluster, a control-plane bug or retry storm impacts 100% of customers. Cell isolation caps the worst-case failure to a single cell and enables cell-by-cell canary rollouts.',
+          },
+          {
+            id: 'B',
+            text: 'Cell-based architecture puts all customer databases onto a single shared SQLite file.',
+            isCorrect: false,
+            explanation: 'Sharing a single database file creates a single point of failure with a 100% blast radius.',
+          },
+          {
+            id: 'C',
+            text: 'Cell-based architecture requires customers to host their own physical routers.',
+            isCorrect: false,
+            explanation: 'A thin stateless cell router directs tenant traffic transparently in the cloud.',
+          },
+          {
+            id: 'D',
+            text: 'Cells eliminate the need for authentication or authorization.',
+            isCorrect: false,
+            explanation: 'Security and tenant isolation remain mandatory within every cell.',
+          },
+        ],
+        explanation: 'Cell-based architecture (used by AWS, Slack, and Stripe) bounds maximum scale per cluster and guarantees that even a catastrophic cluster-wide failure only affects a small fraction of tenants.',
+        coachingTip: 'Combine Cell-Based Architecture with Shuffle Sharding to reduce noisy-neighbor collision probability by orders of magnitude!',
+      };
+    }
+
     return {
-      conceptTitle: `Staff-Level Architectural Trade-offs: ${cleanSubtopic}`,
-      difficulty: 'pro',
-      questionText: `As a Staff Architect evaluating a mission-critical persistence layer for "${cleanTopic}", how do you evaluate the fundamental trade-off between Synchronous Multi-Region Replication vs Asynchronous Replication?`,
+      conceptTitle: `Zero-Downtime Expand-and-Contract Migrations: ${cleanSubtopic}`,
+      difficulty: 'advanced',
+      questionText: `When evolving a critical data schema or RPC contract in "${cleanTopic}" across 200 live production instances without downtime, why must engineers follow the "Expand and Contract" (Parallel Change) pattern?`,
       options: [
         {
           id: 'A',
-          text: 'Synchronous replication guarantees Recovery Point Objective (RPO) = 0 (zero data loss) across region failures, but forces write latencies to absorb cross-region speed-of-light network round trips (e.g. 50-80ms p99 write penalty).',
+          text: 'During rolling deployments, old (v1) and new (v2) code versions run concurrently; Expand-and-Contract first adds backward-compatible dual-write/read support before deprecating legacy fields in a later release.',
           isCorrect: true,
-          explanation: 'Physics dictates cross-region packet latency. Synchronous replication guarantees zero data loss (RPO=0) at the expense of write latency, whereas asynchronous replication offers low local latency with the risk of loss during ungraceful failover.',
+          explanation: 'Renaming or dropping a column/field in a single deployment breaks active v1 instances immediately. Expanding first, migrating readers/backfilling, and contracting last guarantees zero-downtime compatibility.',
         },
         {
           id: 'B',
-          text: 'Synchronous replication executes faster than local memory cache reads.',
+          text: 'Taking a 4-hour maintenance window every afternoon is required by TCP/IP.',
           isCorrect: false,
-          explanation: 'Cross-region network transit is limited by the speed of light in fiber and is thousands of times slower than local RAM.',
+          explanation: 'Modern cloud systems achieve continuous zero-downtime deployments via backward/forward compatibility.',
         },
         {
           id: 'C',
-          text: 'Asynchronous replication guarantees zero data loss under any power outage.',
+          text: 'Dropping and recreating production tables on every git commit is safe.',
           isCorrect: false,
-          explanation: 'If the primary datacenter suffers sudden total failure before replicating pending WAL buffers, those records are lost.',
+          explanation: 'Dropping production tables destroys live customer data.',
         },
         {
           id: 'D',
-          text: 'Database sharding eliminates all speed-of-light networking constraints.',
+          text: 'All 200 servers can be updated simultaneously in 0 nanoseconds without network skew.',
           isCorrect: false,
-          explanation: 'Sharding distributes data volume across nodes, but cross-region consensus still obeys networking physics.',
+          explanation: 'Distributed deployments always have a mixed-version window where v1 and v2 coexist.',
         },
       ],
-      explanation: 'Staff engineering decisions are defined by navigating fundamental trade-offs: RPO=0 zero data loss requires synchronous quorum at the cost of cross-region latency.',
-      coachingTip: 'There are no silver bullets in distributed systems—only carefully chosen trade-offs aligned with real business SLAs and physics.',
+      explanation: 'Zero-downtime evolution requires 4 phases: 1) Expand schema (nullable/additive), 2) Dual-write v1 + v2 and backfill historical records, 3) Switch reads to v2, 4) Contract (remove v1 code and columns).',
+      coachingTip: 'Never make a breaking schema or API change in a single step—always ensure version N is compatible with version N-1!',
     };
   }
 
@@ -1435,17 +2048,57 @@ function buildProceduralQuestion(
 /**
  * Returns a tailored, concept-specific QBL question.
  * Dynamically routes to subtopic-specific synthesis to ensure
- * every concept across all 5 subtopics receives distinct, deep questions.
+ * every concept across all subtopics receives distinct, deep questions.
  */
 export function getCatalogQuestion(
   topicName: string,
   subtopicTitle: string,
-  conceptIndex: number, // 1, 2, or 3
+  conceptIndex: number, // 1, 2, or 3+
   isReinforcement: boolean,
-  previousMistake?: string
+  previousMistake?: string,
+  existingQuestions?: string[]
 ): QBLQuestion {
   const normTopic = topicName.toLowerCase();
   const normSub = subtopicTitle.toLowerCase();
+
+  // Route Node.js subjects directly to the rich NodeJSDomain question bank
+  if (
+    normTopic.includes('node.js') ||
+    normTopic.includes('nodejs') ||
+    normTopic.includes('libuv') ||
+    normTopic === 'node' ||
+    normSub.includes('libuv') ||
+    normSub.includes('nexttick') ||
+    normSub.includes('worker_threads')
+  ) {
+    const nodePartial = getNodeJSQuestion(conceptIndex, {
+      subjectTitle: topicName,
+      subtopicTitle,
+      isReinforcement,
+      existingQuestions,
+    });
+    return {
+      id: nodePartial.id || `q_node_${Date.now()}_${conceptIndex}`,
+      conceptTitle: nodePartial.conceptTitle || subtopicTitle,
+      conceptIndex,
+      questionText: nodePartial.questionText || '',
+      options: nodePartial.options || [],
+      explanation: nodePartial.explanation || '',
+      coachingTip: nodePartial.coachingTip,
+      isReinforcement,
+      difficulty: nodePartial.difficulty || (isReinforcement ? 'pro' : conceptIndex === 3 ? 'advanced' : conceptIndex === 2 ? 'intermediate' : 'basic'),
+      cognitiveLevel: nodePartial.cognitiveLevel,
+      questionType: nodePartial.questionType,
+      expectedAnswer: nodePartial.expectedAnswer,
+      hints: nodePartial.hints,
+      sourceReference: nodePartial.sourceReference,
+      subject: nodePartial.subject,
+      chapter: nodePartial.chapter,
+      topic: nodePartial.topic,
+      subtopic: nodePartial.subtopic,
+    };
+  }
+
   let matchedTrackKey: string | null = null;
 
   for (const trackKey of Object.keys(TRACK_QUESTIONS)) {
@@ -1479,6 +2132,20 @@ export function getCatalogQuestion(
   } else {
     // Generate high-grade procedural question tailored to this specific subtopic & concept
     template = buildProceduralQuestion(topicName, subtopicTitle, conceptIndex, isReinforcement, previousMistake);
+  }
+
+  // Ensure zero duplicate questions if existingQuestions is provided
+  if (existingQuestions && existingQuestions.length > 0) {
+    const existingSet = new Set(existingQuestions.map(q => q.trim()));
+    if (existingSet.has(template.questionText.trim())) {
+      for (const altConcept of [1, 2, 3]) {
+        const candidate = buildProceduralQuestion(topicName, subtopicTitle, altConcept, !isReinforcement, previousMistake);
+        if (!existingSet.has(candidate.questionText.trim())) {
+          template = candidate;
+          break;
+        }
+      }
+    }
   }
 
   const options: QBLOption[] = template.options.map((opt) => ({

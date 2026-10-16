@@ -1,74 +1,78 @@
 /**
- * Notion-Inspired Design System Color Tokens
- * Warm charcoal canvas, refined borders, crisp typography, and iconic Notion pastel accents
+ * Studio Design System — Color Tokens
+ * Inspired by Linear, Raycast & Vercel Geist Dark:
+ * Deep obsidian carbon canvas, whisper-quiet hairline borders, high-contrast off-white typography,
+ * and restrained, purposeful semantic accents.
  */
 
 export const colors = {
-  // Notion Dark Surfaces & Canvas
-  background: '#191919',           // Notion dark mode background (warm charcoal)
-  surface: '#202020',              // Notion elevated surface (sidebar, headers, panels)
-  cardBackground: '#252525',       // Notion card / callout / block background
-  cardBorder: '#2E2E2E',           // Notion subtle border (1px solid, clean)
-  elevatedBackground: '#2A2A2A',   // Notion dropdown, modal, popped surface
-  surfaceHover: '#333333',         // Notion hover / active item highlight
-  divider: '#2E2E2E',              // Notion divider line
+  // Core Surfaces & Canvas (Zinc / Obsidian Dark Scale)
+  background: '#09090B',           // Deep carbon canvas
+  surface: '#101014',              // Elevated navigation bar, dock, and sheet surface
+  cardBackground: '#141419',       // Primary card / block surface
+  cardBorder: '#22222A',           // Crisp 1px structural hairline border
+  borderSubtle: '#1A1A22',         // Subtle internal divider
+  borderStrong: '#2E2E3A',         // Stronger interactive control border
+  elevatedBackground: '#191920',   // Inset wells, modals, secondary containers
+  surfaceHover: '#1E1E27',         // Interactive row / button surface
+  divider: '#1D1D25',              // Hairline separator
 
-  // Notion Typography
-  textPrimary: '#FFFFFF',          // High-contrast clean white
-  textSecondary: '#9B9B9B',        // Notion secondary body / muted text
-  textTertiary: '#737373',         // Notion placeholder / subtle timestamp text
-  textInverse: '#191919',          // For bright CTA button text
+  // Typography Hierarchy
+  textPrimary: '#F4F4F6',          // Crisp, comfortable off-white
+  textSecondary: '#9E9EA9',        // Balanced neutral slate-gray for body copy
+  textTertiary: '#656572',         // Muted metadata, captions, and placeholders
+  textInverse: '#09090B',          // Dark text on bright surfaces
 
-  // Notion Iconic Pastel Accent Colors
-  notionBlue: '#2383E2',           // Notion primary link / interactive blue
-  notionBlueLight: '#529CCA',      // Notion dark-theme blue accent
-  notionBlueBg: 'rgba(35, 131, 226, 0.15)', // Notion blue tag background
+  // Studio Accent Palette (Mapped to existing keys for full compatibility)
+  notionBlue: '#4F6EF7',           // Primary interactive Cobalt-Indigo
+  notionBlueLight: '#7B93FF',      // Soft luminous indigo-blue for text & icons on dark
+  notionBlueBg: 'rgba(79, 110, 247, 0.12)',
 
-  notionGreen: '#4E9D6D',          // Notion green (success, mastered, positive)
-  notionGreenBg: 'rgba(78, 157, 109, 0.15)',
+  notionGreen: '#10B981',          // Semantic Emerald (verified, mastered, optimal)
+  notionGreenBg: 'rgba(16, 185, 129, 0.11)',
 
-  notionYellow: '#DFAB01',         // Notion yellow / gold (stars, levels, warnings)
-  notionYellowBg: 'rgba(223, 171, 1, 0.15)',
+  notionYellow: '#F59E0B',         // Warm Amber-Gold (levels, highlights)
+  notionYellowBg: 'rgba(245, 158, 11, 0.11)',
 
-  notionOrange: '#D9730D',         // Notion orange (in-progress, learning XP)
-  notionOrangeBg: 'rgba(217, 115, 13, 0.15)',
+  notionOrange: '#F97316',         // Signal Orange (reinforcement, focus areas)
+  notionOrangeBg: 'rgba(249, 115, 22, 0.11)',
 
-  notionPurple: '#9D68D3',         // Notion purple (system, staff, advanced)
-  notionPurpleBg: 'rgba(157, 104, 211, 0.15)',
+  notionPurple: '#8B5CF6',         // Architectural Violet (staff/principal tier)
+  notionPurpleBg: 'rgba(139, 92, 246, 0.12)',
 
-  notionPink: '#C14C8A',           // Notion pink
-  notionPinkBg: 'rgba(193, 76, 138, 0.15)',
+  notionPink: '#EC4899',           // Accent Rose
+  notionPinkBg: 'rgba(236, 72, 153, 0.11)',
 
-  notionRed: '#EB5757',            // Notion red (mistakes, danger, traps)
-  notionRedBg: 'rgba(235, 87, 87, 0.15)',
+  notionRed: '#F43F5E',            // Crimson Rose (traps, critical gaps, errors)
+  notionRedBg: 'rgba(244, 63, 94, 0.11)',
 
-  notionGray: '#787774',           // Notion neutral gray
-  notionGrayBg: 'rgba(255, 255, 255, 0.08)',
+  notionGray: '#71717A',           // Neutral Zinc
+  notionGrayBg: 'rgba(255, 255, 255, 0.06)',
 
-  // Semantic & Interactive mappings
-  accentPrimary: '#2383E2',        // Notion primary action blue
-  accentHover: '#1B6EC2',
-  accentSubtle: 'rgba(35, 131, 226, 0.15)',
+  // Semantic & Interactive Mappings
+  accentPrimary: '#4F6EF7',
+  accentHover: '#3E5BE0',
+  accentSubtle: 'rgba(79, 110, 247, 0.12)',
 
-  successGreen: '#4E9D6D',
-  errorRed: '#EB5757',
-  warningAmber: '#D9730D',
+  successGreen: '#10B981',
+  errorRed: '#F43F5E',
+  warningAmber: '#F59E0B',
 
-  // Dynamic Voice Orb & State Colors
-  listeningCyan: '#529CCA',
-  listeningGlow: 'rgba(82, 156, 202, 0.25)',
+  // Dynamic Voice Orb & Conversational State Tokens
+  listeningCyan: '#7B93FF',
+  listeningGlow: 'rgba(123, 147, 255, 0.22)',
 
-  speakingEmerald: '#4E9D6D',
-  speakingGlow: 'rgba(78, 157, 109, 0.25)',
+  speakingEmerald: '#10B981',
+  speakingGlow: 'rgba(16, 185, 129, 0.22)',
 
-  thinkingViolet: '#9D68D3',
-  thinkingGlow: 'rgba(157, 104, 211, 0.25)',
+  thinkingViolet: '#8B5CF6',
+  thinkingGlow: 'rgba(139, 92, 246, 0.22)',
 
-  interruptedAmber: '#D9730D',
-  interruptedGlow: 'rgba(217, 115, 13, 0.25)',
+  interruptedAmber: '#F59E0B',
+  interruptedGlow: 'rgba(245, 158, 11, 0.22)',
 
-  // Radar Analytics
-  radarPolygonFill: 'rgba(35, 131, 226, 0.25)',
-  radarPolygonStroke: '#529CCA',
-  radarGrid: '#2E2E2E',
+  // Radar & Competency Analytics
+  radarPolygonFill: 'rgba(79, 110, 247, 0.22)',
+  radarPolygonStroke: '#7B93FF',
+  radarGrid: '#23232C',
 };

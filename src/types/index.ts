@@ -374,7 +374,14 @@ export interface QBLSubtopic {
   difficulty?: QBLDifficulty;
   learningObjective?: string;
   chapterId?: string;
+  chapterTitle?: string;
   topicId?: string;
+  topicTitle?: string;
+}
+
+export interface QBLSessionOptions {
+  mode?: 'standard' | 'zero_to_hero';
+  conceptsPerSubtopic?: number;
 }
 
 /**
@@ -442,6 +449,7 @@ export interface QBLSession {
   overallMasteryPercentage: number;
   createdAt: number;
   updatedAt: number;
+  mode?: 'standard' | 'zero_to_hero';
 }
 
 export interface QBLTurnResult {

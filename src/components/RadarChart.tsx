@@ -1,6 +1,6 @@
 /**
  * Multi-Axis Radar Chart Component
- * Visualizes candidate mastery across 5-6 core engineering disciplines using SVG
+ * Visualizes candidate mastery across 5-6 core engineering disciplines using precision SVG geometry
  */
 
 import React from 'react';
@@ -25,32 +25,41 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 260 }) =>
 
   const totalAxes = displaySkills.length;
   const center = size / 2;
-  const maxRadius = size * 0.38;
+  const maxRadius = size * 0.30;
 
-  // Compute polygon points for candidate scores
   const scorePoints = displaySkills.map((item, index) => {
     const angle = (Math.PI * 2 / totalAxes) * index - Math.PI / 2;
-    const radius = (item.current_score / 100) * maxRadius;
+    const radius = (Math.max(12, item.current_score) / 100) * maxRadius;
     const x = center + radius * Math.cos(angle);
     const y = center + radius * Math.sin(angle);
     return `${x},${y}`;
   }).join(' ');
 
-  // Compute grid circles / webs (25%, 50%, 75%, 100%)
   const gridLevels = [0.25, 0.5, 0.75, 1.0];
+
+  const getGridPolygonPoints = (level: number) => {
+    return displaySkills
+      .map((_, index) => {
+        const angle = ((Math.PI * 2) / totalAxes) * index - Math.PI / 2;
+        const r = maxRadius * level;
+        const x = center + r * Math.cos(angle);
+        const y = center + r * Math.sin(angle);
+        return `${x},${y}`;
+      })
+      .join(' ');
+  };
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
       <Svg width={size} height={size}>
-        {/* Background Web Rings */}
+        {/* Concentric Polygonal Web Rings */}
         {gridLevels.map((lvl, idx) => (
-          <Circle
+          <Polygon
             key={idx}
-            cx={center}
-            cy={center}
-            r={maxRadius * lvl}
+            points={getGridPolygonPoints(lvl)}
             stroke={colors.radarGrid}
-            strokeWidth="1"
+            strokeWidth={idx === gridLevels.length - 1 ? '1.25' : '1'}
+            strokeDasharray={idx < gridLevels.length - 1 ? '3, 3' : undefined}
             fill="none"
           />
         ))}
@@ -78,37 +87,47 @@ export const RadarChart: React.FC<RadarChartProps> = ({ skills, size = 260 }) =>
           points={scorePoints}
           fill={colors.radarPolygonFill}
           stroke={colors.radarPolygonStroke}
-          strokeWidth="2.5"
+          strokeWidth="2"
         />
 
         {/* Data Point Nodes */}
         {displaySkills.map((item, index) => {
           const angle = (Math.PI * 2 / totalAxes) * index - Math.PI / 2;
-          const radius = (item.current_score / 100) * maxRadius;
+          const radius = (Math.max(12, item.current_score) / 100) * maxRadius;
           const x = center + radius * Math.cos(angle);
           const y = center + radius * Math.sin(angle);
           return (
-            <Circle
-              key={index}
-              cx={x}
-              cy={y}
-              r="4"
-              fill={colors.radarPolygonStroke}
-            />
+            <React.Fragment key={index}>
+              <Circle
+                cx={x}
+                cy={y}
+                r="4.5"
+                fill={colors.radarPolygonStroke}
+              />
+              <Circle
+                cx={x}
+                cy={y}
+                r="2"
+                fill={colors.background}
+              />
+            </React.Fragment>
           );
         })}
       </Svg>
 
-      {/* Axis Labels */}
+      {/* Axis Labels with generous width & 2-line support to prevent truncation */}
       {displaySkills.map((item, index) => {
         const angle = (Math.PI * 2 / totalAxes) * index - Math.PI / 2;
-        const labelRadius = maxRadius + 22;
-        const x = center + labelRadius * Math.cos(angle) - 40;
-        const y = center + labelRadius * Math.sin(angle) - 10;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const labelRadius = maxRadius + 30;
+        const labelWidth = 96;
+        const x = center + labelRadius * cosA - labelWidth / 2;
+        const y = center + labelRadius * sinA - (Math.abs(sinA) > 0.8 ? (sinA < 0 ? 18 : 6) : 14);
 
         return (
-          <View key={index} style={[styles.labelWrapper, { left: x, top: y }]}>
-            <Text style={styles.labelText} numberOfLines={1}>
+          <View key={index} style={[styles.labelWrapper, { width: labelWidth, left: x, top: y }]}>
+            <Text style={styles.labelText} numberOfLines={2}>
               {item.skill_name}
             </Text>
             <Text style={styles.scoreText}>
@@ -127,22 +146,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginVertical: 8,
+    marginVertical: 4,
   },
   labelWrapper: {
     position: 'absolute',
-    width: 80,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   labelText: {
     color: colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 14,
+    letterSpacing: -0.1,
   },
   scoreText: {
-    color: colors.textTertiary,
-    fontSize: 9,
+    color: colors.notionBlueLight,
+    fontSize: 11,
     fontWeight: '700',
+    marginTop: 1,
+    fontVariant: ['tabular-nums'],
   },
 });

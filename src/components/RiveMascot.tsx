@@ -19,7 +19,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   state = 'READY',
   emotion,
   audioLevel = 0,
-  size = 280,
+  size = 240,
   onPress,
   showMascotBadge = true,
   mascotType = 'teddy',
@@ -35,7 +35,6 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   const isInterrupted = emotion ? emotion === 'puzzled' : state === 'INTERRUPTED';
   const isCompleted = emotion ? emotion === 'celebrating' : state === 'COMPLETED';
 
-  // 1. Handle declarative/imperative updates for state machine & animations
   useEffect(() => {
     if (!isRiveReady || !riveRef.current) return;
 
@@ -46,34 +45,27 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
         if (tag === null) return;
 
         if (isSpeaking) {
-          // Teddy Talking animation: animate mouth moving
           riveRef.current.setInputState('State Machine 1', 'Talk', true);
           riveRef.current.setInputState('State Machine 1', 'Hear', false);
           riveRef.current.setInputState('State Machine 1', 'Check', false);
         } else if (isListening) {
-          // Teddy Hearing/Listening animation: attentively listening to candidate
           riveRef.current.setInputState('State Machine 1', 'Talk', false);
           riveRef.current.setInputState('State Machine 1', 'Hear', true);
           riveRef.current.setInputState('State Machine 1', 'Check', false);
-          // Gaze reacts dynamically to candidate audio level (10 to 90 degrees)
           const lookAngle = Math.min(90, Math.max(10, 50 + (audioLevel - 0.5) * 60));
           riveRef.current.setInputState('State Machine 1', 'Look', Math.round(lookAngle));
         } else if (isThinking) {
-          // Teddy Thinking animation: contemplative check pose
           riveRef.current.setInputState('State Machine 1', 'Talk', false);
           riveRef.current.setInputState('State Machine 1', 'Hear', false);
           riveRef.current.setInputState('State Machine 1', 'Check', true);
           riveRef.current.setInputState('State Machine 1', 'Look', 25);
         } else if (isInterrupted) {
-          // Interrupted: puzzled / surprise trigger
           riveRef.current.setInputState('State Machine 1', 'Talk', false);
           riveRef.current.fireState('State Machine 1', 'fail');
         } else if (isCompleted) {
-          // Completed: celebratory success gesture
           riveRef.current.setInputState('State Machine 1', 'Talk', false);
           riveRef.current.fireState('State Machine 1', 'success');
         } else {
-          // Idle state
           riveRef.current.setInputState('State Machine 1', 'Talk', false);
           riveRef.current.setInputState('State Machine 1', 'Hear', false);
           riveRef.current.setInputState('State Machine 1', 'Check', false);
@@ -86,7 +78,6 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
     return () => clearTimeout(timer);
   }, [isRiveReady, state, isSpeaking, isListening, isThinking, isInterrupted, isCompleted, audioLevel, mascotType]);
 
-  // Periodic head/gaze motion while speaking
   useEffect(() => {
     if (!isRiveReady || !isSpeaking) return;
 
@@ -115,8 +106,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
     };
   }, [isRiveReady, isSpeaking]);
 
-  // Glow border color based on conversational state
-  const stateBorderColor = isSpeaking
+  const stateAccentColor = isSpeaking
     ? colors.speakingEmerald
     : isListening
     ? colors.listeningCyan
@@ -124,21 +114,33 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
     ? colors.thinkingViolet
     : isInterrupted
     ? colors.interruptedAmber
-    : 'rgba(99, 102, 241, 0.4)';
+    : colors.cardBorder;
+
+  const dotColor = isSpeaking
+    ? colors.speakingEmerald
+    : isListening
+    ? colors.listeningCyan
+    : isThinking
+    ? colors.thinkingViolet
+    : isInterrupted
+    ? colors.interruptedAmber
+    : colors.notionBlueLight;
 
   const mascotTagText = isSpeaking
-    ? '🎙️ Intervity Coach Speaking'
+    ? 'Interviewer Speaking'
     : isListening
-    ? '👂 Attentively Listening...'
+    ? 'Listening Active'
     : isThinking
-    ? '🧠 Analyzing System Architecture...'
+    ? 'Evaluating Response'
     : isInterrupted
-    ? '⚡ Yielding Turn (Barge-In)'
-    : '✨ AI Mentor Ready';
+    ? 'Yielding Turn'
+    : 'Mentor Ready';
+
+  const dynamicRadius = Math.max(12, Math.min(28, Math.round(size * 0.22)));
 
   if (isFullScreen) {
     return (
-      <View style={[styles.fullScreenContainer, { backgroundColor: mascotType === 'teddy' ? '#d6e2ea' : '#0B0F19' }]}>
+      <View style={[styles.fullScreenContainer, { backgroundColor: mascotType === 'teddy' ? '#d6e2ea' : colors.background }]}>
         <TouchableOpacity
           activeOpacity={1}
           onPress={onPress}
@@ -175,13 +177,12 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
             </View>
           )}
 
-          {/* Ambient state glow at the edges of the full screen */}
           {(isSpeaking || isListening) && (
             <View
               style={[
                 styles.fullScreenGlowRing,
                 {
-                  borderColor: stateBorderColor,
+                  borderColor: stateAccentColor,
                   opacity: Math.min(0.85, 0.2 + (audioLevel || 0.15)),
                 },
               ]}
@@ -193,17 +194,18 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
   }
 
   return (
-    <View style={[styles.outerContainer, { width: size, height: size + (showMascotBadge ? 42 : 0) }]}>
+    <View style={[styles.outerContainer, { width: size, height: size + (showMascotBadge ? 38 : 0) }]}>
       <TouchableOpacity
-        activeOpacity={0.88}
+        activeOpacity={0.9}
         onPress={onPress}
+        disabled={!onPress}
         style={[
           styles.mascotCard,
           {
             width: size,
             height: size,
-            borderColor: stateBorderColor,
-            shadowColor: stateBorderColor,
+            borderRadius: dynamicRadius,
+            borderColor: stateAccentColor,
           },
         ]}
       >
@@ -213,7 +215,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
             resourceName={mascotType === 'coach' ? 'mascot' : 'teddy'}
             stateMachineName="State Machine 1"
             artboardName="Artboard"
-            fit={Fit.Contain}
+            fit={Fit.Cover}
             alignment={Alignment.Center}
             autoplay={true}
             onPlay={() => setIsRiveReady(true)}
@@ -224,26 +226,24 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
             style={styles.riveView}
           />
         ) : (
-          // Elegant vector fallback in case Rive engine fails
           <View style={styles.fallbackContainer}>
             <Image
               source={require('../assets/images/teddy_logo.png')}
-              style={{ width: size * 0.72, height: size * 0.72, borderRadius: (size * 0.72) / 2 }}
+              style={{ width: size * 0.76, height: size * 0.76, borderRadius: (size * 0.76) / 2 }}
               resizeMode="cover"
             />
-            <Text style={styles.fallbackName}>Teddy</Text>
           </View>
         )}
 
-        {/* Ambient halo ring for speaking & listening biofeedback */}
         {(isSpeaking || isListening) && (
           <View
             style={[
               styles.audioPulseRing,
               {
-                borderColor: stateBorderColor,
-                opacity: Math.min(0.9, 0.3 + (audioLevel || 0.2)),
-                transform: [{ scale: 1 + Math.min(0.15, (audioLevel || 0.05) * 0.3) }],
+                borderRadius: dynamicRadius + 4,
+                borderColor: stateAccentColor,
+                opacity: Math.min(0.75, 0.25 + (audioLevel || 0.15)),
+                transform: [{ scale: 1 + Math.min(0.1, (audioLevel || 0.05) * 0.2) }],
               },
             ]}
           />
@@ -251,8 +251,9 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
       </TouchableOpacity>
 
       {showMascotBadge && (
-        <View style={[styles.statusBadge, { borderColor: stateBorderColor }]}>
-          <Text style={[styles.statusBadgeText, { color: stateBorderColor }]}>
+        <View style={styles.statusBadge}>
+          <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+          <Text style={styles.statusBadgeText}>
             {mascotTagText}
           </Text>
         </View>
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
   },
   fullScreenGlowRing: {
     ...StyleSheet.absoluteFillObject,
-    borderWidth: 4,
+    borderWidth: 3,
     pointerEvents: 'none',
   },
   outerContainer: {
@@ -282,16 +283,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mascotCard: {
-    borderRadius: 28,
-    backgroundColor: '#0F172A',
-    borderWidth: 2,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 8,
   },
   riveView: {
     width: '100%',
@@ -299,38 +295,44 @@ const styles = StyleSheet.create({
   },
   audioPulseRing: {
     position: 'absolute',
-    top: -4,
-    left: -4,
-    right: -4,
-    bottom: -4,
-    borderRadius: 32,
-    borderWidth: 2,
+    top: -3,
+    left: -3,
+    right: -3,
+    bottom: -3,
+    borderWidth: 1.5,
     pointerEvents: 'none',
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginTop: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderColor: colors.cardBorder,
+    backgroundColor: colors.cardBackground,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 7,
   },
   statusBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 0.1,
   },
   fallbackContainer: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fallbackEmoji: {
-    fontSize: 72,
-    marginBottom: 4,
-  },
   fallbackName: {
     color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });

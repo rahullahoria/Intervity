@@ -12,9 +12,17 @@ import {
   TextInput,
   TouchableOpacity,
   SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import { OfflineResumeParser } from '../core/resume/OfflineResumeParser';
 import { IndianVoiceProfile, InterviewOptions, InterviewerPersona } from '../types';
+import {
+  ChevronLeftIcon,
+  MicIcon,
+  CheckIcon,
+  ArrowRightIcon,
+  CpuIcon,
+} from '../components/icons/AppIcons';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
@@ -22,8 +30,7 @@ interface ResumeSetupScreenProps {
   navigation: any;
 }
 
-const SAMPLE_RESUME_TEXT = `
-Rahul Sharma
+const SAMPLE_RESUME_TEXT = `Rahul Sharma
 Staff Software Engineer | Bengaluru, India
 Education: B.Tech in Computer Science, IIT Bombay (CGPA: 8.8/10)
 
@@ -38,8 +45,7 @@ Experience:
 Staff Software Engineer at Unicorn Startup (Bengaluru)
 - Architected full-duplex on-device audio streaming engine handling 40k concurrent connections with sub-300ms p99 latency.
 - Implemented distributed Redis caching with probabilistic early expiration (XFetch) to prevent cache stampedes during flash sales.
-- Refactored legacy React Native bridge to modern JSI host objects, eliminating bridge serializations and boosting list render speeds from 38 FPS to 60 FPS.
-`;
+- Refactored legacy React Native bridge to modern JSI host objects, eliminating bridge serializations and boosting list render speeds from 38 FPS to 60 FPS.`;
 
 export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation }) => {
   const [resumeText, setResumeText] = useState(SAMPLE_RESUME_TEXT);
@@ -64,12 +70,33 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.container}>
-        <Text style={styles.appTag}>ON-DEVICE RESUME INGESTION</Text>
-        <Text style={typography.h1}>Interview Setup</Text>
-        <Text style={[typography.body, { marginBottom: 18 }]}>
-          Your resume is parsed 100% locally on your smartphone. No data ever leaves your device.
-        </Text>
+      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+
+      {/* Top Navigation Bar */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+          activeOpacity={0.75}
+        >
+          <ChevronLeftIcon size={16} color={colors.textSecondary} />
+          <Text style={styles.backBtnText}>Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.topBarTitle}>Interview Configuration</Text>
+        <View style={styles.topBarSpacer} />
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.heroHeader}>
+          <Text style={typography.h1}>Context & Persona</Text>
+          <Text style={styles.heroSubtitle}>
+            Your resume is parsed locally on-device to tailor technical follow-ups.
+          </Text>
+        </View>
 
         {/* Target Role Input */}
         <View style={styles.inputGroup}>
@@ -85,7 +112,7 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
 
         {/* Interviewer Persona & Voice Selection */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Interviewer Voice & Persona (Kokoro en-IN)</Text>
+          <Text style={styles.label}>Interviewer Persona & Acoustic Model</Text>
           <View style={styles.personaGrid}>
             <TouchableOpacity
               style={[styles.personaCard, voiceProfile === 'hf_alpha' && styles.personaCardActive]}
@@ -93,9 +120,27 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
                 setVoiceProfile('hf_alpha');
                 setPersona('bengaluru_tech_lead');
               }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.personaName}>hf_alpha (Bengaluru Lead)</Text>
-              <Text style={styles.personaDesc}>Neutral corporate Bangalore accent. Technical & engaging.</Text>
+              <View style={styles.personaTopRow}>
+                <View style={styles.personaTitleGroup}>
+                  <Text style={styles.personaName}>Bengaluru Tech Lead</Text>
+                  <View style={styles.voiceCodePill}>
+                    <Text style={styles.voiceCodeText}>hf_alpha • en-IN</Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.radioOuter,
+                    voiceProfile === 'hf_alpha' && styles.radioOuterActive,
+                  ]}
+                >
+                  {voiceProfile === 'hf_alpha' && <CheckIcon size={11} color="#FFFFFF" />}
+                </View>
+              </View>
+              <Text style={styles.personaDesc}>
+                Measured corporate Bangalore cadence. Focuses on practical system architecture and execution depth.
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -104,9 +149,27 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
                 setVoiceProfile('hm_omega');
                 setPersona('skeptical_architect');
               }}
+              activeOpacity={0.8}
             >
-              <Text style={styles.personaName}>hm_omega (VP Engineering)</Text>
-              <Text style={styles.personaDesc}>Authoritative, deep cadence. Probes scale & trade-offs.</Text>
+              <View style={styles.personaTopRow}>
+                <View style={styles.personaTitleGroup}>
+                  <Text style={styles.personaName}>Principal / VP Engineering</Text>
+                  <View style={styles.voiceCodePill}>
+                    <Text style={styles.voiceCodeText}>hm_omega • en-IN</Text>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.radioOuter,
+                    voiceProfile === 'hm_omega' && styles.radioOuterActive,
+                  ]}
+                >
+                  {voiceProfile === 'hm_omega' && <CheckIcon size={11} color="#FFFFFF" />}
+                </View>
+              </View>
+              <Text style={styles.personaDesc}>
+                Direct, analytical bar-raiser. Challenges failure modes, tail latency, and L6 trade-offs.
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -114,13 +177,20 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
         {/* Extracted Profile Preview */}
         <View style={styles.previewCard}>
           <View style={styles.previewHeader}>
-            <Text style={typography.h3}>Extracted Profile Preview</Text>
-            <Text style={styles.badgeText}>On-Device NLP</Text>
+            <View style={styles.previewTitleRow}>
+              <CpuIcon size={14} color={colors.notionBlueLight} />
+              <Text style={styles.previewTitle}>Extracted Candidate Profile</Text>
+            </View>
+            <View style={styles.badgePill}>
+              <Text style={styles.badgeText}>On-Device NLP</Text>
+            </View>
           </View>
 
-          <Text style={styles.candidateName}>{parsed.candidateName} • {parsed.yearsOfExperience}+ YOE</Text>
+          <Text style={styles.candidateName}>
+            {parsed.candidateName} • {parsed.yearsOfExperience}+ Years Experience
+          </Text>
 
-          <Text style={styles.subHeader}>Detected Technical Skills:</Text>
+          <Text style={styles.subHeader}>Detected Technical Stack</Text>
           <View style={styles.chipsWrap}>
             {parsed.skills.map((skill, idx) => (
               <View key={idx} style={styles.chip}>
@@ -129,15 +199,17 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
             ))}
           </View>
 
-          <Text style={[styles.subHeader, { marginTop: 10 }]}>Recommended Probing Areas:</Text>
-          <Text style={typography.caption}>
-            {parsed.recommendedInterviewTopics.join(' • ')}
-          </Text>
+          <View style={styles.probingSection}>
+            <Text style={styles.subHeader}>Scheduled Probing Domains</Text>
+            <Text style={styles.probingText}>
+              {parsed.recommendedInterviewTopics.join('  •  ')}
+            </Text>
+          </View>
         </View>
 
         {/* Raw Resume Text Editor */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Resume Context</Text>
+          <Text style={styles.label}>Raw Resume Source</Text>
           <TextInput
             style={[styles.textInput, styles.textArea]}
             value={resumeText}
@@ -152,8 +224,10 @@ export const ResumeSetupScreen: React.FC<ResumeSetupScreenProps> = ({ navigation
 
       {/* Pinned Launch Button Bar */}
       <View style={styles.persistentBottomBar}>
-        <TouchableOpacity style={styles.launchBtn} onPress={startInterview}>
-          <Text style={styles.launchBtnText}>Launch Voice Interview 🎙️</Text>
+        <TouchableOpacity style={styles.launchBtn} onPress={startInterview} activeOpacity={0.85}>
+          <MicIcon size={17} color="#FFFFFF" />
+          <Text style={styles.launchBtnText}>Launch Voice Interview</Text>
+          <ArrowRightIcon size={15} color="rgba(255,255,255,0.75)" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -165,25 +239,60 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  backBtnText: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  topBarTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  topBarSpacer: {
+    width: 60,
+  },
   scrollView: {
     flex: 1,
   },
   container: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 36,
   },
-  appTag: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.listeningCyan,
-    letterSpacing: 1.2,
-    marginBottom: 4,
+  heroHeader: {
+    marginBottom: 20,
+  },
+  heroSubtitle: {
+    ...typography.body,
+    marginTop: 4,
   },
   inputGroup: {
     marginBottom: 18,
   },
   label: {
-    ...typography.captionBold,
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: 8,
   },
@@ -191,7 +300,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardBackground,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    borderRadius: 12,
+    borderRadius: 10,
     color: colors.textPrimary,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -214,20 +323,60 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   personaCardActive: {
-    borderColor: colors.listeningCyan,
-    backgroundColor: 'rgba(6, 182, 212, 0.08)',
+    borderColor: colors.notionBlue,
+    backgroundColor: colors.notionBlueBg,
+  },
+  personaTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  personaTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
   },
   personaName: {
-    ...typography.bodyBold,
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
+  },
+  voiceCodePill: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  voiceCodeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterActive: {
+    backgroundColor: colors.notionBlue,
+    borderColor: colors.notionBlue,
   },
   personaDesc: {
-    ...typography.caption,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textSecondary,
   },
   previewCard: {
-    backgroundColor: colors.elevatedBackground,
-    borderRadius: 14,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: 16,
@@ -237,25 +386,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  previewTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  previewTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  badgePill: {
+    backgroundColor: colors.notionGreenBg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.speakingEmerald,
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
   },
   candidateName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.listeningCyan,
-    marginBottom: 10,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.notionBlueLight,
+    marginBottom: 12,
   },
   subHeader: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.textTertiary,
     marginBottom: 6,
@@ -266,11 +427,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chip: {
-    backgroundColor: colors.cardBackground,
-    borderColor: colors.cardBorder,
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSubtle,
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
+    borderRadius: 6,
+    paddingHorizontal: 9,
     paddingVertical: 4,
   },
   chipText: {
@@ -278,23 +439,37 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontWeight: '500',
   },
+  probingSection: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+  },
+  probingText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
   persistentBottomBar: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 8,
+    paddingTop: 12,
+    paddingBottom: 10,
     backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
+    borderTopColor: colors.divider,
   },
   launchBtn: {
-    backgroundColor: colors.accentPrimary,
-    paddingVertical: 16,
-    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.accentPrimary,
+    paddingVertical: 15,
+    borderRadius: 10,
   },
   launchBtnText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

@@ -17,8 +17,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useModelDownloads } from '../hooks/useModelDownloads';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
-import { ChevronLeftIcon, CheckIcon, SparklesIcon } from '../components/icons/AppIcons';
-import { HardwareAccelerationManager, HardwareTelemetry } from '../core/hardware/HardwareAccelerationManager';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CheckIcon,
+  SparklesIcon,
+  CpuIcon,
+} from '../components/icons/AppIcons';
+import {
+  HardwareAccelerationManager,
+  HardwareTelemetry,
+} from '../core/hardware/HardwareAccelerationManager';
 import { EngineDiagnosticsModal } from '../components/EngineDiagnosticsModal';
 
 interface ModelManagerScreenProps {
@@ -54,7 +63,7 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
 
   const topInset = Math.max(
     insets.top,
-    Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 48
+    Platform.OS === 'android' ? StatusBar.currentHeight || 28 : 48
   );
   const bottomInset = Math.max(insets.bottom, 24);
 
@@ -68,14 +77,14 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
           style={styles.backBtn}
           onPress={() => navigation.goBack()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <ChevronLeftIcon size={18} color={colors.notionBlueLight} />
+          <ChevronLeftIcon size={16} color={colors.textSecondary} />
           <Text style={styles.backBtnText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.appTag}>ON-DEVICE AI ASSET MANAGER</Text>
+        <Text style={styles.topHeaderTitle}>Engine & Model Weights</Text>
         <View style={styles.headerRightSpacer} />
       </View>
 
@@ -89,15 +98,17 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
         bounces={true}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={typography.h1}>Offline Model Weights</Text>
-        <Text style={[typography.body, { marginBottom: 18 }]}>
-          These models run directly on your smartphone NPU & GPU with zero cloud dependencies and zero latency.
-        </Text>
+        <View style={styles.heroHeader}>
+          <Text style={typography.h1}>On-Device AI Runtime</Text>
+          <Text style={styles.heroSubtitle}>
+            Quantized models execute directly on your device NPU & GPU with zero cloud latency.
+          </Text>
+        </View>
 
         {/* Global Progress Card */}
         <View style={styles.progressCard}>
           <View style={styles.progressHeaderRow}>
-            <Text style={styles.progressTitle}>Total Local Storage</Text>
+            <Text style={styles.progressTitle}>Local Weight Storage</Text>
             <Text style={styles.progressPercentText}>{progressPercent}%</Text>
           </View>
 
@@ -105,21 +116,45 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
             <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
           </View>
 
-          <Text style={typography.caption}>
-            {formatMB(downloadedBytes)} MB of {formatMB(totalBytes)} MB downloaded to DocumentDirectory
+          <Text style={styles.storageCaption}>
+            {formatMB(downloadedBytes)} MB of {formatMB(totalBytes)} MB cached in DocumentDirectory
           </Text>
         </View>
 
         {/* Hardware Acceleration & Compute Status Card */}
         <View style={styles.hardwareCard}>
           <View style={styles.hardwareHeaderRow}>
-            <Text style={styles.hardwareCardTitle}>HARDWARE COMPUTE ENGINE</Text>
-            <View style={[
-              styles.hardwareBadge,
-              telemetry.gpuAvailable ? styles.gpuBadgeActive : styles.cpuBadgeActive
-            ]}>
-              <Text style={styles.hardwareBadgeText}>
-                {telemetry.gpuAvailable ? 'GPU ACCELERATED' : 'CPU MULTI-THREADED'}
+            <View style={styles.hardwareTitleGroup}>
+              <CpuIcon size={15} color={colors.notionBlueLight} />
+              <Text style={styles.hardwareCardTitle}>Hardware Compute Engine</Text>
+            </View>
+            <View
+              style={[
+                styles.hardwareBadge,
+                telemetry.gpuAvailable ? styles.gpuBadgeActive : styles.cpuBadgeActive,
+              ]}
+            >
+              <View
+                style={[
+                  styles.hardwareDot,
+                  {
+                    backgroundColor: telemetry.gpuAvailable
+                      ? colors.speakingEmerald
+                      : colors.interruptedAmber,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.hardwareBadgeText,
+                  {
+                    color: telemetry.gpuAvailable
+                      ? colors.speakingEmerald
+                      : colors.interruptedAmber,
+                  },
+                ]}
+              >
+                {telemetry.gpuAvailable ? 'GPU Accelerated' : 'CPU Multi-Threaded'}
               </Text>
             </View>
           </View>
@@ -152,13 +187,15 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
             <View style={styles.hardwareGridItem}>
               <Text style={styles.hardwareLabel}>Architecture</Text>
               <Text style={styles.hardwareValue}>
-                {telemetry.platform === 'ios' ? 'Apple Metal & Neural' : 'Android OpenCL / ARM NEON'}
+                {telemetry.platform === 'ios'
+                  ? 'Apple Metal & Neural'
+                  : 'Android OpenCL / ARM NEON'}
               </Text>
             </View>
           </View>
 
           <Text style={styles.hardwareNote}>
-            Zero-Crash Architecture: Devices without dedicated GPU automatically route tensor workloads to CPU multi-threading.
+            Zero-Crash Fallback: Devices without dedicated GPU automatically route tensor workloads to SIMD multi-threading.
           </Text>
         </View>
 
@@ -169,27 +206,30 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
           activeOpacity={0.8}
         >
           <View style={styles.diagnosticsIconWrap}>
-            <SparklesIcon size={18} color={colors.notionBlueLight} />
+            <SparklesIcon size={17} color={colors.notionBlueLight} />
           </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.diagnosticsBtnTitle}>Test STT, LLM & TTS Individually</Text>
-            <Text style={styles.diagnosticsBtnSubtitle}>Live phone mic, token stream & speech tests</Text>
+          <View style={styles.diagnosticsTextCol}>
+            <Text style={styles.diagnosticsBtnTitle}>Interactive Engine Diagnostics</Text>
+            <Text style={styles.diagnosticsBtnSubtitle}>
+              Verify live microphone STT, LLM token streaming & Kokoro TTS
+            </Text>
           </View>
-          <Text style={styles.diagnosticsBtnArrow}>➔</Text>
+          <ChevronRightIcon size={16} color={colors.textTertiary} />
         </TouchableOpacity>
 
         {/* Model Asset List */}
+        <Text style={styles.sectionHeaderLabel}>Quantized Model Assets</Text>
         {models.map((model) => {
           const modelPercent = Math.round((model.downloadedBytes / model.sizeBytes) * 100);
 
           return (
             <View key={model.id} style={styles.modelCard}>
               <View style={styles.modelHeaderRow}>
-                <Text style={typography.bodyBold}>{model.name}</Text>
+                <Text style={styles.modelNameText}>{model.name}</Text>
                 <Text style={styles.modelSizeText}>{formatMB(model.sizeBytes)} MB</Text>
               </View>
 
-              <Text style={styles.fileNameText}>File: {model.localFileName}</Text>
+              <Text style={styles.fileNameText}>{model.localFileName}</Text>
 
               <View style={styles.progressBarTrack}>
                 <View style={[styles.progressBarFill, { width: `${modelPercent}%` }]} />
@@ -197,8 +237,13 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
 
               <View style={styles.modelFooterRow}>
                 <View style={styles.modelStatusRow}>
-                  {model.isDownloaded && <CheckIcon size={14} color="#10B981" />}
-                  <Text style={[typography.caption, model.isDownloaded && { color: '#10B981', fontWeight: '600' }]}>
+                  {model.isDownloaded && <CheckIcon size={13} color={colors.speakingEmerald} />}
+                  <Text
+                    style={[
+                      styles.modelStatusText,
+                      model.isDownloaded && { color: colors.speakingEmerald, fontWeight: '600' },
+                    ]}
+                  >
                     {model.isDownloaded
                       ? 'Verified & Locked in RAM'
                       : model.isDownloading
@@ -211,6 +256,7 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
                   <TouchableOpacity
                     style={styles.downloadSmallBtn}
                     onPress={() => startDownload(model.id)}
+                    activeOpacity={0.8}
                   >
                     <Text style={styles.downloadSmallBtnText}>Download</Text>
                   </TouchableOpacity>
@@ -223,16 +269,23 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
         {/* Action Controls */}
         <View style={styles.actionsContainer}>
           {!isReady ? (
-            <TouchableOpacity style={styles.downloadAllBtn} onPress={downloadAll}>
-              <Text style={styles.downloadAllBtnText}>Download All AI Models ({formatMB(totalBytes)} MB)</Text>
+            <TouchableOpacity
+              style={styles.downloadAllBtn}
+              onPress={downloadAll}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.downloadAllBtnText}>
+                Download All Models ({formatMB(totalBytes)} MB)
+              </Text>
             </TouchableOpacity>
           ) : (
             <View style={styles.readyBanner}>
-              <Text style={styles.readyBannerText}>✓ 100% Offline AI Engines Ready!</Text>
+              <CheckIcon size={15} color={colors.speakingEmerald} />
+              <Text style={styles.readyBannerText}>All Offline AI Engines Verified & Ready</Text>
             </View>
           )}
 
-          <TouchableOpacity style={styles.clearBtn} onPress={clearStorage}>
+          <TouchableOpacity style={styles.clearBtn} onPress={clearStorage} activeOpacity={0.75}>
             <Text style={styles.clearBtnText}>Reclaim Local Disk Storage</Text>
           </TouchableOpacity>
         </View>
@@ -252,47 +305,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  diagnosticsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardBackground,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    padding: 14,
-    marginBottom: 18,
-  },
-  diagnosticsIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    backgroundColor: colors.notionBlueBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  diagnosticsBtnTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  diagnosticsBtnSubtitle: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  diagnosticsBtnArrow: {
-    fontSize: 16,
-    color: colors.notionBlueLight,
-    fontWeight: '700',
-    marginLeft: 6,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  container: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
   topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,58 +319,86 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    minWidth: 64,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   backBtnText: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
-  appTag: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.notionBlueLight,
-    letterSpacing: 1.2,
+  topHeaderTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
   },
   headerRightSpacer: {
-    minWidth: 64,
+    width: 60,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+  },
+  heroHeader: {
+    marginBottom: 18,
+  },
+  heroSubtitle: {
+    ...typography.body,
+    marginTop: 4,
   },
   progressCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   progressHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   progressTitle: {
-    ...typography.h3,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   progressPercentText: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: colors.notionBlueLight,
+    fontVariant: ['tabular-nums'],
   },
   progressBarTrack: {
-    height: 8,
-    backgroundColor: colors.background,
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: colors.surface,
+    borderRadius: 3,
     overflow: 'hidden',
     marginVertical: 8,
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.notionBlue,
+    borderRadius: 3,
+  },
+  storageCaption: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontVariant: ['tabular-nums'],
   },
   hardwareCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -370,31 +410,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  hardwareTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   hardwareCardTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: colors.notionBlueLight,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   hardwareBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
   },
+  hardwareDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   gpuBadgeActive: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    borderWidth: 1,
-    borderColor: '#10B981',
+    backgroundColor: colors.notionGreenBg,
   },
   cpuBadgeActive: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    borderWidth: 1,
-    borderColor: '#F59E0B',
+    backgroundColor: colors.notionOrangeBg,
   },
   hardwareBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
-    color: '#E0E7FF',
+    fontWeight: '600',
   },
   hardwareGrid: {
     flexDirection: 'row',
@@ -404,108 +451,162 @@ const styles = StyleSheet.create({
   },
   hardwareGridItem: {
     width: '48%',
-    backgroundColor: colors.cardBackground,
+    backgroundColor: colors.surface,
     borderRadius: 8,
     padding: 10,
     borderWidth: 1,
-    borderColor: colors.cardBorder,
+    borderColor: colors.borderSubtle,
   },
   hardwareLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: colors.textTertiary,
-    marginBottom: 4,
-    textTransform: 'uppercase',
+    marginBottom: 3,
   },
   hardwareValue: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   hardwareNote: {
     fontSize: 11,
     color: colors.textSecondary,
-    lineHeight: 15,
+    lineHeight: 16,
+  },
+  diagnosticsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: 14,
+    marginBottom: 20,
+  },
+  diagnosticsIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: colors.notionBlueBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  diagnosticsTextCol: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
+  },
+  diagnosticsBtnTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  diagnosticsBtnSubtitle: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  sectionHeaderLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 10,
   },
   modelCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   modelHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  modelNameText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
   modelSizeText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
     color: colors.textTertiary,
+    fontVariant: ['tabular-nums'],
   },
   fileNameText: {
-    ...typography.caption,
+    fontSize: 11,
+    color: colors.textTertiary,
     marginTop: 2,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   modelFooterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 4,
   },
   modelStatusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
+  },
+  modelStatusText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontVariant: ['tabular-nums'],
   },
   downloadSmallBtn: {
     backgroundColor: colors.accentPrimary,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 8,
+    borderRadius: 6,
   },
   downloadSmallBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
   actionsContainer: {
-    marginTop: 18,
-    gap: 12,
+    marginTop: 14,
+    gap: 10,
   },
   downloadAllBtn: {
     backgroundColor: colors.accentPrimary,
-    paddingVertical: 16,
-    borderRadius: 14,
+    paddingVertical: 15,
+    borderRadius: 10,
     alignItems: 'center',
   },
   downloadAllBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
   readyBanner: {
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    borderWidth: 1,
-    borderColor: colors.speakingEmerald,
-    paddingVertical: 14,
-    borderRadius: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.notionGreenBg,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
+    paddingVertical: 13,
+    borderRadius: 10,
   },
   readyBannerText: {
     color: colors.speakingEmerald,
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
   },
   clearBtn: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   clearBtnText: {
     color: colors.textTertiary,
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

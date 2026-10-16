@@ -259,8 +259,42 @@ export class OfflineLLMEngine {
 
     // 1. Sub-topic Planning Request (JSON array of 5+ items)
     if (promptLower.includes('plan 5') || promptLower.includes('sub-topics') || promptLower.includes('subtopics')) {
-      const topicMatch = prompt.match(/topic[:\s"']+([^"\n]+)/i);
-      const rawTopic = topicMatch ? topicMatch[1].trim() : 'Software Engineering';
+      const topicMatch =
+        prompt.match(/to master[:\s"']+([^"\n]+?)(?:["']\.?|\.\s|$)/i) ||
+        prompt.match(/(?<!sub-)topic[:\s"']+([^"\n]+)/i) ||
+        prompt.match(/topics?[:\s"']+([^"\n]+)/i);
+      const rawTopic = topicMatch ? topicMatch[1].replace(/["'.]+$/g, '').trim() : 'Software Engineering';
+      const rawLower = rawTopic.toLowerCase();
+
+      if (rawLower.includes('node.js') || rawLower.includes('nodejs') || rawLower === 'node' || rawLower.includes('libuv')) {
+        return JSON.stringify([
+          {
+            id: 'sub_1',
+            title: 'Timers, Pending Callbacks, Poll, Check & Close Phases',
+            description: 'Execution sequence of the six libuv phases, microtask queues (process.nextTick vs Promise), and scheduling guarantees.',
+          },
+          {
+            id: 'sub_2',
+            title: 'New Space Scavenge vs Old Space Mark-Sweep-Compact & Buffers',
+            description: 'V8 generational garbage collection, closure retainment leak diagnosis, and the 8KB FastBuffer slab allocator.',
+          },
+          {
+            id: 'sub_3',
+            title: 'Backpressure Signaling: Handling write() === false, drain & stream.pipeline',
+            description: 'Stream highWaterMark tuning, flow control invariants, async iterators, and memory-safe stream composition.',
+          },
+          {
+            id: 'sub_4',
+            title: 'Multi-Core Cluster IPC, SO_REUSEPORT & worker_threads SharedArrayBuffer',
+            description: 'Scaling across CPU cores with cluster vs lock-free shared-memory concurrency using worker_threads and Atomics.',
+          },
+          {
+            id: 'sub_5',
+            title: 'AsyncLocalStorage Tracing, monitorEventLoopDelay & Production Hardening',
+            description: 'Distributed context propagation, HDR latency histograms, graceful SIGTERM draining, and ReDoS/Prototype Pollution defense.',
+          },
+        ]);
+      }
 
       return JSON.stringify([
         {
@@ -301,19 +335,35 @@ export class OfflineLLMEngine {
       systemLower.includes('qbl') ||
       systemLower.includes('curriculum architect')
     ) {
-      const topicMatch = prompt.match(/subject[:\s"']+([^"\n|]+)/i) || prompt.match(/topic[:\s"']+([^"\n|]+)/i) || _systemPrompt?.match(/subject[:\s"']+([^"\n|]+)/i);
+      const topicMatch =
+        prompt.match(/subject[:\s"']+([^"\n|]+)/i) ||
+        prompt.match(/(?<!sub-)topic[:\s"']+([^"\n|]+)/i) ||
+        _systemPrompt?.match(/subject[:\s"']+([^"\n|]+)/i);
       const rawTopic = topicMatch ? topicMatch[1].trim() : 'Software Engineering';
 
-      const subtopicMatch = prompt.match(/sub-topic[:\s"']+([^"\n(|]+)/i) || prompt.match(/for "([^"]+)"/i) || _systemPrompt?.match(/sub-topic[:\s"']+([^"\n(|]+)/i);
+      const subtopicMatch =
+        prompt.match(/sub-topic[:\s"']+([^"\n(|]+)/i) ||
+        prompt.match(/for "([^"]+)"/i) ||
+        _systemPrompt?.match(/sub-topic[:\s"']+([^"\n(|]+)/i);
       const rawSubtopic = subtopicMatch ? subtopicMatch[1].trim() : 'Core Fundamentals';
 
       const conceptMatch = prompt.match(/concept\s*#?(\d+)/i) || prompt.match(/index\s*#?(\d+)/i);
       const conceptIndex = conceptMatch ? parseInt(conceptMatch[1], 10) : 1;
 
       const isReinforcement = promptLower.includes('reinforce') || promptLower.includes('reinforcement');
-      const isNode = rawTopic.toLowerCase().includes('node') || rawSubtopic.toLowerCase().includes('node');
+      const isNode =
+        rawTopic.toLowerCase().includes('node') ||
+        rawSubtopic.toLowerCase().includes('node') ||
+        rawSubtopic.toLowerCase().includes('libuv');
       const question = isNode
-        ? getNodeJSQuestion(conceptIndex, { subject: rawTopic, subtopicTitle: rawSubtopic, subtopicDescription: rawSubtopic, conceptIndex })
+        ? getNodeJSQuestion(conceptIndex, {
+            subject: rawTopic,
+            subjectTitle: rawTopic,
+            subtopicTitle: rawSubtopic,
+            subtopicDescription: rawSubtopic,
+            conceptIndex,
+            isReinforcement,
+          })
         : getCatalogQuestion(rawTopic, rawSubtopic, conceptIndex, isReinforcement);
       return JSON.stringify(question);
     }

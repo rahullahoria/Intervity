@@ -19,7 +19,14 @@ export class AnalogicalTeachingStrategy implements IDialogueStrategy {
       (inputLower.includes('deadlocks') && inputLower.includes('concurrency')) ||
       inputLower.includes('jsi') ||
       (inputLower.includes('react native') && inputLower.includes('bridge')) ||
-      inputLower.includes('memory sharing')
+      inputLower.includes('memory sharing') ||
+      inputLower.includes('event loop') ||
+      inputLower.includes('libuv') ||
+      inputLower.includes('nexttick') ||
+      inputLower.includes('backpressure') ||
+      inputLower.includes('highwatermark') ||
+      inputLower.includes('worker_threads') ||
+      inputLower.includes('sharedarraybuffer')
     );
   }
 
@@ -65,7 +72,32 @@ export class AnalogicalTeachingStrategy implements IDialogueStrategy {
       return `${levelUpPrefix}Here is a super cool intuition! Think of JSI like a direct phone call between JavaScript and C++, instead of sending paper letters across an old bridge. It lets JavaScript hold direct memory pointers to C++ host objects with zero serialization overhead. What kind of native performance gains have you seen with JSI?`;
     }
 
-    // 5. Distributed Systems Transit Analogy
+    // 5. Node.js Event Loop & libuv (Master Chef & Sous-Chefs Analogy)
+    if (
+      inputLower.includes('event loop') ||
+      inputLower.includes('libuv') ||
+      inputLower.includes('nexttick')
+    ) {
+      return `${levelUpPrefix}Picture the Node.js Event Loop as a single master chef plating dishes at the counter! The chef never waits for water to boil—instead, libuv acts as a team of sous-chefs handling file I/O and DNS in the background, while process.nextTick is a VIP ticket checked between every single dish. How do you guard that main chef from CPU starvation?`;
+    }
+
+    // 6. Node.js Streams & Backpressure (Conveyor Belt Valve Analogy)
+    if (
+      inputLower.includes('backpressure') ||
+      inputLower.includes('highwatermark')
+    ) {
+      return `${levelUpPrefix}Think of Node.js stream backpressure like a smart factory conveyor belt! When a fast source pours items faster than the packer can box them, the buffer hits its highWaterMark and flips a red pause switch until the packer signals drain. Why is stream.pipeline so critical when a downstream socket suddenly closes?`;
+    }
+
+    // 7. Node.js Worker Threads & SharedArrayBuffer (Shared Whiteboard Analogy)
+    if (
+      inputLower.includes('worker_threads') ||
+      inputLower.includes('sharedarraybuffer')
+    ) {
+      return `${levelUpPrefix}Think of Worker Threads like separate workshops each with their own V8 engine! Passing objects over postMessage is like photocopying blueprints, whereas SharedArrayBuffer with Atomics is a single glass whiteboard both workshops update in place with zero copy overhead. Where would you apply Worker Threads in your service?`;
+    }
+
+    // 8. Distributed Systems Transit Analogy
     return `${levelUpPrefix}Here is a fun intuition, buddy! Think of complex distributed systems like a bustling city transit network where traffic signals and roundabouts prevent gridlock. What part of your architecture feels like the biggest potential traffic jam right now?`;
   }
 }

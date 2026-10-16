@@ -1,11 +1,11 @@
 /**
  * AppIcons.tsx
- * Cohesive, modern vector icon set using react-native-svg.
- * Consistent geometry, stroke weights, and modern color palette.
+ * Precision geometric vector icon set using react-native-svg.
+ * Consistent 1.75px stroke weight, rounded caps/joins, and studio-grade proportions.
  */
 
 import React from 'react';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { StyleProp, ViewStyle } from 'react-native';
 
 export interface IconProps {
@@ -15,13 +15,10 @@ export interface IconProps {
   style?: StyleProp<ViewStyle>;
 }
 
-const DEFAULT_SIZE = 20;
-const DEFAULT_COLOR = '#E2E8F0';
-const DEFAULT_STROKE = 2;
+const DEFAULT_SIZE = 18;
+const DEFAULT_COLOR = '#F4F4F6';
+const DEFAULT_STROKE = 1.75;
 
-/**
- * 4-Point AI Spark / Star Icon
- */
 export const SparklesIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -30,7 +27,7 @@ export const SparklesIcon: React.FC<IconProps> = ({
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
     <Path
-      d="M12 2L14.2 9.8L22 12L14.2 14.2L12 22L9.8 14.2L2 12L9.8 9.8L12 2Z"
+      d="M12 3L14.1 9.9L21 12L14.1 14.1L12 21L9.9 14.1L3 12L9.9 9.9L12 3Z"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -39,9 +36,6 @@ export const SparklesIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Mascot Level / XP Star Icon
- */
 export const StarIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -50,7 +44,7 @@ export const StarIcon: React.FC<IconProps> = ({
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
     <Path
-      d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+      d="M12 2.5L14.9 8.4L21.4 9.3L16.7 13.9L17.8 20.4L12 17.3L6.2 20.4L7.3 13.9L2.6 9.3L9.1 8.4L12 2.5Z"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -59,9 +53,6 @@ export const StarIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Graduation / Academic Coach Icon (Coach Nova)
- */
 export const CoachIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -86,9 +77,6 @@ export const CoachIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Teddy Mascot Avatar Icon
- */
 export const BearIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -96,13 +84,13 @@ export const BearIcon: React.FC<IconProps> = ({
   style,
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-    <Circle cx="12" cy="14" r="7" stroke={color} strokeWidth={strokeWidth} />
-    <Circle cx="6.5" cy="7.5" r="3" stroke={color} strokeWidth={strokeWidth} />
-    <Circle cx="17.5" cy="7.5" r="3" stroke={color} strokeWidth={strokeWidth} />
-    <Circle cx="10" cy="13" r="1" fill={color} />
-    <Circle cx="14" cy="13" r="1" fill={color} />
+    <Circle cx="12" cy="13.5" r="6.5" stroke={color} strokeWidth={strokeWidth} />
+    <Circle cx="6.5" cy="7.5" r="2.5" stroke={color} strokeWidth={strokeWidth} />
+    <Circle cx="17.5" cy="7.5" r="2.5" stroke={color} strokeWidth={strokeWidth} />
+    <Circle cx="9.8" cy="12.5" r="1" fill={color} />
+    <Circle cx="14.2" cy="12.5" r="1" fill={color} />
     <Path
-      d="M10.5 16C11 16.6 13 16.6 13.5 16"
+      d="M10.5 15.5C11 16.1 13 16.1 13.5 15.5"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -110,9 +98,19 @@ export const BearIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Loudspeaker Active / High Volume
- */
+export const OrbIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Circle cx="12" cy="12" r="8" stroke={color} strokeWidth={strokeWidth} />
+    <Circle cx="12" cy="12" r="3.5" stroke={color} strokeWidth={strokeWidth} opacity={0.65} />
+    <Path d="M12 2V4M12 20V22M2 12H4M20 12H22" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+  </Svg>
+);
+
 export const VolumeHighIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -142,9 +140,6 @@ export const VolumeHighIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Loudspeaker Low / Muted (Earpiece Mode)
- */
 export const VolumeLowIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -168,9 +163,6 @@ export const VolumeLowIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Settings Gear Icon
- */
 export const SettingsIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -178,13 +170,7 @@ export const SettingsIcon: React.FC<IconProps> = ({
   style,
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-    <Path
-      d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth={strokeWidth} />
     <Path
       d="M19.4 15A1.65 1.65 0 0019.73 16.82L20.1 17.2A2 2 0 1117.27 20.03L16.9 19.66A1.65 1.65 0 0015.08 19.33A1.65 1.65 0 0014 20.82V21.5A2 2 0 1110 21.5V20.82A1.65 1.65 0 008.92 19.33A1.65 1.65 0 007.1 19.66L6.73 20.03A2 2 0 113.9 17.2L4.27 16.83A1.65 1.65 0 004.6 15A1.65 1.65 0 003.11 13.92H2.5A2 2 0 112.5 9.92H3.18A1.65 1.65 0 004.67 8.84A1.65 1.65 0 004.34 7.02L3.97 6.65A2 2 0 116.8 3.82L7.17 4.19A1.65 1.65 0 009 4.52A1.65 1.65 0 0010.08 3.03V2.5A2 2 0 1114.08 2.5V3.18A1.65 1.65 0 0015.16 4.67A1.65 1.65 0 0016.98 4.34L17.35 3.97A2 2 0 1120.18 6.8L19.81 7.17A1.65 1.65 0 0019.48 9A1.65 1.65 0 0020.97 10.08H21.5A2 2 0 1121.5 14.08H20.82A1.65 1.65 0 0019.4 15Z"
       stroke={color}
@@ -195,9 +181,6 @@ export const SettingsIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Career Target / Crosshair Icon
- */
 export const TargetIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -205,15 +188,12 @@ export const TargetIcon: React.FC<IconProps> = ({
   style,
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-    <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={strokeWidth} />
-    <Circle cx="12" cy="12" r="6" stroke={color} strokeWidth={strokeWidth} />
-    <Circle cx="12" cy="12" r="2" fill={color} />
+    <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth={strokeWidth} />
+    <Circle cx="12" cy="12" r="5" stroke={color} strokeWidth={strokeWidth} />
+    <Circle cx="12" cy="12" r="1.5" fill={color} />
   </Svg>
 );
 
-/**
- * Microphone Icon (Speech / Voice)
- */
 export const MicIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -222,11 +202,11 @@ export const MicIcon: React.FC<IconProps> = ({
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
     <Rect
-      x="8"
+      x="9"
       y="2"
-      width="8"
-      height="12"
-      rx="4"
+      width="6"
+      height="11"
+      rx="3"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -249,9 +229,6 @@ export const MicIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Barge-In Lightning Bolt Icon
- */
 export const BoltIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -260,7 +237,7 @@ export const BoltIcon: React.FC<IconProps> = ({
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
     <Path
-      d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
+      d="M13 2L4 14H12L11 22L20 10H12L13 2Z"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -269,9 +246,6 @@ export const BoltIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Brain / Neural Thinking Icon
- */
 export const BrainIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -300,9 +274,6 @@ export const BrainIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Chat Bubble / Text Mode Icon
- */
 export const ChatBubbleIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -320,9 +291,6 @@ export const ChatBubbleIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Continuous Loop / Hands-Free Icon
- */
 export const LoopIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -354,9 +322,8 @@ export const LoopIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Close / Dismiss 'X' Icon
- */
+export const RefreshIcon = LoopIcon;
+
 export const CloseIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -374,9 +341,6 @@ export const CloseIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Send / Arrow Icon
- */
 export const SendIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -385,7 +349,7 @@ export const SendIcon: React.FC<IconProps> = ({
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
     <Path
-      d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"
+      d="M5 12H19M19 12L13 6M19 12L13 18"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -394,9 +358,276 @@ export const SendIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Lightbulb / Idea Icon
- */
+export const ArrowRightIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M5 12H19M19 12L13 6M19 12L13 18"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const ChevronRightIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M9 18L15 12L9 6"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const ChevronLeftIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M15 18L9 12L15 6"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const PlayIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M6 4L20 12L6 20V4Z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      fill={color}
+    />
+  </Svg>
+);
+
+export const StopIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Rect
+      x="6"
+      y="6"
+      width="12"
+      height="12"
+      rx="2"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      fill={color}
+    />
+  </Svg>
+);
+
+export const ClockIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth={strokeWidth} />
+    <Path
+      d="M12 7V12L15 14"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const KeyboardIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Rect
+      x="2"
+      y="5"
+      width="20"
+      height="14"
+      rx="2.5"
+      stroke={color}
+      strokeWidth={strokeWidth}
+    />
+    <Line x1="6" y1="9" x2="6.01" y2="9" stroke={color} strokeWidth={strokeWidth + 0.5} strokeLinecap="round" />
+    <Line x1="10" y1="9" x2="10.01" y2="9" stroke={color} strokeWidth={strokeWidth + 0.5} strokeLinecap="round" />
+    <Line x1="14" y1="9" x2="14.01" y2="9" stroke={color} strokeWidth={strokeWidth + 0.5} strokeLinecap="round" />
+    <Line x1="18" y1="9" x2="18.01" y2="9" stroke={color} strokeWidth={strokeWidth + 0.5} strokeLinecap="round" />
+    <Line x1="8" y1="15" x2="16" y2="15" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+  </Svg>
+);
+
+export const SearchIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={strokeWidth} />
+    <Path d="M20 20L16.35 16.35" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+  </Svg>
+);
+
+export const AlertCircleIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth={strokeWidth} />
+    <Line x1="12" y1="8" x2="12" y2="12.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    <Circle cx="12" cy="16" r="1" fill={color} />
+  </Svg>
+);
+
+export const TrophyIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M6 9H4.5C3.12 9 2 7.88 2 6.5V5H6M18 9H19.5C20.88 9 22 7.88 22 6.5V5H18M6 4H18V10C18 13.31 15.31 16 12 16C8.69 16 6 13.31 6 10V4Z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M12 16V20M8 20H16"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const BookOpenIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M2 4H8C10.21 4 12 5.79 12 8V20C12 18.34 10.66 17 9 17H2V4Z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M22 4H16C13.79 4 12 5.79 12 8V20C12 18.34 13.34 17 15 17H22V4Z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const LayersIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M12 2L2 7L12 12L22 7L12 2Z"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M2 12L12 17L22 12"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M2 17L12 22L22 17"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const ActivityIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M22 12H18L15 21L9 3L6 12H2"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const CpuIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Rect x="5" y="5" width="14" height="14" rx="2" stroke={color} strokeWidth={strokeWidth} />
+    <Rect x="9" y="9" width="6" height="6" rx="1" stroke={color} strokeWidth={strokeWidth} />
+    <Path
+      d="M9 2V5M15 2V5M9 19V22M15 19V22M2 9H5M2 15H5M19 9H22M19 15H22"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
 export const BulbIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -405,7 +636,7 @@ export const BulbIcon: React.FC<IconProps> = ({
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
     <Path
-      d="M9 18H15M10 22H14M12 2C8.13401 2 5 5.13401 5 9C5 11.38 6.19 13.47 8 14.74V17C8 17.55 8.45 18 9 18H15C15.55 18 16 17.55 16 17V14.74C17.81 13.47 19 11.38 19 9C19 5.13401 15.866 2 12 2Z"
+      d="M9 18H15M10 21H14M12 3C8.69 3 6 5.69 6 9C6 11.22 7.21 13.16 9 14.2V16C9 16.55 9.45 17 10 17H14C14.55 17 15 16.55 15 16V14.2C16.79 13.16 18 11.22 18 9C18 5.69 15.31 3 12 3Z"
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"
@@ -414,9 +645,6 @@ export const BulbIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Briefcase / Role Icon
- */
 export const BriefcaseIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -445,9 +673,6 @@ export const BriefcaseIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * System Architecture / Structure Icon
- */
 export const ArchitectureIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -462,9 +687,6 @@ export const ArchitectureIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Pause Icon
- */
 export const PauseIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -482,29 +704,6 @@ export const PauseIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Chevron Left / Back Icon
- */
-export const ChevronLeftIcon: React.FC<IconProps> = ({
-  size = DEFAULT_SIZE,
-  color = DEFAULT_COLOR,
-  strokeWidth = DEFAULT_STROKE,
-  style,
-}) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
-    <Path
-      d="M15 18L9 12L15 6"
-      stroke={color}
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-/**
- * Check / Verified Icon
- */
 export const CheckIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -522,16 +721,12 @@ export const CheckIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Sound Wave Animated Bars (Dynamic Audio Activity)
- */
 export const SoundWaveBars: React.FC<{
   level?: number;
   active?: boolean;
   color?: string;
   size?: number;
-}> = ({ level = 0.5, active = true, color = '#38BDF8', size = 16 }) => {
-  // 4 dynamic bars with varying heights based on audio level
+}> = ({ level = 0.5, active = true, color = '#7B93FF', size = 16 }) => {
   const clampedLevel = Math.max(0.15, Math.min(1.0, level));
   const h1 = active ? Math.max(3, clampedLevel * size * 0.5) : 3;
   const h2 = active ? Math.max(5, clampedLevel * size * 0.95) : 4;
@@ -548,9 +743,6 @@ export const SoundWaveBars: React.FC<{
   );
 };
 
-/**
- * Mobile Device / Phone Icon (Mobile & Client Architecture Track)
- */
 export const DeviceMobileIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -574,9 +766,6 @@ export const DeviceMobileIcon: React.FC<IconProps> = ({
   </Svg>
 );
 
-/**
- * Users Group / Leadership Icon (Engineering Leadership Track)
- */
 export const UsersGroupIcon: React.FC<IconProps> = ({
   size = DEFAULT_SIZE,
   color = DEFAULT_COLOR,
@@ -614,3 +803,30 @@ export const UsersGroupIcon: React.FC<IconProps> = ({
     />
   </Svg>
 );
+
+export const UserIcon: React.FC<IconProps> = ({
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
+    <Path
+      d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle
+      cx="12"
+      cy="7"
+      r="4"
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+

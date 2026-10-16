@@ -2,9 +2,9 @@
 
 > **Free Learning by AI — 100% On-Device, Offline, Private AI Mock Interviews for Everyone.**
 
-[![Latest Release](https://img.shields.io/github/v/release/rahullahoria/Intervity?style=for-the-badge&color=2383E2&label=Latest%20Release)](https://github.com/rahullahoria/Intervity/releases/tag/v0.0.1)
-[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(242%20MB)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.apk)
-[![Download iOS IPA](https://img.shields.io/badge/Download-iOS%20IPA%20(14%20MB)-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.ipa)
+[![Latest Release](https://img.shields.io/github/v/release/rahullahoria/Intervity?style=for-the-badge&color=2383E2&label=Latest%20Release)](https://github.com/rahullahoria/Intervity/releases/tag/v0.0.2)
+[![Download Android APK](https://img.shields.io/badge/Download-Android%20APK%20(242%20MB)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/rahullahoria/Intervity/releases/download/v0.0.2/Intervity-v0.0.2.apk)
+[![Download iOS IPA](https://img.shields.io/badge/Download-iOS%20IPA%20(14%20MB)-000000?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/rahullahoria/Intervity/releases/download/v0.0.2/Intervity-v0.0.2.ipa)
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![React Native](https://img.shields.io/badge/React%20Native-0.76%20(New%20Architecture)-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
@@ -18,14 +18,14 @@
 
 ---
 
-## 📦 Latest Release: v0.0.1
+## 📦 Latest Release: v0.0.2
 
 | Package | Platform | Size | Direct Download | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Android APK** | Android 10+ (arm64-v8a) | `242 MB` | [📥 **Download `Intervity-v0.0.1.apk`**](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.apk) | Standalone release build with local runtime weights |
-| **iOS IPA** | iOS 16.0+ | `14 MB` | [📥 **Download `Intervity-v0.0.1.ipa`**](https://github.com/rahullahoria/Intervity/releases/download/v0.0.1/Intervity-v0.0.1.ipa) | Sideload via AltStore / TrollStore / TestFlight (`help.dina.intervity`) |
+| **Android APK** | Android 10+ (arm64-v8a) | `242 MB` | [📥 **Download `Intervity-v0.0.2.apk`**](https://github.com/rahullahoria/Intervity/releases/download/v0.0.2/Intervity-v0.0.2.apk) | Standalone release build with local runtime weights |
+| **iOS IPA** | iOS 16.0+ | `14 MB` | [📥 **Download `Intervity-v0.0.2.ipa`**](https://github.com/rahullahoria/Intervity/releases/download/v0.0.2/Intervity-v0.0.2.ipa) | Sideload via AltStore / TrollStore / TestFlight (`help.dina.intervity`) |
 
-> 🔗 **Full Release Notes & Checksums:** [View GitHub Release `v0.0.1`](https://github.com/rahullahoria/Intervity/releases/tag/v0.0.1)
+> 🔗 **Full Release Notes & Checksums:** [View GitHub Release `v0.0.2`](https://github.com/rahullahoria/Intervity/releases/tag/v0.0.2)
 
 ---
 

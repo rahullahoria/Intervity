@@ -7,7 +7,6 @@
  */
 
 import {
-  QBLChapter,
   QBLCognitiveLevel,
   QBLDifficulty,
   QBLOption,
@@ -1410,17 +1409,421 @@ setInterval(replaceThing, 1000);
     explanation: 'Dual writes in microservices are an anti-pattern. The Transactional Outbox pattern solves the dual-write problem by leveraging the database ACID transaction for both state and event records, guaranteeing resilience.',
     coachingTip: 'Never do: await db.save(); await kafka.send();! If the node crashes in between, data is corrupt. Use the Transactional Outbox pattern with CDC for mission-critical architectures.',
   },
+
+  // 26. Understand / Advanced / Scenario (Chapter 1: Reactor Pattern & epoll/kqueue)
+  {
+    conceptTitle: 'Reactor Pattern & OS Kernel Event Demultiplexing (epoll / kqueue)',
+    questionText: 'How does the libuv Reactor Pattern handle 100,000 concurrent idle TCP socket connections on Linux (`epoll`) or macOS (`kqueue`) without spawning 100,000 OS threads or scanning all descriptors in $O(N)$ time?',
+    difficulty: 'advanced',
+    cognitiveLevel: 'understand',
+    questionType: 'scenario',
+    expectedAnswer: 'Socket file descriptors are registered in non-blocking mode with the kernel event demultiplexer (epoll/kqueue), which uses an internal red-black tree and readiness list to notify libuv in O(1) time only for sockets with active I/O events.',
+    hints: [
+      '💡 Hint 1 (Mental Model): Legacy select() and poll() iterate through every single file descriptor on every tick (O(N)). How does epoll avoid this?',
+      '🔍 Hint 2 (Mechanism Clue): epoll_ctl registers interest in the kernel once, and hardware NIC interrupts push ready sockets onto a kernel readiness queue.',
+      '🎯 Hint 3 (Trade-off Insight): epoll_wait returns only the subset of active ready descriptors in O(1) readiness notification time.',
+    ],
+    options: [
+      {
+        id: 'A',
+        text: 'Non-blocking sockets are registered with the kernel event demultiplexer (epoll/kqueue), which wakes the Poll phase in O(1) readiness time returning only descriptors with active I/O events.',
+        isCorrect: true,
+        explanation: 'Correct: Instead of scanning 100,000 sockets on every loop tick like select(), epoll/kqueue maintains kernel-space data structures and notifies libuv only of the specific file descriptors that received network frames.',
+      },
+      {
+        id: 'B',
+        text: 'libuv spawns 100,000 lightweight green threads inside V8 and context-switches between them every millisecond.',
+        isCorrect: false,
+        explanation: 'Incorrect: Node.js does not use green threads; it multiplexes non-blocking file descriptors on a single event loop thread.',
+      },
+      {
+        id: 'C',
+        text: 'Node.js closes idle TCP sockets after 10ms and forces clients to reconnect via HTTP polling.',
+        isCorrect: false,
+        explanation: 'Incorrect: Node.js maintains persistent keep-alive and WebSocket connections efficiently without dropping idle sockets.',
+      },
+      {
+        id: 'D',
+        text: 'All 100,000 sockets are offloaded to the 4 threads in UV_THREADPOOL_SIZE.',
+        isCorrect: false,
+        explanation: 'Incorrect: Network socket I/O is never offloaded to the libuv worker thread pool.',
+      },
+    ],
+    explanation: 'The Reactor Pattern relies on OS-level synchronous event demultiplexers (epoll on Linux, kqueue on macOS, IOCP on Windows). Idle connections consume almost zero CPU because the kernel only wakes libuv when actual bytes arrive.',
+    coachingTip: 'This is why Node.js excels at C100K real-time workloads (WebSockets, SSE, API Gateways): 100k idle sockets cost zero thread context-switching overhead!',
+  },
+
+  // 27. Apply / Basic / MCQ (Chapter 2: Buffer.alloc vs Buffer.allocUnsafe & 8KB Slab Pool)
+  {
+    conceptTitle: 'Buffer.alloc vs Buffer.allocUnsafe & The 8KB FastBuffer Slab Pool',
+    questionText: 'What is the architectural and security difference between `Buffer.alloc(1024)` and `Buffer.allocUnsafe(1024)` in Node.js?',
+    difficulty: 'basic',
+    cognitiveLevel: 'apply',
+    questionType: 'mcq',
+    expectedAnswer: 'Buffer.alloc zero-fills memory for security, whereas Buffer.allocUnsafe slices uninitialized memory from a shared 8KB pre-allocated slab pool, which is faster but risks leaking sensitive heap fragments if not completely overwritten.',
+    hints: [
+      '💡 Hint 1 (Mental Model): Why is one method explicitly named "Unsafe" in the core Node.js API?',
+      '🔍 Hint 2 (Mechanism Clue): Allocations smaller than 4KB (Buffer.poolSize >>> 1) with allocUnsafe are carved out of a shared 8192-byte slab buffer.',
+      '🎯 Hint 3 (Trade-off Insight): Because allocUnsafe skips zero-filling, old passwords, TLS keys, or PII from previous allocations may remain in those bytes.',
+    ],
+    options: [
+      {
+        id: 'A',
+        text: 'Buffer.alloc zero-fills memory safely, whereas Buffer.allocUnsafe slices uninitialized memory from a shared 8KB slab pool—improving speed but risking sensitive memory disclosure if not overwritten.',
+        isCorrect: true,
+        explanation: 'Correct: Buffer.allocUnsafe avoids the CPU cost of memset(0) and reuses a pre-allocated 8KB slab pool for buffers < 4KB. However, reading from it before overwriting all bytes can leak sensitive data from prior operations.',
+      },
+      {
+        id: 'B',
+        text: 'Buffer.allocUnsafe allocates memory on disk swap space, whereas Buffer.alloc uses CPU L1 cache.',
+        isCorrect: false,
+        explanation: 'Incorrect: Both allocate in RAM; the difference is zero-initialization and slab pooling.',
+      },
+      {
+        id: 'C',
+        text: 'Buffer.alloc is limited to 64 bytes, while Buffer.allocUnsafe supports up to 1TB.',
+        isCorrect: false,
+        explanation: 'Incorrect: Both respect buffer.constants.MAX_LENGTH (up to 4GB on 64-bit architectures).',
+      },
+      {
+        id: 'D',
+        text: 'Buffer.allocUnsafe disables V8 garbage collection for the lifetime of the server.',
+        isCorrect: false,
+        explanation: 'Incorrect: Slab buffers are still managed by garbage collection once all slices referencing the slab become unreachable.',
+      },
+    ],
+    explanation: 'Node.js maintains an 8KB (8192 bytes) slab allocator for small buffers created via Buffer.allocUnsafe() or Buffer.from(). While faster, failing to overwrite every byte before sending the buffer over the network causes Heartbleed-style memory disclosure.',
+    coachingTip: 'Default to Buffer.alloc() for security! Only use Buffer.allocUnsafe() in hot loops where you immediately copy/fill the exact number of bytes.',
+  },
+
+  // 28. Analyze / Advanced / Scenario (Chapter 2: V8 Hidden Classes & Inline Caching)
+  {
+    conceptTitle: 'V8 Hidden Classes (Maps/Shapes) & Inline Cache Polymorphism',
+    questionText: 'Why does dynamically adding properties to objects in inconsistent orders or using the `delete` operator degrade V8 execution performance by up to 10x in hot code paths?',
+    difficulty: 'advanced',
+    cognitiveLevel: 'analyze',
+    questionType: 'scenario',
+    expectedAnswer: 'It breaks V8 Hidden Class (Map/Shape) transition trees and turns monomorphic Inline Caches (ICs) into megamorphic lookups or slow dictionary-mode hash tables, forcing TurboFan to deoptimize JIT-compiled machine code.',
+    hints: [
+      '💡 Hint 1 (Mental Model): JavaScript is dynamically typed, yet V8 accesses object properties almost as fast as C++ structs. How?',
+      '🔍 Hint 2 (Mechanism Clue): V8 assigns each object a Hidden Class (Map) storing fixed memory offsets for each property.',
+      '🎯 Hint 3 (Trade-off Insight): Different property insertion orders create distinct Hidden Classes, and delete forces the object into slow dictionary mode.',
+    ],
+    options: [
+      {
+        id: 'A',
+        text: 'It fractures V8 Hidden Class (Map) transitions and degrades monomorphic Inline Caches into megamorphic or dictionary-mode hash lookups, triggering TurboFan JIT deoptimization.',
+        isCorrect: true,
+        explanation: 'Correct: V8 optimizes property access using Hidden Classes (Shapes) and Inline Caches (ICs) that hardcode memory offsets. Mutating property order or calling delete invalidates the shape, falling back to slow hash-table lookups.',
+      },
+      {
+        id: 'B',
+        text: 'The delete operator triggers a synchronous full-heap stop-the-world GC pause on every invocation.',
+        isCorrect: false,
+        explanation: 'Incorrect: delete does not trigger immediate stop-the-world GC; it transitions the object backing store to dictionary mode.',
+      },
+      {
+        id: 'C',
+        text: 'V8 serializes the object to JSON on disk whenever a new property is added.',
+        isCorrect: false,
+        explanation: 'Incorrect: Object property mutations happen entirely in memory.',
+      },
+      {
+        id: 'D',
+        text: 'Node.js offloads dynamic object property lookups to the libuv thread pool.',
+        isCorrect: false,
+        explanation: 'Incorrect: Property access is purely a V8 JavaScript engine operation on the main thread.',
+      },
+    ],
+    explanation: 'When functions always receive objects with the exact same Hidden Class, V8 Inline Caches remain "monomorphic" (1 shape), compiling property reads to a single CPU load instruction. Inconsistent shapes cause polymorphic/megamorphic deoptimizations.',
+    coachingTip: 'Initialize all object properties in the constructor in a fixed order, and assign `obj.prop = undefined` instead of `delete obj.prop` in hot paths!',
+  },
+
+  // 29. Understand / Basic / MCQ (Chapter 3: Stream highWaterMark Byte vs objectMode)
+  {
+    conceptTitle: 'Stream highWaterMark Semantics: Byte Streams vs objectMode',
+    questionText: 'What is the critical difference in how `highWaterMark` is interpreted between a standard binary Node.js Stream and a Stream configured with `{ objectMode: true }`?',
+    difficulty: 'basic',
+    cognitiveLevel: 'understand',
+    questionType: 'mcq',
+    expectedAnswer: 'In standard binary streams, highWaterMark specifies a byte threshold (default 16KB, or 64KB for fs streams); in objectMode streams, highWaterMark specifies the maximum number of JavaScript objects (default 16 objects) regardless of their byte size.',
+    hints: [
+      '💡 Hint 1 (Mental Model): What unit is measured when streaming raw Buffers vs streaming parsed database row objects?',
+      '🔍 Hint 2 (Mechanism Clue): Default binary highWaterMark is 16,384 (16KB), whereas default objectMode highWaterMark is 16.',
+      '🎯 Hint 3 (Trade-off Insight): Passing highWaterMark: 16384 to an objectMode stream buffers 16,384 full JS objects in RAM, often causing OOM crashes!',
+    ],
+    options: [
+      {
+        id: 'A',
+        text: 'Binary streams measure highWaterMark in bytes (default 16KB), whereas objectMode streams measure highWaterMark as a count of discrete JavaScript objects (default 16 objects).',
+        isCorrect: true,
+        explanation: 'Correct: In byte streams, highWaterMark limits buffered bytes (16,384 bytes default). In objectMode, each push(obj) increments the buffer count by 1 regardless of object memory footprint (defaulting to 16 objects).',
+      },
+      {
+        id: 'B',
+        text: 'highWaterMark is completely ignored when objectMode is set to true.',
+        isCorrect: false,
+        explanation: 'Incorrect: objectMode strictly enforces highWaterMark as an object count threshold.',
+      },
+      {
+        id: 'C',
+        text: 'highWaterMark specifies the maximum number of CPU threads allocated to the stream.',
+        isCorrect: false,
+        explanation: 'Incorrect: Streams run on the main thread; highWaterMark is strictly a buffer queue threshold.',
+      },
+      {
+        id: 'D',
+        text: 'Setting highWaterMark automatically encrypts stream chunks using AES-256.',
+        isCorrect: false,
+        explanation: 'Incorrect: highWaterMark controls buffering and backpressure signaling, not encryption.',
+      },
+    ],
+    explanation: 'One of the most frequent production OOM bugs in Node.js occurs when engineers set `{ objectMode: true, highWaterMark: 64 * 1024 }` thinking it means 64KB—which actually instructs the stream to buffer 65,536 full JS objects in memory before signaling backpressure.',
+    coachingTip: 'Never pass byte-sized highWaterMark numbers (like 65536) to an objectMode stream! Keep objectMode highWaterMark small (e.g., 16 to 128 objects).',
+  },
+
+  // 30. Apply / Advanced / Practical Exercise (Chapter 3: Async Iterators for await...of)
+  {
+    conceptTitle: 'Consuming Readable Streams with Async Iterators (for await...of)',
+    questionText: 'How does consuming a Node.js Readable stream via `for await (const chunk of readableStream)` manage backpressure and stream cleanup if an error is thrown or `break` is executed inside the loop?',
+    difficulty: 'advanced',
+    cognitiveLevel: 'apply',
+    questionType: 'practical_exercise',
+    expectedAnswer: 'The async iterator pauses reading between loop awaits to enforce natural backpressure, and automatically invokes readableStream.destroy() via the iterator return()/throw() protocol when exiting the loop early via break, return, or throw.',
+    hints: [
+      '💡 Hint 1 (Mental Model): Readable streams implement Symbol.asyncIterator natively in Node.js.',
+      '🔍 Hint 2 (Mechanism Clue): While awaiting an asynchronous operation inside the loop body, the iterator does not pull the next chunk until the current iteration resolves.',
+      '🎯 Hint 3 (Trade-off Insight): Exiting a for-await-of loop early triggers the async generator return() hook, which automatically destroys the underlying stream.',
+    ],
+    options: [
+      {
+        id: 'A',
+        text: 'It naturally enforces backpressure by pulling the next chunk only after the loop body await resolves, and automatically calls stream.destroy() if the loop exits via break, return, or throw.',
+        isCorrect: true,
+        explanation: 'Correct: Node.js Readable.prototype[Symbol.asyncIterator] integrates directly with backpressure and lifecycle cleanup. Awaiting inside the loop pauses consumption, and breaking or throwing invokes stream destruction automatically.',
+      },
+      {
+        id: 'B',
+        text: 'It loads the entire file into RAM before starting the first iteration of the loop.',
+        isCorrect: false,
+        explanation: 'Incorrect: Async iterators process chunks incrementally as they arrive without buffering the entire stream.',
+      },
+      {
+        id: 'C',
+        text: 'Breaking out of the loop leaves the file descriptor permanently leaked unless fs.closeSync is called.',
+        isCorrect: false,
+        explanation: 'Incorrect: Unless `{ destroyOnReturn: false }` is explicitly passed, exiting the loop automatically destroys the stream and closes its descriptor.',
+      },
+      {
+        id: 'D',
+        text: 'for await...of only works on arrays and throws a TypeError on Node.js Readable streams.',
+        isCorrect: false,
+        explanation: 'Incorrect: All Node.js Readable streams natively implement Symbol.asyncIterator.',
+      },
+    ],
+    explanation: 'Async iterators (`for await...of`) and async generator functions (`async function*`) are first-class citizens in `stream.pipeline`. They make stream backpressure compositional using standard `try/catch` and `await` syntax.',
+    coachingTip: 'Combine async generators with stream.pipeline: `await pipeline(sourceStream, async function*(source) { for await (const chunk of source) yield transform(chunk); }, destStream)`!',
+  },
+
+  // 31. Analyze / Advanced / Scenario (Chapter 4: Primary IPC Socket Handover vs SO_REUSEPORT)
+  {
+    conceptTitle: 'Primary IPC Socket Handover vs Linux SO_REUSEPORT Kernel Balancing',
+    questionText: 'At extreme connection churn (150,000+ new TCP connections/sec across 32 CPU cores), why can the default Node.js `cluster` module Primary process become a bottleneck, and how does `SO_REUSEPORT` solve it?',
+    difficulty: 'advanced',
+    cognitiveLevel: 'analyze',
+    questionType: 'scenario',
+    expectedAnswer: 'In default cluster mode, the single Primary process accepts every TCP connection and serializes socket handles over IPC to workers; SO_REUSEPORT allows all 32 worker processes to bind the port independently so the Linux kernel distributes connections directly across worker accept queues.',
+    hints: [
+      '💡 Hint 1 (Mental Model): In a 32-core Node.js cluster, how many processes run `accept()` on the listening socket by default?',
+      '🔍 Hint 2 (Mechanism Clue): Only the 1 Primary process runs accept() and passes file descriptors over Unix domain IPC sockets to the 32 workers.',
+      '🎯 Hint 3 (Trade-off Insight): With SO_REUSEPORT, the OS kernel hashes the 4-tuple and routes incoming SYN packets directly to each worker’s own listen socket.',
+    ],
+    options: [
+      {
+        id: 'A',
+        text: 'Default cluster mode funnels all TCP accepts and IPC descriptor passing through the single Primary process; SO_REUSEPORT lets the Linux kernel distribute incoming connections directly across independent worker accept queues.',
+        isCorrect: true,
+        explanation: 'Correct: When 1 Primary feeds 32 workers over IPC, the Primary’s single event loop saturates on accept() + IPC handle passing. Kernel SO_REUSEPORT eliminates the single-process accept bottleneck completely.',
+      },
+      {
+        id: 'B',
+        text: 'The cluster module limits total worker count to a maximum of 2 processes on Linux.',
+        isCorrect: false,
+        explanation: 'Incorrect: Cluster can fork as many workers as desired.',
+      },
+      {
+        id: 'C',
+        text: 'SO_REUSEPORT converts TCP traffic into connectionless UDP broadcast packets.',
+        isCorrect: false,
+        explanation: 'Incorrect: SO_REUSEPORT works natively with standard TCP listen sockets.',
+      },
+      {
+        id: 'D',
+        text: 'IPC channels encrypt socket handles using 4096-bit RSA keys on every connection.',
+        isCorrect: false,
+        explanation: 'Incorrect: Local IPC uses OS file descriptor passing (SCM_RIGHTS), not RSA encryption.',
+      },
+    ],
+    explanation: 'While Node.js cluster IPC round-robin is great for moderate workloads with uneven request durations, ultra-high connection rates saturate the Primary process. Kernel-level `SO_REUSEPORT` (or Envoy/HAProxy multi-listener pods) removes the single accept bottleneck.',
+    coachingTip: 'When scaling beyond 16–32 cores on a single host, prefer container replicas or SO_REUSEPORT listeners over a single Node.js cluster Primary!',
+  },
+
+  // 32. Evaluate / Pro / Real-World Problem (Chapter 5: Prototype Pollution Defense)
+  {
+    conceptTitle: 'Prototype Pollution Attacks (__proto__ / constructor.prototype) & Mitigation',
+    questionText: 'How does a Prototype Pollution vulnerability occur in a Node.js API during recursive object merging or JSON payload processing, and what defense-in-depth measures completely neutralize it?',
+    difficulty: 'pro',
+    cognitiveLevel: 'evaluate',
+    questionType: 'real_world_problem',
+    expectedAnswer: 'An attacker supplies keys like "__proto__" or "constructor.prototype" in a nested JSON payload; an unsafe recursive merge mutates Object.prototype, injecting properties globally across all objects in the V8 Isolate. Mitigate using Object.create(null), Map, schema validation, blocking dangerous keys, or --disable-proto=delete.',
+    hints: [
+      '💡 Hint 1 (Mental Model): In JavaScript, `{}` inherits from `Object.prototype`. What happens if `target["__proto__"]["isAdmin"] = true` executes?',
+      '🔍 Hint 2 (Mechanism Clue): Every plain object in the entire Node.js process inherits `obj.isAdmin === true` unless it has its own property or a null prototype.',
+      '🎯 Hint 3 (Trade-off Insight): Use Map or Object.create(null) for untrusted key-value maps, validate schemas with Zod/Ajv, and run Node.js with `--disable-proto=delete`.',
+    ],
+    options: [
+      {
+        id: 'A',
+        text: 'Unsafe recursive merges of keys like "__proto__" or "constructor.prototype" mutate the global Object.prototype; mitigate with Object.create(null)/Map, strict schema validation, key denylists, and Node’s --disable-proto=delete flag.',
+        isCorrect: true,
+        explanation: 'Correct: Mutating Object.prototype pollutes every plain object in the V8 Isolate, leading to auth bypasses or RCE via gadget chains. Defense-in-depth combines schema stripping, null-prototype objects/Maps, Object.freeze(Object.prototype), and `--disable-proto=delete`.',
+      },
+      {
+        id: 'B',
+        text: 'JSON.parse() automatically executes arbitrary shell commands whenever it encounters the string "__proto__".',
+        isCorrect: false,
+        explanation: 'Incorrect: JSON.parse() alone creates an own property named "__proto__"; the pollution happens when unsafe code recursively copies or merges keys onto target objects.',
+      },
+      {
+        id: 'C',
+        text: 'Prototype pollution only affects legacy browsers and cannot occur in server-side Node.js.',
+        isCorrect: false,
+        explanation: 'Incorrect: Server-side Node.js is even more vulnerable because a single polluted Object.prototype persists across all subsequent user HTTP requests in that process!',
+      },
+      {
+        id: 'D',
+        text: 'Using const instead of let when declaring variables prevents Object.prototype from being modified.',
+        isCorrect: false,
+        explanation: 'Incorrect: const only prevents variable reassignment, not mutation of object properties or prototypes.',
+      },
+    ],
+    explanation: 'Because a Node.js server shares a single V8 Isolate across thousands of concurrent user requests, polluting `Object.prototype` in one request immediately affects all other users and internal libraries (including template engines and child_process options).',
+    coachingTip: 'In high-security Node.js services, pass `--disable-proto=delete` or `Object.freeze(Object.prototype)` at startup, and always use `new Map()` or `Object.create(null)` for dynamic lookup tables!',
+  },
 ];
 
 /**
- * Returns a high-grade Node.js question for the specified concept index (1 to 25+).
+ * Prioritizes Node.js questions based on the active Subtopic, Topic, and Chapter
+ * so that multi-subtopic Zero-to-Hero sessions progress through relevant domain
+ * concepts without repeating questions across subtopics.
+ */
+function getPrioritizedNodeJSQuestions(options: QuestionGenerationOptions): NodeQuestionDef[] {
+  const sub = (options.subtopicTitle || '').toLowerCase();
+  const top = (options.topicTitle || '').toLowerCase();
+  const chap = (options.chapterTitle || '').toLowerCase();
+  const combined = `${sub} ${top} ${chap}`;
+
+  let priorityIndices: number[] = [];
+
+  // Match specific Subtopics first for pinpoint pedagogical relevance
+  if (sub.includes('timers') || sub.includes('poll') || sub.includes('check') || sub.includes('phase')) {
+    priorityIndices = [0, 3, 6, 4, 1, 25];
+  } else if (sub.includes('microtask') || sub.includes('nexttick') || sub.includes('promise')) {
+    priorityIndices = [1, 4, 6, 0, 3, 25];
+  } else if (sub.includes('thread pool') || sub.includes('uv_threadpool') || sub.includes('crypto') || sub.includes('dns')) {
+    priorityIndices = [2, 10, 25, 3, 0, 1];
+  } else if (sub.includes('reactor') || sub.includes('epoll') || sub.includes('kqueue') || sub.includes('non-blocking')) {
+    priorityIndices = [25, 2, 10, 0, 3, 4];
+  } else if (sub.includes('scavenge') || sub.includes('mark-sweep') || sub.includes('new space') || sub.includes('old space')) {
+    priorityIndices = [5, 27, 11, 22, 26, 20];
+  } else if (sub.includes('leak') || sub.includes('closure') || sub.includes('heap')) {
+    priorityIndices = [11, 22, 5, 27, 26, 20];
+  } else if (sub.includes('buffer.alloc') || sub.includes('slab') || sub.includes('allocunsafe')) {
+    priorityIndices = [26, 22, 5, 27, 11, 19];
+  } else if (sub.includes('typedarray') || sub.includes('zero-copy')) {
+    priorityIndices = [19, 14, 26, 22, 23, 5];
+  } else if (sub.includes('highwatermark') || sub.includes('readable') || sub.includes('duplex') || sub.includes('transform')) {
+    priorityIndices = [28, 7, 8, 29, 18, 21];
+  } else if (sub.includes('backpressure') || sub.includes('drain') || sub.includes('write()')) {
+    priorityIndices = [7, 18, 21, 28, 8, 29];
+  } else if (sub.includes('pipeline') || sub.includes('pipe()')) {
+    priorityIndices = [8, 29, 7, 18, 28, 21];
+  } else if (sub.includes('async iterator') || sub.includes('for await')) {
+    priorityIndices = [29, 8, 21, 18, 7, 28];
+  } else if (sub.includes('cluster') || sub.includes('ipc') || sub.includes('forking')) {
+    priorityIndices = [9, 30, 14, 23, 19, 20];
+  } else if (sub.includes('so_reuseport') || sub.includes('socket handover') || sub.includes('load balancing')) {
+    priorityIndices = [30, 9, 21, 18, 14, 19];
+  } else if (sub.includes('worker_threads') || sub.includes('isolates') || sub.includes('child process')) {
+    priorityIndices = [14, 23, 20, 19, 9, 30];
+  } else if (sub.includes('sharedarraybuffer') || sub.includes('atomics') || sub.includes('shared memory')) {
+    priorityIndices = [19, 14, 23, 30, 9, 20];
+  } else if (sub.includes('asynclocalstorage') || sub.includes('correlation') || sub.includes('tracing')) {
+    priorityIndices = [15, 13, 24, 16, 12, 17];
+  } else if (sub.includes('monitoreventloopdelay') || sub.includes('lag') || sub.includes('flamegraph')) {
+    priorityIndices = [13, 10, 15, 11, 16, 12];
+  } else if (sub.includes('graceful shutdown') || sub.includes('sigterm') || sub.includes('draining') || sub.includes('signal')) {
+    priorityIndices = [16, 12, 24, 15, 13, 17];
+  } else if (sub.includes('prototype pollution') || sub.includes('redos') || sub.includes('security')) {
+    priorityIndices = [17, 31, 20, 12, 16, 24];
+  } else if (combined.includes('chapter 1') || combined.includes('event loop') || combined.includes('libuv')) {
+    priorityIndices = [0, 1, 2, 3, 4, 6, 10, 25];
+  } else if (combined.includes('chapter 2') || combined.includes('v8') || combined.includes('memory') || combined.includes('garbage')) {
+    priorityIndices = [5, 11, 22, 26, 27, 20];
+  } else if (combined.includes('chapter 3') || combined.includes('stream') || combined.includes('backpressure')) {
+    priorityIndices = [7, 8, 28, 29, 18, 21];
+  } else if (combined.includes('chapter 4') || combined.includes('concurrency') || combined.includes('cluster') || combined.includes('worker')) {
+    priorityIndices = [9, 14, 19, 23, 30, 20];
+  } else if (combined.includes('chapter 5') || combined.includes('diagnostic') || combined.includes('observability') || combined.includes('production')) {
+    priorityIndices = [15, 13, 16, 12, 17, 31, 24];
+  }
+
+  const seen = new Set<number>();
+  const result: NodeQuestionDef[] = [];
+
+  for (const idx of priorityIndices) {
+    if (idx >= 0 && idx < NODE_JS_QUESTIONS.length && !seen.has(idx)) {
+      seen.add(idx);
+      result.push(NODE_JS_QUESTIONS[idx]);
+    }
+  }
+
+  for (let i = 0; i < NODE_JS_QUESTIONS.length; i++) {
+    if (!seen.has(i)) {
+      seen.add(i);
+      result.push(NODE_JS_QUESTIONS[i]);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Returns a high-grade Node.js question for the specified concept index (1 to 32+).
+ * Deduplicates against options.existingQuestions and adapts to subtopic, chapter, and reinforcement mode.
  */
 export function getNodeJSQuestion(
   index: number,
   options: QuestionGenerationOptions
 ): Partial<QBLQuestion> {
   const normalizedIndex = Math.max(1, index);
-  const qDef = NODE_JS_QUESTIONS[(normalizedIndex - 1) % NODE_JS_QUESTIONS.length];
+  const prioritizedPool = getPrioritizedNodeJSQuestions(options);
+  const existingSet = new Set((options.existingQuestions || []).map(q => q.trim()));
+
+  let qDef: NodeQuestionDef;
+
+  if (existingSet.size > 0) {
+    const unusedPool = prioritizedPool.filter(q => !existingSet.has(q.questionText.trim()));
+    if (unusedPool.length > 0) {
+      qDef = unusedPool[0];
+    } else {
+      const effectiveIdx = options.isReinforcement ? normalizedIndex + 3 : normalizedIndex;
+      qDef = prioritizedPool[(effectiveIdx - 1) % prioritizedPool.length];
+    }
+  } else {
+    const effectiveIdx = options.isReinforcement ? normalizedIndex + 3 : normalizedIndex;
+    qDef = prioritizedPool[(effectiveIdx - 1) % prioritizedPool.length];
+  }
 
   return {
     id: `q_node_${normalizedIndex}_${Date.now().toString(36)}`,
@@ -1436,6 +1839,7 @@ export function getNodeJSQuestion(
     options: qDef.options,
     explanation: qDef.explanation,
     coachingTip: qDef.coachingTip,
+    isReinforcement: options.isReinforcement,
     subject: 'Node.js',
     chapter: options.chapterTitle,
     topic: options.topicTitle,

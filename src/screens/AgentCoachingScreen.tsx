@@ -1,15 +1,12 @@
 /**
  * Agent Coaching Screen: Question-Driven Learning (QBL) Masterclass
- * 
- * Premium UI/UX Edition:
- * - High-end dark aesthetic (#07090E / #0F1420) with electric cyan, purple, and emerald accents
- * - Teddy Organic Companion Card: Avatar halo, dynamic speech bubble, expressive Rive states
- * - Masterclass Track Cards: 5 core engineering tracks with category badges and deep technical scope
- * - Tactical QBL Question Card: Concept counter, 4 high-contrast tactile option buttons (A, B, C, D)
- * - Deep Diagnostics Feedback: Crystal-clear separation of "Why it's a trap" vs "Correct answer & mental model"
- * - Sub-topic Mastery Indicators: Concept step dots (● ● ○), 100% mastery gate
- * - Interactive Sub-topic Roadmap Sheet & Past Sessions Drawer
- * - Modern floating glassmorphism input dock for free-form queries & hints
+ *
+ * Studio UI/UX Edition:
+ * - Precision obsidian/zinc dark surface hierarchy (#09090B / #141419 / #22222A)
+ * - Uncluttered top navigation bar with direct bridge to Voice Mock Interviews & Competency Matrix
+ * - Non-truncating multi-line tactile option cards with keycap badges
+ * - Structured diagnostic feedback cards (Why it works/fails, Correct pattern, Key mental model)
+ * - Interactive Sub-topic Curriculum Sheet & Session History Drawer
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -31,13 +28,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RiveMascot } from '../components/RiveMascot';
 import { useQBLSession } from '../hooks/useQBLSession';
 import {
-  StarIcon,
-  SparklesIcon,
   SendIcon,
   CloseIcon,
   TargetIcon,
-  BrainIcon,
   SettingsIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ArrowRightIcon,
+  PlayIcon,
+  ClockIcon,
+  LayersIcon,
+  AlertCircleIcon,
+  CheckIcon,
+  BulbIcon,
+  TrophyIcon,
+  MicIcon,
 } from '../components/icons/AppIcons';
 
 import { colors } from '../theme/colors';
@@ -54,16 +59,26 @@ interface MasterclassTrack {
   description: string;
   accentColor: string;
   tag: string;
+  modulesLabel?: string;
 }
 
 const MASTERCLASS_TRACKS: MasterclassTrack[] = [
+  {
+    id: 'Node.js: Zero to Hero',
+    title: 'Node.js: Zero to Hero Masterclass',
+    badge: 'Zero → Hero',
+    description: 'Event Loop & libuv phases, V8 GC & memory, Streams backpressure, Worker Threads & security',
+    accentColor: colors.notionGreen,
+    tag: 'Runtime Internals',
+    modulesLabel: '5 chapters • 20 modules',
+  },
   {
     id: 'Distributed Systems',
     title: 'High-Scale Distributed Systems',
     badge: 'Staff / L6',
     description: 'PACELC trade-offs, Raft consensus, Byzantine resilience & p99 SLA defense',
     accentColor: colors.notionBlueLight,
-    tag: 'CONSENSUS & SCALE',
+    tag: 'Consensus & Scale',
   },
   {
     id: 'Kafka & Event Streaming',
@@ -71,7 +86,7 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     badge: 'Data Platform',
     description: 'Partition ISR quorums, consumer rebalancing & exactly-once semantics',
     accentColor: colors.notionPurple,
-    tag: 'EVENT ARCHITECTURE',
+    tag: 'Event Architecture',
   },
   {
     id: 'React Native Architecture',
@@ -79,15 +94,15 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     badge: '60 FPS JSI',
     description: 'Fabric renderer, TurboModules, Hermes bytecode & offline SQLite sync',
     accentColor: colors.notionGreen,
-    tag: 'CLIENT ARCHITECTURE',
+    tag: 'Client Architecture',
   },
   {
     id: 'SQL Indexing & Sharding',
     title: 'SQL Indexing & Sharding',
-    badge: 'Deep DB',
+    badge: 'Storage',
     description: 'B+Tree access paths, write-ahead logs (WAL), composite indexes & locks',
     accentColor: colors.notionOrange,
-    tag: 'STORAGE ENGINES',
+    tag: 'Database Internals',
   },
   {
     id: 'System Design & Microservices',
@@ -95,7 +110,7 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
     badge: 'Principal',
     description: 'Probabilistic caching (XFetch), idempotence, rate limiting & circuit breakers',
     accentColor: colors.notionRed,
-    tag: 'MICROSERVICES',
+    tag: 'Microservices',
   },
 ];
 
@@ -109,7 +124,6 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     currentSubtopic,
     currentQuestion,
     teddyEmotion,
-    teddyDialogue,
     chatMessages,
     isThinking,
     isInitializing,
@@ -117,13 +131,14 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     modelStatus,
     mascotLevel,
     mascotXp,
-    mascotTier,
     startNewTopic,
     resumeSession,
     selectOption,
     advanceToNextQuestion,
     currentTurnResult,
     selectedOptionId,
+    revealedHintsCount,
+    revealNextHint,
     sendChatMessage,
     isReviewSessionActive,
     sessionMistakes,
@@ -169,7 +184,6 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     }
   }, [route?.params?.openRoadmap, session]);
 
-  // When a new question arrives, ALWAYS scroll to top (y: 0) and reset option collapse so question is 100% visible
   useEffect(() => {
     if (currentQuestion) {
       setShowAllOptions(false);
@@ -177,14 +191,9 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     }
   }, [currentQuestion?.id]);
 
-  // When turn is evaluated, smooth-scroll to reveal the feedback card and Continue button.
-  // When a new question arrives (above), it always anchors strictly at top (y: 0) to show from the beginning!
   useEffect(() => {
     if (currentTurnResult) {
-      const timer = setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-      return () => clearTimeout(timer);
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     }
   }, [currentTurnResult]);
 
@@ -192,7 +201,6 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   }, [isReviewSessionActive, currentMistakeIndex]);
 
-  // Auto-scroll on free-form chat messages if session is active and no active question
   useEffect(() => {
     if (session && !currentQuestion && chatMessages.length > 0) {
       scrollViewRef.current?.scrollToEnd({ animated: true });
@@ -211,6 +219,26 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     selectOption(optionId);
   };
 
+  const formatDifficultyLabel = (diff?: string) => {
+    if (diff === 'basic') return 'Foundational';
+    if (diff === 'intermediate') return 'Intermediate';
+    if (diff === 'advanced') return 'Advanced';
+    if (diff === 'pro') return 'Staff Tier';
+    return 'Core';
+  };
+
+  const getDifficultyColor = (diff?: string) => {
+    if (diff === 'basic') return colors.notionGreen;
+    if (diff === 'intermediate') return colors.notionYellow;
+    if (diff === 'advanced') return colors.notionOrange;
+    return colors.notionPurple;
+  };
+
+  const topPadding = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0,
+    44
+  ) + 6;
 
   return (
     <KeyboardAvoidingView
@@ -219,79 +247,157 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
     >
       <StatusBar barStyle="light-content" backgroundColor={colors.background} translucent={true} />
 
-      {/* 1. Header HUD */}
-      <View
-        style={[
-          styles.topHeader,
-          { paddingTop: Math.max(insets.top, Platform.OS === 'android' ? (StatusBar.currentHeight || 28) : 0, 44) + 6 },
-        ]}
-      >
-        <View style={styles.headerRow}>
-          {/* Level Badge with Teddy Logo, Star & XP Progress */}
-          <View style={styles.levelCardContainer}>
-            <Image
-              source={require('../assets/images/teddy_logo.png')}
-              style={styles.headerTeddyLogo}
-              resizeMode="cover"
-            />
-            <View style={styles.levelCard}>
-              <View style={styles.levelBadgeRow}>
-                <View style={styles.starBadge}>
-                  <StarIcon size={12} color={colors.notionYellow} />
-                  <Text style={styles.starBadgeText}>Lv.{mascotLevel}</Text>
+      {/* 1. Studio Top Navigation Bar */}
+      <View style={[styles.topHeader, { paddingTop: topPadding }]}>
+        {!session ? (
+          /* Hub Header: Brand Identity + Level Progress + Quick Actions */
+          <View style={styles.headerRow}>
+            <View style={styles.brandCluster}>
+              <Image
+                source={require('../assets/images/teddy_logo.png')}
+                style={styles.brandAvatar}
+                resizeMode="cover"
+              />
+              <View style={styles.brandTextCol}>
+                <View style={styles.brandTitleRow}>
+                  <Text style={styles.brandTitle}>Intervity</Text>
+                  <View style={styles.levelPill}>
+                    <Text style={styles.levelPillText}>Lv. {mascotLevel}</Text>
+                  </View>
                 </View>
-                <Text style={styles.personalityTierText} numberOfLines={1}>
-                  {mascotTier}
-                </Text>
-                <Text style={styles.xpFractionText}>{mascotXp % 100}/100 XP</Text>
-              </View>
-              <View style={styles.xpTrack}>
-                <View
-                  style={[
-                    styles.xpFill,
-                    { width: `${Math.min(100, (mascotXp % 100))}%` },
-                  ]}
-                />
+                <View style={styles.xpRow}>
+                  <View style={styles.xpTrackMini}>
+                    <View
+                      style={[
+                        styles.xpFillMini,
+                        { width: `${Math.max(6, Math.min(100, mascotXp % 100))}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.xpMetaText}>{mascotXp % 100}/100 XP</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          {/* Action Pills */}
-          <View style={styles.headerActions}>
-            {session && (
+            <View style={styles.headerActions}>
               <TouchableOpacity
-                style={styles.roadmapBtn}
-                onPress={() => setIsRoadmapVisible(true)}
+                style={styles.mockNavBtn}
+                onPress={() => navigation.navigate('Dashboard')}
                 activeOpacity={0.8}
-                accessibilityLabel="View Roadmap"
+                accessibilityLabel="Voice Mock Interview Dashboard"
               >
-                <TargetIcon size={14} color={colors.notionBlueLight} />
-                <Text style={styles.roadmapBtnText}>Roadmap</Text>
+                <MicIcon size={13} color={colors.notionBlueLight} />
+                <Text style={styles.mockNavBtnText}>Mock</Text>
               </TouchableOpacity>
-            )}
 
-            <TouchableOpacity
-              style={styles.sessionsBtn}
-              onPress={() => setIsSessionsModalVisible(true)}
-              activeOpacity={0.8}
-              accessibilityLabel="Past Sessions"
-            >
-              <BrainIcon size={15} color={colors.textSecondary} />
-              <Text style={styles.sessionsBtnText}>Sessions</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => setIsSessionsModalVisible(true)}
+                activeOpacity={0.8}
+                accessibilityLabel="Past Sessions"
+              >
+                <ClockIcon size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => navigation.navigate('ModelManager')}
-              activeOpacity={0.8}
-              accessibilityLabel="Settings"
-            >
-              <SettingsIcon size={16} color={colors.textSecondary} />
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconBtn}
+                onPress={() => navigation.navigate('ModelManager')}
+                activeOpacity={0.8}
+                accessibilityLabel="Settings"
+              >
+                <SettingsIcon size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        ) : (
+          /* Active Session Header: Back to Hub + Topic Context + Curriculum & Review Actions */
+          <View>
+            <View style={styles.headerRow}>
+              <TouchableOpacity
+                style={styles.sessionBackCluster}
+                onPress={resetToTrackSelection}
+                activeOpacity={0.75}
+                accessibilityLabel="Back to tracks"
+              >
+                <View style={styles.backIconWrap}>
+                  <ChevronLeftIcon size={16} color={colors.textSecondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.activeTopicName} numberOfLines={1}>
+                    {session.topicName}
+                  </Text>
+                  <Text style={styles.activeModuleSubtitle} numberOfLines={1}>
+                    {currentSubtopic
+                      ? `${currentSubtopic.chapterTitle ? `${currentSubtopic.chapterTitle} • ` : ''}Module ${session.currentSubtopicIndex + 1} of ${session.subtopics.length} • ${currentSubtopic.title}`
+                      : `${session.overallMasteryPercentage}% Mastered`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
-        {/* Inline Model Download Banner (Only displayed if actively downloading) */}
+              <View style={styles.headerActions}>
+                {mistakesCount > 0 && !isReviewSessionActive && (
+                  <TouchableOpacity
+                    style={styles.reviewMistakesHudBtn}
+                    onPress={startMistakeReview}
+                    activeOpacity={0.8}
+                    accessibilityLabel={`Review ${mistakesCount} mistakes`}
+                  >
+                    <View style={styles.reviewDot} />
+                    <Text style={styles.reviewMistakesHudText}>
+                      Review ({mistakesCount})
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={styles.roadmapBtn}
+                  onPress={() => setIsRoadmapVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityLabel="View Roadmap"
+                >
+                  <LayersIcon size={13} color={colors.textSecondary} />
+                  <Text style={styles.roadmapBtnText}>Roadmap</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.iconBtn}
+                  onPress={() => navigation.navigate('ModelManager')}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Settings"
+                >
+                  <SettingsIcon size={15} color={colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Compact Segmented Concept Progress Bar */}
+            {currentSubtopic && (currentQuestion || isReviewSessionActive) && (
+              <View style={styles.segmentedProgressRow}>
+                <View style={styles.segmentsWrap}>
+                  {Array.from({ length: currentSubtopic.totalConcepts || 3 }, (_, idx) => idx + 1).map((step) => {
+                    const isMastered = currentSubtopic.conceptsMastered >= step;
+                    const isCurrent = currentSubtopic.conceptsMastered + 1 === step;
+                    return (
+                      <View
+                        key={step}
+                        style={[
+                          styles.segmentTrack,
+                          isMastered && styles.segmentTrackMastered,
+                          !isMastered && isCurrent && styles.segmentTrackCurrent,
+                        ]}
+                      />
+                    );
+                  })}
+                </View>
+                <Text style={styles.segmentPercentText}>
+                  {currentSubtopic.masteryPercentage}% module • {session.overallMasteryPercentage}% total
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Inline Model Download Banner */}
         {modelStatus.isDownloading && (
           <View style={styles.modelStatusBanner}>
             <ActivityIndicator size="small" color={colors.notionBlue} style={{ marginRight: 8 }} />
@@ -304,193 +410,89 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             <Text style={styles.modelPercentText}>{modelStatus.progress}%</Text>
           </View>
         )}
-
-        {/* Active Session & Sub-topic Mastery Strip */}
-        {session && currentSubtopic && (currentQuestion || isReviewSessionActive) && (
-          <View style={styles.activeTopicBar}>
-
-            <View style={styles.topicInfoRow}>
-              <Text style={styles.activeTopicName} numberOfLines={1}>
-                {session.topicName}
-              </Text>
-              <View style={styles.headerRightBadges}>
-                <View style={styles.overallMasteryBadge}>
-                  <SparklesIcon size={11} color={colors.notionBlueLight} style={{ marginRight: 4 }} />
-                  <Text style={styles.overallMasteryText}>
-                    {session.overallMasteryPercentage}% Skill Mastered
-                  </Text>
-                </View>
-                {mistakesCount > 0 && !isReviewSessionActive && (
-                  <TouchableOpacity
-                    style={styles.reviewMistakesHudBtn}
-                    onPress={startMistakeReview}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.reviewMistakesHudText}>
-                      🔍 Review ({mistakesCount})
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.subtopicProgressContainer}>
-              <View style={styles.subtopicLabelRow}>
-                <Text style={styles.subtopicNameText} numberOfLines={1}>
-                  Sub-topic {session.currentSubtopicIndex + 1}/{session.subtopics.length}: {currentSubtopic.title}
-                </Text>
-                {/* Concept Step Dots: ● ● ○ */}
-                <View style={styles.conceptDotsRow}>
-                  {[1, 2, 3].map((dot) => {
-                    const isMastered = currentSubtopic.conceptsMastered >= dot;
-                    const isCurrent = currentSubtopic.conceptsMastered + 1 === dot;
-                    return (
-                      <View
-                        key={dot}
-                        style={[
-                          styles.conceptDot,
-                          isMastered && styles.conceptDotMastered,
-                          isCurrent && styles.conceptDotCurrent,
-                        ]}
-                      />
-                    );
-                  })}
-                  <Text style={styles.subtopicMasteryText}>{currentSubtopic.masteryPercentage}%</Text>
-                </View>
-              </View>
-              <View style={styles.subtopicTrack}>
-                <View
-                  style={[
-                    styles.subtopicFill,
-                    {
-                      width: `${currentSubtopic.masteryPercentage}%`,
-                      backgroundColor:
-                        currentSubtopic.masteryPercentage === 100
-                          ? colors.successGreen
-                          : colors.notionBlue,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
-        )}
       </View>
 
-      {/* 2. Teddy Companion Hero Area */}
-      <View style={styles.companionSection}>
-        <View style={styles.companionRow}>
-          <View style={styles.mascotHalo}>
-            <RiveMascot
-              emotion={isThinking ? 'speaking' : (teddyEmotion === 'speaking' ? 'idle' : teddyEmotion)}
-              mascotType="teddy"
-              size={95}
-              showMascotBadge={false}
-            />
-          </View>
-          <View style={styles.companionSpeechCard}>
-            <View style={styles.companionHeaderRow}>
-              <View style={styles.companionNameBadge}>
-                <Text style={styles.companionNameText}>TEDDY AI</Text>
-              </View>
-              <View
-                style={[
-                  styles.emotionBadge,
-                  isThinking && styles.emotionSpeaking,
-                  !isThinking && isReviewSessionActive && styles.emotionPuzzled,
-                  !isThinking && !isReviewSessionActive && teddyEmotion === 'celebrating' && styles.emotionCelebrating,
-                  !isThinking && !isReviewSessionActive && teddyEmotion === 'puzzled' && styles.emotionPuzzled,
-                ]}
-              >
-                <Text style={styles.emotionEmoji}>
-                  {isThinking
-                    ? '🎙️ Formulating...'
-                    : isReviewSessionActive
-                    ? '🔍 Reviewing Traps'
-                    : teddyEmotion === 'celebrating'
-                    ? '🎉 Celebrating'
-                    : teddyEmotion === 'puzzled'
-                    ? '🤔 Diagnostics'
-                    : '✨ Mentor Ready'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.companionDialogueText} numberOfLines={2}>
-              {isThinking
-                ? 'Teddy is formulating your next question and curriculum...'
-                : isReviewSessionActive
-                ? (teddyDialogue.split('\n')[0] || 'Let\'s analyze the traps and solidify your mental model! 🔍')
-                : currentQuestion
-                ? selectedOptionId
-                  ? teddyEmotion === 'celebrating'
-                    ? "Spot on! That's exactly how it works in production! 🎉"
-                    : "Not quite, but this is a super common trap. Let's analyze it! 🤔"
-                  : 'Analyze the trade-offs carefully and select the best pattern below! 🚀'
-                : chatMessages.length > 0 && chatMessages[chatMessages.length - 1].sender === 'teddy'
-                ? chatMessages[chatMessages.length - 1].text.split('\n')[0]
-                : session
-                ? `Mastering ${currentSubtopic?.title || session.topicName} together!`
-                : 'Welcome! Ready to level up your engineering depth through Question-Driven Learning?'}
-            </Text>
-          </View>
-        </View>
-
-      </View>
-
-      {/* 3. Main Content Stream (Scrollable) */}
+      {/* 2. Main Content Stream (Scrollable) */}
       <ScrollView
         ref={scrollViewRef}
         style={styles.mainScroll}
         contentContainerStyle={[
           styles.mainContent,
-          { paddingBottom: insets.bottom + 85 },
+          { paddingBottom: insets.bottom + 84 },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {isInitializing && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.notionBlue} />
-            <Text style={styles.loadingText}>Waking up Teddy...</Text>
+            <ActivityIndicator size="small" color={colors.notionBlueLight} />
+            <Text style={styles.loadingText}>Initializing learning engine...</Text>
           </View>
         )}
 
-        {/* Welcome / Choice State: When no session is active */}
+        {/* HUB VIEW: When no session is active */}
         {!session && !isThinking && (
           <View style={styles.welcomeContainer}>
+            {/* Mentor Companion Hero Card */}
+            <View style={styles.mentorHeroCard}>
+              <View style={styles.mascotAvatarWrap}>
+                <RiveMascot
+                  emotion={teddyEmotion === 'speaking' ? 'idle' : teddyEmotion}
+                  mascotType="teddy"
+                  size={64}
+                  showMascotBadge={false}
+                />
+              </View>
+              <View style={styles.mentorHeroContent}>
+                <View style={styles.mentorTitleRow}>
+                  <Text style={styles.mentorNameText}>Teddy</Text>
+                  <View style={styles.mentorStatusPill}>
+                    <View style={styles.mentorStatusDot} />
+                    <Text style={styles.mentorStatusText}>AI Mentor</Text>
+                  </View>
+                </View>
+                <Text style={styles.mentorGreetingText}>
+                  Choose an architecture track below to practice real-world engineering trade-offs, or type any custom topic.
+                </Text>
+              </View>
+            </View>
 
             {/* Resume Last Session Banner */}
             {latestSessionToResume && (
               <TouchableOpacity
                 style={styles.resumeHeroCard}
                 onPress={() => resumeSession(latestSessionToResume.sessionId)}
-                activeOpacity={0.85}
+                activeOpacity={0.82}
               >
                 <View style={styles.resumeHeroIconContainer}>
-                  <Text style={styles.resumePlayEmoji}>▶️</Text>
+                  <PlayIcon size={15} color={colors.notionBlueLight} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   <View style={styles.resumeBadgeRow}>
-                    <Text style={styles.resumeTagText}>CONTINUE WHERE YOU LEFT OFF</Text>
+                    <Text style={styles.resumeTagText}>Continue Session</Text>
                     <Text style={styles.resumePercentBadge}>
-                      {latestSessionToResume.overallMasteryPercentage}% Done
+                      {latestSessionToResume.overallMasteryPercentage}%
                     </Text>
                   </View>
                   <Text style={styles.resumeTopicTitle} numberOfLines={1}>
                     {latestSessionToResume.topicName}
                   </Text>
-                  <Text style={styles.resumeSubMeta}>
-                    {latestSessionToResume.subtopics.length} Sub-topics • Masterclass in progress
-                  </Text>
+                  <View style={styles.resumeMiniBarTrack}>
+                    <View
+                      style={[
+                        styles.resumeMiniBarFill,
+                        { width: `${Math.max(4, latestSessionToResume.overallMasteryPercentage)}%` },
+                      ]}
+                    />
+                  </View>
                 </View>
+                <ChevronRightIcon size={16} color={colors.textTertiary} style={{ marginLeft: 8 }} />
               </TouchableOpacity>
             )}
 
-            <View style={styles.sectionDivider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerTitle}>
-                {latestSessionToResume ? 'OR START A NEW SKILL' : 'FEATURED MASTERCLASS TRACKS'}
-              </Text>
-              <View style={styles.dividerLine} />
+            {/* Section Header */}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeaderTitle}>Architecture Tracks</Text>
+              <Text style={styles.sectionHeaderMeta}>Zero to Hero & Staff tracks</Text>
             </View>
 
             {/* Masterclass Track Cards */}
@@ -498,53 +500,74 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               {MASTERCLASS_TRACKS.map((track) => (
                 <TouchableOpacity
                   key={track.id}
-                  style={[styles.trackCard, { borderLeftColor: track.accentColor }]}
+                  style={styles.trackCard}
                   onPress={() => startNewTopic(track.id)}
                   activeOpacity={0.8}
                 >
                   <View style={styles.trackCardHeader}>
                     <View style={styles.trackTagContainer}>
-                      <Text style={[styles.trackTagText, { color: track.accentColor }]}>
-                        {track.tag}
-                      </Text>
+                      <View style={[styles.trackCategoryDot, { backgroundColor: track.accentColor }]} />
+                      <Text style={styles.trackTagText}>{track.tag}</Text>
                     </View>
-                    <View style={[styles.trackBadgePill, { borderColor: track.accentColor }]}>
-                      <Text style={[styles.trackBadgeText, { color: track.accentColor }]}>
-                        {track.badge}
-                      </Text>
+                    <View style={styles.trackBadgePill}>
+                      <Text style={styles.trackBadgeText}>{track.badge}</Text>
                     </View>
                   </View>
+
                   <Text style={styles.trackCardTitle}>{track.title}</Text>
                   <Text style={styles.trackCardDesc} numberOfLines={2}>
                     {track.description}
                   </Text>
+
                   <View style={styles.trackCardFooter}>
-                    <Text style={styles.trackSubtopicsCount}>5 Sub-topics • Masterclass</Text>
-                    <Text style={[styles.trackActionArrow, { color: track.accentColor }]}>
-                      Start →
+                    <Text style={styles.trackSubtopicsCount}>
+                      {track.modulesLabel || '5 modules • 15 concepts'}
                     </Text>
+                    <View style={styles.trackStartAction}>
+                      <Text style={styles.trackActionText}>Start</Text>
+                      <ArrowRightIcon size={13} color={colors.notionBlueLight} />
+                    </View>
                   </View>
                 </TouchableOpacity>
               ))}
             </View>
-
-            <View style={styles.customTopicPromptBox}>
-              <Text style={styles.customTopicPromptText}>
-                💡 Want to learn something else? Type any topic (e.g. "PostgreSQL WAL", "GraphQL", "Concurrency") in the bar below!
-              </Text>
-            </View>
           </View>
         )}
 
-        {/* Active QBL Session: Freeform Inquiries, Active Question & Feedback Cards */}
+        {/* ACTIVE SESSION VIEW */}
         {session && (
           <View style={styles.sessionStreamContainer}>
-            {/* 1. Free-form Discussion / Hints if user asked Teddy anything */}
+            {/* Compact Mentor Prompt Strip (shown while pondering question, hidden during feedback to maximize space) */}
+            {!currentTurnResult && !isReviewSessionActive && (
+              <View style={styles.compactMentorBar}>
+                <View style={styles.compactMascotWrap}>
+                  <RiveMascot
+                    emotion={isThinking ? 'speaking' : 'idle'}
+                    mascotType="teddy"
+                    size={42}
+                    showMascotBadge={false}
+                  />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.compactMentorLabel}>
+                    {isThinking ? 'Formulating next scenario...' : 'Scenario Analysis'}
+                  </Text>
+                  <Text style={styles.compactMentorText} numberOfLines={1}>
+                    {isThinking
+                      ? 'Synthesizing engineering trade-offs and edge cases'
+                      : 'Evaluate the operational constraints and select the strongest pattern.'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Free-form Discussion / Hints */}
             {chatMessages
               .filter(
                 (msg) =>
                   msg.id.startsWith('msg_user_chat_') ||
-                  msg.id.startsWith('msg_teddy_chat_')
+                  msg.id.startsWith('msg_teddy_chat_') ||
+                  msg.id.startsWith('msg_chat_')
               )
               .map((msg) => {
                 const isTeddy = msg.sender === 'teddy';
@@ -575,57 +598,91 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 );
               })}
 
-            {/* 2. Active Question Card (Tactical One-by-One QBL Presentation) */}
+            {/* Active Question Card */}
             {!isReviewSessionActive && currentQuestion && (
               <View style={styles.questionCardContainer}>
                 <View style={styles.questionCardHeader}>
                   <View style={styles.badgeRow}>
                     <View style={styles.conceptPill}>
-                      <SparklesIcon size={12} color={colors.notionBlueLight} style={{ marginRight: 4 }} />
                       <Text style={styles.conceptPillText}>
-                        CONCEPT #{currentQuestion.conceptIndex} OF 3
+                        Concept {currentQuestion.conceptIndex} of {currentSubtopic?.totalConcepts || 3}
                       </Text>
                     </View>
                     {currentQuestion.difficulty && (
-                      <View
-                        style={[
-                          styles.difficultyBadge,
-                          currentQuestion.difficulty === 'basic' && styles.difficultyBadgeBasic,
-                          currentQuestion.difficulty === 'intermediate' && styles.difficultyBadgeIntermediate,
-                          currentQuestion.difficulty === 'advanced' && styles.difficultyBadgeAdvanced,
-                          currentQuestion.difficulty === 'pro' && styles.difficultyBadgePro,
-                        ]}
-                      >
-                        <Text
+                      <View style={styles.difficultyBadge}>
+                        <View
                           style={[
-                            styles.difficultyText,
-                            currentQuestion.difficulty === 'basic' && styles.difficultyTextBasic,
-                            currentQuestion.difficulty === 'intermediate' && styles.difficultyTextIntermediate,
-                            currentQuestion.difficulty === 'advanced' && styles.difficultyTextAdvanced,
-                            currentQuestion.difficulty === 'pro' && styles.difficultyTextPro,
+                            styles.difficultyDot,
+                            { backgroundColor: getDifficultyColor(currentQuestion.difficulty) },
                           ]}
-                        >
-                          {currentQuestion.difficulty === 'basic'
-                            ? '🟢 BASIC'
-                            : currentQuestion.difficulty === 'intermediate'
-                            ? '🟡 INTERMEDIATE'
-                            : currentQuestion.difficulty === 'advanced'
-                            ? '🟠 ADVANCED'
-                            : '🟣 PRO'}
+                        />
+                        <Text style={styles.difficultyText}>
+                          {formatDifficultyLabel(currentQuestion.difficulty)}
+                        </Text>
+                      </View>
+                    )}
+                    {currentQuestion.cognitiveLevel && (
+                      <View style={styles.difficultyBadge}>
+                        <Text style={styles.difficultyText}>
+                          Bloom: {currentQuestion.cognitiveLevel}
                         </Text>
                       </View>
                     )}
                   </View>
                   {currentQuestion.isReinforcement && (
                     <View style={styles.reinforcementBadge}>
-                      <Text style={styles.reinforcementBadgeText}>🎯 Reinforcement Drill</Text>
+                      <TargetIcon size={11} color={colors.notionOrange} />
+                      <Text style={styles.reinforcementBadgeText}>Reinforcement</Text>
                     </View>
                   )}
                 </View>
 
+                {currentQuestion.learningObjective && (
+                  <View style={styles.learningObjectiveBanner}>
+                    <Text style={styles.learningObjectiveLabel}>Learning Objective</Text>
+                    <Text style={styles.learningObjectiveText} numberOfLines={2}>
+                      {currentQuestion.learningObjective}
+                    </Text>
+                  </View>
+                )}
+
                 <Text style={styles.questionScenarioText}>
                   {currentQuestion.questionText}
                 </Text>
+
+                {/* Interactive 3-Tier Progressive Hints (available before answering) */}
+                {!currentTurnResult && currentQuestion.hints && currentQuestion.hints.length > 0 && (
+                  <View style={styles.hintsSection}>
+                    {revealedHintsCount > 0 && (
+                      <View style={styles.revealedHintsList}>
+                        {currentQuestion.hints.slice(0, revealedHintsCount).map((hint, idx) => (
+                          <View key={idx} style={styles.hintItemBox}>
+                            <BulbIcon size={13} color={colors.notionYellow} style={{ marginTop: 2 }} />
+                            <Text style={styles.hintItemText}>
+                              <Text style={styles.hintTierLabel}>Hint {idx + 1}: </Text>
+                              {hint}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    {revealedHintsCount < currentQuestion.hints.length && (
+                      <TouchableOpacity
+                        style={styles.revealHintBtn}
+                        onPress={revealNextHint}
+                        activeOpacity={0.75}
+                        accessibilityLabel="Reveal progressive hint"
+                      >
+                        <BulbIcon size={13} color={colors.notionBlueLight} />
+                        <Text style={styles.revealHintBtnText}>
+                          {revealedHintsCount === 0
+                            ? `Need a nudge? Reveal Hint 1 of ${currentQuestion.hints.length}`
+                            : `Reveal Hint ${revealedHintsCount + 1} of ${currentQuestion.hints.length}`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
 
                 {/* Interactive Multiple-Choice Options */}
                 <View style={styles.optionsList}>
@@ -635,7 +692,6 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                     const isEvaluated = !!currentTurnResult;
                     const isCorrect = opt.isCorrect;
 
-                    // When evaluated, prioritize showing the selected option and the correct option to prevent vertical overflow and overlap
                     const isRelevant = isSelected || isCorrect;
                     if (isEvaluated && !showAllOptions && !isRelevant) {
                       return null;
@@ -654,7 +710,6 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                           isEvaluated && isSelected && isCorrect && styles.optionButtonCorrect,
                           isEvaluated && isSelected && !isCorrect && styles.optionButtonWrong,
                           isEvaluated && !isSelected && isCorrect && styles.optionButtonRevealCorrect,
-                          (isThinking || hasSelected) && styles.optionButtonDisabled,
                         ]}
                         onPress={() => handleOptionPress(opt.id)}
                         disabled={isThinking || hasSelected}
@@ -669,30 +724,38 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                             isEvaluated && !isSelected && isCorrect && styles.optionLetterRevealCorrect,
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.optionLetterText,
-                              isSelected && styles.optionLetterTextSelected,
-                              isEvaluated && isSelected && (isCorrect ? styles.optionLetterTextCorrect : styles.optionLetterTextWrong),
-                            ]}
-                          >
-                            {isEvaluated && isSelected ? (isCorrect ? '✓' : '✗') : isEvaluated && !isSelected && isCorrect ? '✓' : opt.id}
-                          </Text>
+                          {isEvaluated && (isSelected || isCorrect) ? (
+                            isCorrect ? (
+                              <CheckIcon size={13} color="#FFFFFF" strokeWidth={2.5} />
+                            ) : (
+                              <CloseIcon size={13} color="#FFFFFF" strokeWidth={2.5} />
+                            )
+                          ) : (
+                            <Text
+                              style={[
+                                styles.optionLetterText,
+                                isSelected && styles.optionLetterTextSelected,
+                              ]}
+                            >
+                              {opt.id}
+                            </Text>
+                          )}
                         </View>
-                        <View style={{ flex: 1 }}>
+
+                        <View style={styles.optionTextColumn}>
                           <Text style={styles.optionContentText}>{opt.text}</Text>
                           {isEvaluated && isSelected && !isCorrect && (
-                            <Text style={styles.wrongIndicatorTag}>✗ Your Choice (Incorrect)</Text>
+                            <Text style={styles.wrongIndicatorTag}>Your selection</Text>
                           )}
                           {isEvaluated && isCorrect && (
-                            <Text style={styles.correctIndicatorTag}>✓ Correct Answer</Text>
+                            <Text style={styles.correctIndicatorTag}>Optimal choice</Text>
                           )}
                         </View>
                       </TouchableOpacity>
                     );
                   })}
 
-                  {/* Toggle to view all options if some are hidden once evaluated */}
+                  {/* Toggle to view all options if collapsed */}
                   {currentTurnResult && currentQuestion.options.length > 2 && (
                     <TouchableOpacity
                       style={styles.toggleOptionsBtn}
@@ -701,14 +764,14 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                     >
                       <Text style={styles.toggleOptionsBtnText}>
                         {showAllOptions
-                          ? '▴ Show focused choices'
-                          : `▾ View all ${currentQuestion.options.length} options`}
+                          ? 'Hide other choices'
+                          : `Show all ${currentQuestion.options.length} choices`}
                       </Text>
                     </TouchableOpacity>
                   )}
                 </View>
 
-                {/* 3. Deep Diagnostic Feedback Card (Rendered immediately below options once evaluated) */}
+                {/* Structured Diagnostic Breakdown Card */}
                 {currentTurnResult && (
                   <View
                     style={[
@@ -717,25 +780,86 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                     ]}
                   >
                     <View style={styles.feedbackHeaderRow}>
-                      <Text style={styles.feedbackTitleText}>
-                        {currentTurnResult.isCorrect ? '🎉 SPOT ON! +25 XP' : '⚠️ CONCEPT DIAGNOSTIC'}
-                      </Text>
+                      <View style={styles.feedbackTitleCluster}>
+                        <View
+                          style={[
+                            styles.feedbackIconCircle,
+                            {
+                              backgroundColor: currentTurnResult.isCorrect
+                                ? colors.notionGreen
+                                : colors.notionRed,
+                            },
+                          ]}
+                        >
+                          {currentTurnResult.isCorrect ? (
+                            <CheckIcon size={12} color="#FFFFFF" strokeWidth={2.5} />
+                          ) : (
+                            <AlertCircleIcon size={13} color="#FFFFFF" strokeWidth={2.2} />
+                          )}
+                        </View>
+                        <Text style={styles.feedbackTitleText}>
+                          {currentTurnResult.isCorrect ? 'Correct Analysis' : 'Architectural Trap'}
+                        </Text>
+                      </View>
                       <View
                         style={[
                           styles.feedbackStatusBadge,
                           currentTurnResult.isCorrect ? styles.feedbackStatusCorrect : styles.feedbackStatusWrong,
                         ]}
                       >
-                        <Text style={styles.feedbackStatusBadgeText}>
-                          {currentTurnResult.isCorrect ? 'Mastered ✓' : 'Trap Analyzed'}
+                        <Text
+                          style={[
+                            styles.feedbackStatusBadgeText,
+                            {
+                              color: currentTurnResult.isCorrect
+                                ? colors.notionGreen
+                                : colors.notionRed,
+                            },
+                          ]}
+                        >
+                          +{currentTurnResult.xpAwarded} XP
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.feedbackBodyText}>{currentTurnResult.feedbackText}</Text>
+
+                    {/* Why selected option works or fails */}
+                    <Text style={styles.feedbackBodyText}>
+                      {currentTurnResult.selectedOption.explanation}
+                    </Text>
+
+                    {/* If wrong, highlight the authoritative option explanation */}
+                    {!currentTurnResult.isCorrect && (
+                      <View style={styles.correctPatternCallout}>
+                        <Text style={styles.correctPatternLabel}>
+                          Why Option {currentTurnResult.correctOption.id} is preferred
+                        </Text>
+                        <Text style={styles.correctPatternBody}>
+                          {currentTurnResult.correctOption.explanation}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Mental Model / Takeaway */}
+                    {(currentQuestion.coachingTip || currentQuestion.explanation) && (
+                      <View style={styles.mentalModelBox}>
+                        <BulbIcon size={15} color={colors.notionBlueLight} style={{ marginTop: 1 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.mentalModelLabel}>Key Takeaway</Text>
+                          <Text style={styles.mentalModelBody}>
+                            {currentQuestion.coachingTip || currentQuestion.explanation}
+                          </Text>
+                          {currentQuestion.sourceReference && (
+                            <Text style={styles.sourceReferenceText}>
+                              Source: {currentQuestion.sourceReference}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    )}
                   </View>
                 )}
 
-                {/* 4. Dedicated Continue Button (Transitions to Next Concept / Drill / Subtopic) */}
+                {/* Primary Continue Button */}
                 {currentTurnResult && (
                   <TouchableOpacity
                     accessible={true}
@@ -750,30 +874,31 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                   >
                     <Text style={styles.continueBtnText}>
                       {currentTurnResult.isSubtopicCompleted
-                        ? (session.currentSubtopicIndex === session.subtopics.length - 1
-                          ? '🏆 Complete Masterclass & View Results →'
-                          : 'Continue to Next Sub-topic →')
+                        ? session.currentSubtopicIndex === session.subtopics.length - 1
+                          ? 'Complete Track & View Summary'
+                          : 'Continue to Next Module'
                         : currentTurnResult.isCorrect
-                        ? `Continue to Concept #${Math.min(3, (currentSubtopic?.conceptsMastered || 0) + 1)} →`
-                        : 'Continue to Reinforcement Drill →'}
+                        ? `Continue to Concept ${Math.min(currentSubtopic?.totalConcepts || 3, (currentSubtopic?.conceptsMastered || 0) + 1)}`
+                        : 'Practice Reinforcement Scenario'}
                     </Text>
+                    <ArrowRightIcon size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                 )}
               </View>
             )}
 
-            {/* 3. Mistake Review Session Card */}
+            {/* Mistake Review Session Card */}
             {isReviewSessionActive && currentMistake && (
               <View style={styles.reviewCardContainer}>
-                {/* Header */}
                 <View style={styles.reviewHeaderRow}>
                   <View style={styles.reviewHeaderLeft}>
                     <View style={styles.reviewTitleBadge}>
-                      <Text style={styles.reviewTitleBadgeText}>🔍 MISTAKE AUTOPSY & REVIEW</Text>
+                      <AlertCircleIcon size={12} color={colors.notionRed} />
+                      <Text style={styles.reviewTitleBadgeText}>Mistake Review</Text>
                     </View>
                     <View style={styles.reviewCounterBadge}>
                       <Text style={styles.reviewCounterText}>
-                        Trap {currentMistakeIndex + 1} of {sessionMistakes.length}
+                        {currentMistakeIndex + 1} of {sessionMistakes.length}
                       </Text>
                     </View>
                   </View>
@@ -782,81 +907,61 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                     onPress={exitReviewSession}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.reviewExitBtnText}>✕ Exit Review</Text>
+                    <CloseIcon size={14} color={colors.textSecondary} />
+                    <Text style={styles.reviewExitBtnText}>Done</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Subtopic & Difficulty */}
                 <View style={styles.reviewSubtopicRow}>
                   <Text style={styles.reviewSubtopicText} numberOfLines={1}>
                     {currentMistake.conceptTitle}
                   </Text>
                   {currentMistake.difficulty && (
-                    <View
-                      style={[
-                        styles.difficultyBadge,
-                        currentMistake.difficulty === 'basic' && styles.difficultyBadgeBasic,
-                        currentMistake.difficulty === 'intermediate' && styles.difficultyBadgeIntermediate,
-                        currentMistake.difficulty === 'advanced' && styles.difficultyBadgeAdvanced,
-                        currentMistake.difficulty === 'pro' && styles.difficultyBadgePro,
-                      ]}
-                    >
-                      <Text
+                    <View style={styles.difficultyBadge}>
+                      <View
                         style={[
-                          styles.difficultyText,
-                          currentMistake.difficulty === 'basic' && styles.difficultyTextBasic,
-                          currentMistake.difficulty === 'intermediate' && styles.difficultyTextIntermediate,
-                          currentMistake.difficulty === 'advanced' && styles.difficultyTextAdvanced,
-                          currentMistake.difficulty === 'pro' && styles.difficultyTextPro,
+                          styles.difficultyDot,
+                          { backgroundColor: getDifficultyColor(currentMistake.difficulty) },
                         ]}
-                      >
-                        {currentMistake.difficulty === 'basic'
-                          ? '🟢 BASIC'
-                          : currentMistake.difficulty === 'intermediate'
-                          ? '🟡 INTERMEDIATE'
-                          : currentMistake.difficulty === 'advanced'
-                          ? '🟠 ADVANCED'
-                          : '🟣 PRO'}
+                      />
+                      <Text style={styles.difficultyText}>
+                        {formatDifficultyLabel(currentMistake.difficulty)}
                       </Text>
                     </View>
                   )}
                 </View>
 
-                {/* The Challenging Question Scenario */}
                 <View style={styles.reviewQuestionBox}>
-                  <Text style={styles.reviewQuestionLabel}>THE CHALLENGE SCENARIO</Text>
+                  <Text style={styles.reviewQuestionLabel}>Scenario</Text>
                   <Text style={styles.reviewQuestionText}>{currentMistake.questionText}</Text>
                 </View>
 
-                {/* The Trap (Candidate's Choice) */}
                 <View style={styles.reviewTrapBox}>
                   <View style={styles.reviewBoxHeader}>
-                    <Text style={styles.reviewTrapHeaderTag}>❌ YOUR TRAP CHOICE</Text>
+                    <Text style={styles.reviewTrapHeaderTag}>Previous Selection</Text>
                     <Text style={styles.reviewOptionLetter}>Option {currentMistake.userSelectedOption.id}</Text>
                   </View>
                   <Text style={styles.reviewOptionText}>{currentMistake.userSelectedOption.text}</Text>
                   <View style={styles.reviewDivider} />
-                  <Text style={styles.reviewAutopsyLabel}>WHY THIS FAILED (AUTOPSY):</Text>
+                  <Text style={styles.reviewAutopsyLabel}>Root-Cause Gap</Text>
                   <Text style={styles.reviewAutopsyText}>
                     {currentMistake.userSelectedOption.explanation || currentMistake.feedbackText}
                   </Text>
                 </View>
 
-                {/* Authoritative Pattern (Correct Answer) */}
                 <View style={styles.reviewPatternBox}>
                   <View style={styles.reviewBoxHeader}>
-                    <Text style={styles.reviewPatternHeaderTag}>✓ AUTHORITATIVE PATTERN</Text>
+                    <Text style={styles.reviewPatternHeaderTag}>Recommended Pattern</Text>
                     <Text style={styles.reviewPatternLetter}>Option {currentMistake.correctOption.id}</Text>
                   </View>
                   <Text style={styles.reviewPatternText}>{currentMistake.correctOption.text}</Text>
                   <View style={styles.reviewDividerGreen} />
-                  <Text style={styles.reviewPatternDetailLabel}>CORRECT MENTAL MODEL:</Text>
+                  <Text style={styles.reviewPatternDetailLabel}>Engineering Rationale</Text>
                   <Text style={styles.reviewPatternDetailText}>
                     {currentMistake.correctOption.explanation}
                   </Text>
                 </View>
 
-                {/* Navigation Action Buttons */}
                 <View style={styles.reviewNavRow}>
                   <TouchableOpacity
                     style={[styles.reviewNavBtn, currentMistakeIndex === 0 && styles.reviewNavBtnDisabled]}
@@ -864,8 +969,17 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                     disabled={currentMistakeIndex === 0}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.reviewNavBtnText, currentMistakeIndex === 0 && styles.reviewNavBtnTextDisabled]}>
-                      ← Previous Trap
+                    <ChevronLeftIcon
+                      size={15}
+                      color={currentMistakeIndex === 0 ? colors.textTertiary : colors.textPrimary}
+                    />
+                    <Text
+                      style={[
+                        styles.reviewNavBtnText,
+                        currentMistakeIndex === 0 && styles.reviewNavBtnTextDisabled,
+                      ]}
+                    >
+                      Previous
                     </Text>
                   </TouchableOpacity>
 
@@ -875,7 +989,8 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                       onPress={nextMistake}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.reviewNavBtnPrimaryText}>Next Trap →</Text>
+                      <Text style={styles.reviewNavBtnPrimaryText}>Next</Text>
+                      <ChevronRightIcon size={15} color="#FFFFFF" />
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
@@ -883,54 +998,59 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                       onPress={exitReviewSession}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.reviewNavBtnCompleteText}>Finish Review 🎉</Text>
+                      <CheckIcon size={15} color="#FFFFFF" />
+                      <Text style={styles.reviewNavBtnCompleteText}>Finish Review</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               </View>
             )}
 
-            {/* 4. Masterclass 100% Completion Card */}
+            {/* Masterclass 100% Completion Card */}
             {!currentQuestion && !isReviewSessionActive && !isThinking && (session.overallMasteryPercentage === 100 || session.status === 'COMPLETED') && (
               <View style={styles.completionCard}>
-                <Text style={styles.completionEmoji}>🏆</Text>
-                <Text style={styles.completionTitle}>Masterclass Complete!</Text>
+                <View style={styles.completionIconCircle}>
+                  <TrophyIcon size={28} color={colors.notionYellow} />
+                </View>
+                <Text style={styles.completionTitle}>Track Completed</Text>
                 <Text style={styles.completionDesc}>
-                  You have achieved 100% mastery across all {session.subtopics.length} sub-topics of "{session.topicName}"! You are ready for Staff/Principal architecture rounds!
+                  You have mastered all {session.subtopics.length} modules of {session.topicName}.
                 </Text>
+
                 {mistakesCount > 0 && (
                   <TouchableOpacity
-                    style={[styles.continueBtn, styles.reviewMistakesCompletionBtn]}
+                    style={[styles.continueBtn, styles.reviewMistakesCompletionBtn, { width: '100%' }]}
                     onPress={startMistakeReview}
                     activeOpacity={0.85}
                   >
                     <Text style={styles.reviewMistakesCompletionBtnText}>
-                      🔍 Review {mistakesCount} Traps & Mistakes
+                      Review {mistakesCount} Recorded Trap{mistakesCount > 1 ? 's' : ''}
                     </Text>
                   </TouchableOpacity>
                 )}
+
                 <TouchableOpacity
-                  style={[styles.continueBtn, styles.continueBtnCorrect, { marginTop: 10 }]}
+                  style={[styles.continueBtn, styles.continueBtnCorrect, { marginTop: 10, width: '100%' }]}
                   onPress={() => setIsRoadmapVisible(true)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.continueBtnText}>Review Mastery Roadmap 🗺️</Text>
+                  <Text style={styles.continueBtnText}>View Curriculum Breakdown</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.continueBtn, styles.completionActionBtnSecondary, { marginTop: 10 }]}
+                  style={[styles.continueBtn, styles.completionActionBtnSecondary, { marginTop: 10, width: '100%' }]}
                   onPress={resetToTrackSelection}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.completionActionBtnSecondaryText}>Start Another Masterclass 🚀</Text>
+                  <Text style={styles.completionActionBtnSecondaryText}>Explore Another Track</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.continueBtn, styles.completionActionBtnDashboard, { marginTop: 10 }]}
+                  style={[styles.continueBtn, styles.completionActionBtnDashboard, { marginTop: 10, width: '100%' }]}
                   onPress={() => navigation.navigate('Dashboard')}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.completionActionBtnDashboardText}>Back to Dashboard 🏠</Text>
+                  <Text style={styles.completionActionBtnDashboardText}>Open Competency Dashboard</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -938,15 +1058,15 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
             {/* Thinking Indicator */}
             {isThinking && (
               <View style={styles.thinkingContainer}>
-                <ActivityIndicator size="small" color={colors.notionBlue} style={{ marginRight: 8 }} />
-                <Text style={styles.thinkingLabel}>Teddy is formulating your next question...</Text>
+                <ActivityIndicator size="small" color={colors.notionBlueLight} style={{ marginRight: 10 }} />
+                <Text style={styles.thinkingLabel}>Synthesizing next scenario...</Text>
               </View>
             )}
           </View>
         )}
       </ScrollView>
 
-      {/* 4. Floating Modern Glassmorphism Input Bar */}
+      {/* 3. Bottom Input Bar */}
       <View
         style={[
           styles.inputContainer,
@@ -957,8 +1077,8 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           style={styles.textInput}
           placeholder={
             !session
-              ? 'Enter any skill, topic, or language...'
-              : 'Ask Teddy a question or ask for a hint...'
+              ? 'Or type any custom engineering topic...'
+              : 'Ask Teddy for a hint or deeper clarification...'
           }
           placeholderTextColor={colors.textTertiary}
           value={inputText}
@@ -976,15 +1096,16 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
           onPress={handleSend}
           disabled={!inputText.trim() || isThinking}
           activeOpacity={0.8}
+          accessibilityLabel="Send message"
         >
           <SendIcon
-            size={18}
+            size={17}
             color={inputText.trim() && !isThinking ? '#FFFFFF' : colors.textTertiary}
           />
         </TouchableOpacity>
       </View>
 
-      {/* 5. Sub-topic Roadmap Modal Sheet */}
+      {/* 4. Sub-topic Roadmap Modal Sheet */}
       <Modal
         visible={isRoadmapVisible}
         transparent={true}
@@ -993,18 +1114,20 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.sheetGrabber} />
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>Masterclass Curriculum</Text>
+                <Text style={styles.modalTitle}>Track Curriculum</Text>
                 <Text style={styles.modalSubtitle}>
-                  {session?.topicName} • 5+ In-Depth Sub-topics
+                  {session?.topicName} • {session?.subtopics.length || 5} modules
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={() => setIsRoadmapVisible(false)}
                 style={styles.modalCloseBtn}
+                accessibilityLabel="Close roadmap"
               >
-                <CloseIcon size={20} color={colors.textSecondary} />
+                <CloseIcon size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1017,8 +1140,9 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                 }}
                 activeOpacity={0.85}
               >
+                <AlertCircleIcon size={15} color={colors.notionRed} />
                 <Text style={styles.roadmapReviewMistakesText}>
-                  🔍 Review All Mistakes & Traps ({mistakesCount})
+                  Review {mistakesCount} Recorded Trap{mistakesCount > 1 ? 's' : ''}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1045,11 +1169,16 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                           isCurrent && styles.roadmapIndexCurrent,
                         ]}
                       >
-                        <Text style={styles.roadmapIndexText}>
-                          {isCompleted ? '✓' : idx + 1}
-                        </Text>
+                        {isCompleted ? (
+                          <CheckIcon size={12} color="#FFFFFF" strokeWidth={2.5} />
+                        ) : (
+                          <Text style={styles.roadmapIndexText}>{idx + 1}</Text>
+                        )}
                       </View>
-                      <View style={{ flex: 1, marginLeft: 10 }}>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        {sub.chapterTitle && (
+                          <Text style={styles.roadmapChapterTag}>{sub.chapterTitle}</Text>
+                        )}
                         <Text style={styles.roadmapItemTitle}>{sub.title}</Text>
                         <Text style={styles.roadmapItemDesc}>{sub.description}</Text>
                       </View>
@@ -1062,13 +1191,13 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                             styles.roadmapFill,
                             {
                               width: `${sub.masteryPercentage}%`,
-                              backgroundColor: isCompleted ? colors.successGreen : colors.notionBlueLight,
+                              backgroundColor: isCompleted ? colors.successGreen : colors.notionBlue,
                             },
                           ]}
                         />
                       </View>
                       <Text style={styles.roadmapMasteryText}>
-                        {sub.masteryPercentage}% ({sub.conceptsMastered}/{sub.totalConcepts} concepts)
+                        {sub.conceptsMastered}/{sub.totalConcepts} concepts ({sub.masteryPercentage}%)
                       </Text>
                     </View>
                   </View>
@@ -1079,7 +1208,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
         </View>
       </Modal>
 
-      {/* 6. Past Sessions Picker Modal Sheet */}
+      {/* 5. Past Sessions Picker Modal Sheet */}
       <Modal
         visible={isSessionsModalVisible}
         transparent={true}
@@ -1088,18 +1217,20 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.sheetGrabber} />
             <View style={styles.modalHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalTitle}>Your Learning Sessions</Text>
+                <Text style={styles.modalTitle}>Session History</Text>
                 <Text style={styles.modalSubtitle}>
-                  Resume where you left off or review past topic progress
+                  Resume an in-progress track or review completed modules
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={() => setIsSessionsModalVisible(false)}
                 style={styles.modalCloseBtn}
+                accessibilityLabel="Close session history"
               >
-                <CloseIcon size={20} color={colors.textSecondary} />
+                <CloseIcon size={18} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1107,7 +1238,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
               {pastSessions.length === 0 ? (
                 <View style={styles.emptySessionsBox}>
                   <Text style={styles.emptySessionsText}>
-                    No saved sessions yet. Pick a masterclass track to build your skill mastery!
+                    No saved sessions yet. Select a track on the home screen to begin.
                   </Text>
                 </View>
               ) : (
@@ -1127,7 +1258,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
                     <View style={{ flex: 1 }}>
                       <Text style={styles.sessionCardTitle}>{s.topicName}</Text>
                       <Text style={styles.sessionCardMeta}>
-                        {s.subtopics.length} sub-topics • Last updated{' '}
+                        {s.subtopics.length} modules • Updated{' '}
                         {new Date(s.updatedAt).toLocaleDateString()}
                       </Text>
                     </View>
@@ -1155,7 +1286,7 @@ const styles = StyleSheet.create({
   topHeader: {
     backgroundColor: colors.surface,
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
@@ -1164,101 +1295,155 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  levelCardContainer: {
+  brandCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  brandAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    marginRight: 10,
+  },
+  brandTextCol: {
+    flex: 1,
+  },
+  brandTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 4,
+  },
+  brandTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: -0.4,
+  },
+  levelPill: {
+    backgroundColor: colors.notionBlueBg,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 5,
+  },
+  levelPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.notionBlueLight,
+    fontVariant: ['tabular-nums'],
+  },
+  xpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  xpTrackMini: {
+    width: 72,
+    height: 3,
+    backgroundColor: colors.cardBorder,
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  xpFillMini: {
+    height: '100%',
+    backgroundColor: colors.notionBlue,
+  },
+  xpMetaText: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
+  },
+  sessionBackCluster: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     marginRight: 10,
   },
-  headerTeddyLogo: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: colors.notionBlue,
-    marginRight: 8,
-  },
-  levelCard: {
-    flex: 1,
-  },
-  levelBadgeRow: {
-    flexDirection: 'row',
+  backIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     alignItems: 'center',
-    marginBottom: 4,
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  starBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginRight: 6,
-  },
-  starBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.notionBlueLight,
-    marginLeft: 3,
-  },
-  personalityTierText: {
-    fontSize: 12,
+  activeTopicName: {
     color: colors.textPrimary,
+    fontSize: 14,
     fontWeight: '600',
-    flex: 1,
+    letterSpacing: -0.2,
   },
-  xpFractionText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  xpTrack: {
-    height: 3,
-    backgroundColor: colors.cardBorder,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  xpFill: {
-    height: '100%',
-    backgroundColor: colors.notionBlue,
+  activeModuleSubtitle: {
+    color: colors.textTertiary,
+    fontSize: 11,
+    marginTop: 1,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+  },
+  mockNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.notionBlueBg,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(79, 110, 247, 0.28)',
+  },
+  mockNavBtnText: {
+    color: colors.notionBlueLight,
+    fontSize: 12,
+    fontWeight: '600',
   },
   roadmapBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 8,
-    marginRight: 6,
-    borderWidth: 1,
-    borderColor: colors.notionBlue,
-  },
-  roadmapBtnText: {
-    color: colors.notionBlueLight,
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  sessionsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    gap: 5,
     backgroundColor: colors.cardBackground,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginRight: 6,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  sessionsBtnText: {
+  roadmapBtnText: {
     color: colors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
-    marginLeft: 4,
+  },
+  reviewMistakesHudBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.notionRedBg,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.3)',
+  },
+  reviewDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.notionRed,
+  },
+  reviewMistakesHudText: {
+    color: colors.notionRed,
+    fontSize: 11,
+    fontWeight: '600',
   },
   iconBtn: {
     width: 32,
@@ -1269,6 +1454,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.cardBorder,
+  },
+  segmentedProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
+  },
+  segmentsWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
+    marginRight: 12,
+  },
+  segmentTrack: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.cardBorder,
+  },
+  segmentTrackMastered: {
+    backgroundColor: colors.notionGreen,
+  },
+  segmentTrackCurrent: {
+    backgroundColor: colors.notionBlue,
+  },
+  segmentPercentText: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   modelStatusBanner: {
     flexDirection: 'row',
@@ -1300,205 +1519,104 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     marginLeft: 8,
-    fontWeight: '700',
-  },
-  activeTopicBar: {
-    marginTop: 8,
-    backgroundColor: colors.cardBackground,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  topicInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  activeTopicName: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    flex: 1,
-    marginRight: 8,
-  },
-  overallMasteryBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  overallMasteryText: {
-    color: colors.notionBlueLight,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  subtopicProgressContainer: {},
-  subtopicLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  subtopicNameText: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    flex: 1,
-    marginRight: 6,
-  },
-  conceptDotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  conceptDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.cardBorder,
-    marginRight: 4,
-  },
-  conceptDotMastered: {
-    backgroundColor: colors.notionGreen,
-  },
-  conceptDotCurrent: {
-    backgroundColor: colors.notionBlue,
-  },
-  subtopicMasteryText: {
-    color: colors.textPrimary,
-    fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  subtopicTrack: {
-    height: 3,
-    backgroundColor: colors.background,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  subtopicFill: {
-    height: '100%',
-  },
-  companionSection: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-  },
-  companionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  mascotHalo: {
-    width: 82,
-    height: 82,
-    borderRadius: 16,
-    backgroundColor: colors.cardBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    overflow: 'hidden',
-  },
-  companionSpeechCard: {
-    flex: 1,
-    marginLeft: 12,
-    backgroundColor: colors.cardBackground,
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  companionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  companionNameBadge: {
-    backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  companionNameText: {
-    color: colors.notionBlueLight,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  emotionBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    backgroundColor: colors.surfaceHover,
-  },
-  emotionSpeaking: {
-    backgroundColor: colors.notionBlueBg,
-  },
-  emotionCelebrating: {
-    backgroundColor: colors.notionGreenBg,
-  },
-  emotionPuzzled: {
-    backgroundColor: colors.notionYellowBg,
-  },
-  emotionThinking: {
-    backgroundColor: colors.notionPurpleBg,
-  },
-  emotionEmoji: {
-    fontSize: 10,
     fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  companionDialogueText: {
-    color: colors.textPrimary,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   mainScroll: {
     flex: 1,
-    overflow: 'hidden',
   },
   mainContent: {
     padding: 16,
   },
   loadingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
+    paddingVertical: 28,
+    gap: 10,
   },
   loadingText: {
     color: colors.textSecondary,
     fontSize: 13,
-    marginTop: 8,
   },
-  welcomeContainer: {},
+  welcomeContainer: {
+    gap: 14,
+  },
+  mentorHeroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  mascotAvatarWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: colors.elevatedBackground,
+  },
+  mentorHeroContent: {
+    flex: 1,
+    marginLeft: 14,
+  },
+  mentorTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  mentorNameText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  mentorStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.elevatedBackground,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  mentorStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.notionGreen,
+    marginRight: 5,
+  },
+  mentorStatusText: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  mentorGreetingText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
   resumeHeroCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.notionBlue,
-    marginBottom: 8,
+    borderColor: 'rgba(79, 110, 247, 0.35)',
   },
   resumeHeroIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 10,
     backgroundColor: colors.notionBlueBg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  resumePlayEmoji: {
-    fontSize: 20,
   },
   resumeBadgeRow: {
     flexDirection: 'row',
@@ -1508,126 +1626,162 @@ const styles = StyleSheet.create({
   },
   resumeTagText: {
     color: colors.notionBlueLight,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '600',
   },
   resumePercentBadge: {
-    color: colors.notionBlueLight,
+    color: colors.textSecondary,
     fontSize: 11,
-    fontWeight: '700',
-    backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   resumeTopicTitle: {
     color: colors.textPrimary,
     fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    marginBottom: 6,
   },
-  resumeSubMeta: {
-    color: colors.textSecondary,
-    fontSize: 12,
+  resumeMiniBarTrack: {
+    height: 3,
+    backgroundColor: colors.cardBorder,
+    borderRadius: 1.5,
+    overflow: 'hidden',
   },
-  sectionDivider: {
+  resumeMiniBarFill: {
+    height: '100%',
+    backgroundColor: colors.notionBlue,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 14,
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingHorizontal: 2,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.divider,
+  sectionHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
   },
-  dividerTitle: {
+  sectionHeaderMeta: {
+    fontSize: 12,
     color: colors.textTertiary,
-    fontSize: 10,
-    fontWeight: '800',
-    paddingHorizontal: 8,
-    letterSpacing: 0.6,
   },
   tracksGrid: {
     gap: 10,
   },
   trackCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
-    padding: 14,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    borderLeftWidth: 4,
   },
   trackCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  trackTagContainer: {},
+  trackTagContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  trackCategoryDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   trackTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   trackBadgePill: {
+    backgroundColor: colors.elevatedBackground,
     borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    borderColor: colors.cardBorder,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
     borderRadius: 6,
   },
   trackBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   trackCardTitle: {
     color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.3,
     marginBottom: 4,
   },
   trackCardDesc: {
     color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-    marginBottom: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 12,
   },
   trackCardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.borderSubtle,
   },
   trackSubtopicsCount: {
     color: colors.textTertiary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
   },
-  trackActionArrow: {
+  trackStartAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trackActionText: {
     fontSize: 13,
-    fontWeight: '700',
-  },
-  customTopicPromptBox: {
-    marginTop: 14,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: colors.cardBackground,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  customTopicPromptText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
+    fontWeight: '600',
+    color: colors.notionBlueLight,
   },
   sessionStreamContainer: {
     gap: 12,
   },
+  compactMentorBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  compactMascotWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: colors.elevatedBackground,
+  },
+  compactMentorLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.notionBlueLight,
+    marginBottom: 1,
+  },
+  compactMentorText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
   questionCardContainer: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
-    padding: 14,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
@@ -1635,49 +1789,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  conceptPill: {
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  conceptPill: {
     backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   conceptPillText: {
     color: colors.notionBlueLight,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  difficultyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.elevatedBackground,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  difficultyDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  difficultyText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
   },
   reinforcementBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.notionOrangeBg,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
   },
   reinforcementBadgeText: {
     color: colors.notionOrange,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
   questionScenarioText: {
     color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 21,
-    marginBottom: 12,
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 22,
+    letterSpacing: -0.1,
+    marginBottom: 16,
   },
   optionsList: {
     gap: 8,
   },
   optionButton: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceHover,
-    borderRadius: 8,
-    padding: 11,
+    alignItems: 'flex-start',
+    backgroundColor: colors.elevatedBackground,
+    borderRadius: 10,
+    padding: 13,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
@@ -1697,167 +1878,219 @@ const styles = StyleSheet.create({
     borderColor: colors.notionGreen,
     backgroundColor: colors.notionGreenBg,
   },
-  optionButtonDisabled: {
-    opacity: 0.65,
+  optionButtonEvaluatedCompact: {
+    paddingVertical: 11,
+    paddingHorizontal: 12,
   },
   optionLetterBadge: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     borderRadius: 6,
     backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 11,
+    marginTop: 1,
   },
   optionLetterSelected: {
     backgroundColor: colors.notionBlue,
+    borderColor: colors.notionBlue,
   },
   optionLetterCorrect: {
     backgroundColor: colors.notionGreen,
+    borderColor: colors.notionGreen,
   },
   optionLetterWrong: {
     backgroundColor: colors.notionRed,
+    borderColor: colors.notionRed,
   },
   optionLetterRevealCorrect: {
     backgroundColor: colors.notionGreen,
+    borderColor: colors.notionGreen,
   },
   optionLetterText: {
     color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   optionLetterTextSelected: {
     color: '#FFFFFF',
   },
-  optionLetterTextCorrect: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
-  optionLetterTextWrong: {
-    color: '#FFFFFF',
-    fontWeight: '800',
+  optionTextColumn: {
+    flex: 1,
   },
   optionContentText: {
     color: colors.textPrimary,
-    fontSize: 13,
-    flex: 1,
-    lineHeight: 18,
+    fontSize: 13.5,
+    lineHeight: 19,
   },
   correctIndicatorTag: {
     color: colors.notionGreen,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 4,
   },
   wrongIndicatorTag: {
     color: colors.notionRed,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 4,
-  },
-  optionButtonEvaluatedCompact: {
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    marginBottom: 6,
   },
   toggleOptionsBtn: {
     alignSelf: 'center',
-    paddingVertical: 5,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     marginTop: 2,
-    marginBottom: 4,
   },
   toggleOptionsBtnText: {
-    color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
+    color: colors.textTertiary,
+    fontSize: 12,
+    fontWeight: '500',
   },
   feedbackCard: {
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 14,
     borderWidth: 1,
-    marginTop: 10,
+    marginTop: 12,
+    backgroundColor: colors.elevatedBackground,
   },
   feedbackCardCorrect: {
-    backgroundColor: colors.notionGreenBg,
-    borderColor: colors.notionGreen,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   feedbackCardWrong: {
-    backgroundColor: colors.notionRedBg,
-    borderColor: colors.notionRed,
+    borderColor: 'rgba(244, 63, 94, 0.35)',
   },
   feedbackHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 8,
+  },
+  feedbackTitleCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  feedbackIconCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feedbackTitleText: {
     color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 13,
+    fontWeight: '600',
   },
   feedbackStatusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 2.5,
     borderRadius: 6,
   },
   feedbackStatusCorrect: {
-    backgroundColor: colors.notionGreen,
+    backgroundColor: colors.notionGreenBg,
   },
   feedbackStatusWrong: {
-    backgroundColor: colors.notionRed,
+    backgroundColor: colors.notionRedBg,
   },
   feedbackStatusBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   feedbackBodyText: {
-    color: colors.textPrimary,
-    fontSize: 13,
+    color: colors.textSecondary,
+    fontSize: 13.5,
     lineHeight: 20,
   },
-  continueBtn: {
-    marginTop: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+  correctPatternCallout: {
+    marginTop: 10,
+    padding: 12,
     borderRadius: 8,
+    backgroundColor: colors.notionGreenBg,
+    borderLeftWidth: 2.5,
+    borderLeftColor: colors.notionGreen,
+  },
+  correctPatternLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.notionGreen,
+    marginBottom: 3,
+  },
+  correctPatternBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.textPrimary,
+  },
+  mentalModelBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  mentalModelLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.notionBlueLight,
+    marginBottom: 2,
+  },
+  mentalModelBody: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
+  continueBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
     backgroundColor: colors.notionBlue,
   },
   continueBtnCorrect: {
-    backgroundColor: colors.notionGreen,
+    backgroundColor: colors.notionBlue,
   },
   continueBtnReinforce: {
-    backgroundColor: colors.notionOrange,
+    backgroundColor: colors.notionBlue,
   },
   continueBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    fontWeight: '600',
   },
   completionCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.notionBlue,
-    marginTop: 20,
+    borderColor: colors.cardBorder,
+    marginTop: 12,
   },
-  completionEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
+  completionIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.notionYellowBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   completionTitle: {
     color: colors.textPrimary,
     fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 8,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    marginBottom: 6,
     textAlign: 'center',
   },
   completionDesc: {
@@ -1865,18 +2098,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+  },
+  reviewMistakesCompletionBtn: {
+    backgroundColor: colors.notionRedBg,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.35)',
+  },
+  reviewMistakesCompletionBtnText: {
+    color: colors.notionRed,
+    fontSize: 14,
+    fontWeight: '600',
   },
   completionActionBtnSecondary: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.elevatedBackground,
     borderWidth: 1,
-    borderColor: colors.notionBlue,
+    borderColor: colors.cardBorder,
   },
   completionActionBtnSecondaryText: {
-    color: colors.notionBlueLight,
+    color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '800',
-    letterSpacing: 0.4,
+    fontWeight: '600',
   },
   completionActionBtnDashboard: {
     backgroundColor: 'transparent',
@@ -1886,8 +2128,7 @@ const styles = StyleSheet.create({
   completionActionBtnDashboardText: {
     color: colors.textSecondary,
     fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontWeight: '500',
   },
   chatRow: {
     flexDirection: 'row',
@@ -1902,20 +2143,18 @@ const styles = StyleSheet.create({
   chatBubble: {
     maxWidth: '85%',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   chatBubbleTeddy: {
     backgroundColor: colors.cardBackground,
-    borderBottomLeftRadius: 2,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   chatBubbleUser: {
     backgroundColor: colors.notionBlue,
-    borderBottomRightRadius: 2,
   },
   chatText: {
-    fontSize: 13,
+    fontSize: 13.5,
     lineHeight: 19,
   },
   chatTextTeddy: {
@@ -1923,28 +2162,27 @@ const styles = StyleSheet.create({
   },
   chatTextUser: {
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   thinkingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 10,
+    padding: 12,
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 10,
     alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   thinkingLabel: {
-    color: colors.notionBlueLight,
-    fontSize: 12,
-    fontStyle: 'italic',
+    color: colors.textSecondary,
+    fontSize: 13,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 10,
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.divider,
@@ -1953,52 +2191,63 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 42,
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 13.5,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   sendBtn: {
     width: 42,
     height: 42,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: colors.notionBlue,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
   },
   sendBtnDisabled: {
-    backgroundColor: colors.surfaceHover,
-    opacity: 0.4,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-    maxHeight: '80%',
-    borderWidth: 1,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    maxHeight: '82%',
+    borderTopWidth: 1,
     borderColor: colors.cardBorder,
+  },
+  sheetGrabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.cardBorder,
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: colors.divider,
   },
   modalTitle: {
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
+    letterSpacing: -0.3,
   },
   modalSubtitle: {
     color: colors.textSecondary,
@@ -2006,25 +2255,49 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   modalCloseBtn: {
-    padding: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roadmapReviewMistakesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: colors.notionRedBg,
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.3)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  roadmapReviewMistakesText: {
+    color: colors.notionRed,
+    fontSize: 13,
+    fontWeight: '600',
   },
   roadmapList: {
-    marginTop: 12,
+    marginTop: 14,
   },
   roadmapItemCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   roadmapItemCurrent: {
-    borderColor: colors.notionBlue,
-    backgroundColor: colors.notionBlueBg,
+    borderColor: 'rgba(79, 110, 247, 0.45)',
   },
   roadmapItemCompleted: {
-    borderColor: colors.notionGreen,
+    borderColor: 'rgba(16, 185, 129, 0.35)',
   },
   roadmapItemHeader: {
     flexDirection: 'row',
@@ -2034,36 +2307,43 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 6,
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.elevatedBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 1,
   },
   roadmapIndexCurrent: {
     backgroundColor: colors.notionBlue,
+    borderColor: colors.notionBlue,
   },
   roadmapIndexCompleted: {
     backgroundColor: colors.notionGreen,
+    borderColor: colors.notionGreen,
   },
   roadmapIndexText: {
-    color: '#FFFFFF',
+    color: colors.textSecondary,
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   roadmapItemTitle: {
     color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+    marginBottom: 3,
   },
   roadmapItemDesc: {
     color: colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 17,
   },
   roadmapProgressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 12,
   },
   roadmapTrack: {
     flex: 1,
@@ -2071,21 +2351,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 2,
     overflow: 'hidden',
-    marginRight: 8,
+    marginRight: 10,
   },
   roadmapFill: {
     height: '100%',
   },
   roadmapMasteryText: {
-    color: colors.textPrimary,
-    fontSize: 10,
-    fontWeight: '700',
+    color: colors.textTertiary,
+    fontSize: 11,
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   sessionsList: {
-    marginTop: 12,
+    marginTop: 14,
   },
   emptySessionsBox: {
-    paddingVertical: 28,
+    paddingVertical: 32,
     alignItems: 'center',
   },
   emptySessionsText: {
@@ -2097,8 +2378,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBackground,
-    padding: 12,
-    borderRadius: 8,
+    padding: 14,
+    borderRadius: 12,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.cardBorder,
@@ -2109,76 +2390,32 @@ const styles = StyleSheet.create({
   sessionCardTitle: {
     color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 2,
   },
   sessionCardMeta: {
-    color: colors.textSecondary,
-    fontSize: 11,
+    color: colors.textTertiary,
+    fontSize: 12,
   },
   sessionMasteryBadge: {
     backgroundColor: colors.notionBlueBg,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 6,
-    marginLeft: 8,
+    marginLeft: 10,
   },
   sessionMasteryText: {
     color: colors.notionBlueLight,
     fontSize: 12,
-    fontWeight: '700',
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  difficultyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginLeft: 6,
-    borderWidth: 1,
-  },
-  difficultyBadgeBasic: {
-    backgroundColor: colors.notionGreenBg,
-    borderColor: colors.notionGreen,
-  },
-  difficultyBadgeIntermediate: {
-    backgroundColor: colors.notionYellowBg,
-    borderColor: colors.notionYellow,
-  },
-  difficultyBadgeAdvanced: {
-    backgroundColor: colors.notionOrangeBg,
-    borderColor: colors.notionOrange,
-  },
-  difficultyBadgePro: {
-    backgroundColor: colors.notionPurpleBg,
-    borderColor: colors.notionPurple,
-  },
-  difficultyText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  difficultyTextBasic: {
-    color: colors.notionGreen,
-  },
-  difficultyTextIntermediate: {
-    color: colors.notionYellow,
-  },
-  difficultyTextAdvanced: {
-    color: colors.notionOrange,
-  },
-  difficultyTextPro: {
-    color: colors.notionPurple,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   reviewCardContainer: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: colors.notionRed,
+    borderColor: colors.cardBorder,
     marginBottom: 16,
   },
   reviewHeaderRow: {
@@ -2190,47 +2427,52 @@ const styles = StyleSheet.create({
   reviewHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
+    gap: 8,
     flex: 1,
   },
   reviewTitleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     backgroundColor: colors.notionRedBg,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 6,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: colors.notionRed,
   },
   reviewTitleBadgeText: {
     color: colors.notionRed,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '600',
   },
   reviewCounterBadge: {
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.elevatedBackground,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
   },
   reviewCounterText: {
     color: colors.textSecondary,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   reviewExitBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 6,
-    backgroundColor: colors.surfaceHover,
+    backgroundColor: colors.elevatedBackground,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
   reviewExitBtnText: {
     color: colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
   },
   reviewSubtopicRow: {
     flexDirection: 'row',
@@ -2240,39 +2482,37 @@ const styles = StyleSheet.create({
   },
   reviewSubtopicText: {
     color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     flex: 1,
     marginRight: 8,
   },
   reviewQuestionBox: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 14,
+    backgroundColor: colors.elevatedBackground,
+    padding: 13,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.cardBorder,
+    marginBottom: 10,
   },
   reviewQuestionLabel: {
     color: colors.textTertiary,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   reviewQuestionText: {
     color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '500',
+    fontSize: 13.5,
+    lineHeight: 20,
   },
   reviewTrapBox: {
     backgroundColor: colors.notionRedBg,
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 12,
+    padding: 13,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.notionRed,
+    borderColor: 'rgba(244, 63, 94, 0.3)',
+    marginBottom: 10,
   },
   reviewBoxHeader: {
     flexDirection: 'row',
@@ -2283,91 +2523,89 @@ const styles = StyleSheet.create({
   reviewTrapHeaderTag: {
     color: colors.notionRed,
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   reviewOptionLetter: {
     color: colors.notionRed,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   reviewOptionText: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 13.5,
+    fontWeight: '500',
     lineHeight: 19,
-    fontWeight: '600',
   },
   reviewDivider: {
     height: 1,
-    backgroundColor: colors.cardBorder,
-    marginVertical: 10,
+    backgroundColor: 'rgba(244, 63, 94, 0.2)',
+    marginVertical: 8,
   },
   reviewAutopsyLabel: {
     color: colors.notionRed,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 3,
   },
   reviewAutopsyText: {
     color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
   },
   reviewPatternBox: {
     backgroundColor: colors.notionGreenBg,
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 16,
+    padding: 13,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.notionGreen,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+    marginBottom: 14,
   },
   reviewPatternHeaderTag: {
     color: colors.notionGreen,
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    fontWeight: '600',
   },
   reviewPatternLetter: {
     color: colors.notionGreen,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   reviewPatternText: {
     color: colors.textPrimary,
-    fontSize: 13,
+    fontSize: 13.5,
+    fontWeight: '500',
     lineHeight: 19,
-    fontWeight: '600',
   },
   reviewDividerGreen: {
     height: 1,
-    backgroundColor: colors.cardBorder,
-    marginVertical: 10,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    marginVertical: 8,
   },
   reviewPatternDetailLabel: {
     color: colors.notionGreen,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 3,
   },
   reviewPatternDetailText: {
     color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
   },
   reviewNavRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     gap: 10,
   },
   reviewNavBtn: {
     flex: 1,
-    backgroundColor: colors.surfaceHover,
-    paddingVertical: 12,
-    borderRadius: 8,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: colors.elevatedBackground,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
@@ -2376,7 +2614,7 @@ const styles = StyleSheet.create({
   },
   reviewNavBtnText: {
     color: colors.textPrimary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   reviewNavBtnTextDisabled: {
@@ -2388,8 +2626,8 @@ const styles = StyleSheet.create({
   },
   reviewNavBtnPrimaryText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
   },
   reviewNavBtnComplete: {
     backgroundColor: colors.notionGreen,
@@ -2397,50 +2635,85 @@ const styles = StyleSheet.create({
   },
   reviewNavBtnCompleteText: {
     color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  learningObjectiveBanner: {
+    backgroundColor: colors.elevatedBackground,
+    borderRadius: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    marginBottom: 12,
+    borderLeftWidth: 2.5,
+    borderLeftColor: colors.notionBlueLight,
+  },
+  learningObjectiveLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.notionBlueLight,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  learningObjectiveText: {
     fontSize: 12,
-    fontWeight: '700',
+    lineHeight: 17,
+    color: colors.textSecondary,
   },
-  reviewMistakesHudBtn: {
-    backgroundColor: colors.notionRedBg,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginLeft: 6,
+  hintsSection: {
+    marginBottom: 14,
+    gap: 8,
+  },
+  revealedHintsList: {
+    gap: 6,
+  },
+  hintItemBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: colors.notionYellowBg,
+    borderRadius: 8,
+    padding: 10,
     borderWidth: 1,
-    borderColor: colors.notionRed,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
   },
-  reviewMistakesHudText: {
-    color: colors.notionRed,
-    fontSize: 11,
+  hintTierLabel: {
     fontWeight: '700',
+    color: colors.notionYellow,
   },
-  headerRightBadges: {
+  hintItemText: {
+    flex: 1,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.textPrimary,
+  },
+  revealHintBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  roadmapReviewMistakesBtn: {
-    backgroundColor: colors.notionRedBg,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: colors.notionBlueBg,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.notionRed,
+    borderColor: 'rgba(79, 110, 247, 0.28)',
   },
-  roadmapReviewMistakesText: {
-    color: colors.notionRed,
-    fontSize: 12,
-    fontWeight: '700',
+  revealHintBtnText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: colors.notionBlueLight,
   },
-  reviewMistakesCompletionBtn: {
-    backgroundColor: colors.notionRedBg,
-    borderColor: colors.notionRed,
-    marginTop: 12,
+  sourceReferenceText: {
+    fontSize: 11,
+    color: colors.textTertiary,
+    fontStyle: 'italic',
+    marginTop: 5,
   },
-  reviewMistakesCompletionBtnText: {
-    color: colors.notionRed,
-    fontSize: 14,
-    fontWeight: '700',
+  roadmapChapterTag: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: colors.notionBlueLight,
+    marginBottom: 2,
   },
 });

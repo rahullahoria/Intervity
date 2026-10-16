@@ -36,11 +36,12 @@ export interface HierarchyOptions {
 }
 
 export interface QuestionGenerationOptions {
-  subject: string;
+  subject?: string;
+  subjectTitle?: string;
   chapterTitle?: string;
   topicTitle?: string;
   subtopicTitle: string;
-  subtopicDescription: string;
+  subtopicDescription?: string;
   learningObjective?: string;
   cognitiveLevel?: QBLCognitiveLevel;
   questionType?: QBLQuestionType;
@@ -101,6 +102,222 @@ export class QBLCurriculumGenerator {
   // =========================================================================
   // STEP 2: BREAK INTO HIERARCHY (Subject -> Chapter -> Topic -> Sub-topic)
   // =========================================================================
+
+  /**
+   * Plans an interactive QBLSubtopic[] roadmap for a subject.
+   * Supports both 'standard' (5 flagship chapter subtopics) and 'zero_to_hero'
+   * (complete multi-chapter, multi-topic deep mastery across all subtopics).
+   */
+  planSubjectSubtopics(
+    subject: string,
+    options: { mode?: 'standard' | 'zero_to_hero'; conceptsPerSubtopic?: number } = {}
+  ): QBLSubtopic[] {
+    const cleanSubject = subject.trim() || 'Software Engineering';
+    const lowerSub = cleanSubject.toLowerCase();
+    const isZeroToHero =
+      options.mode === 'zero_to_hero' ||
+      lowerSub.includes('zero to hero') ||
+      lowerSub.includes('complete');
+    const conceptsPerSubtopic = Math.max(1, options.conceptsPerSubtopic || 3);
+
+    if (lowerSub.includes('node') || lowerSub.includes('nodejs') || lowerSub.includes('libuv')) {
+      const subtopics: QBLSubtopic[] = [];
+      if (isZeroToHero) {
+        let idx = 1;
+        for (let c = 0; c < NODE_JS_CURRICULUM_CHAPTERS.length; c++) {
+          const chap = NODE_JS_CURRICULUM_CHAPTERS[c];
+          for (let t = 0; t < chap.topics.length; t++) {
+            const top = chap.topics[t];
+            for (let s = 0; s < top.subtopics.length; s++) {
+              const sub = top.subtopics[s];
+              const cogLevel: QBLCognitiveLevel =
+                sub.difficulty === 'basic'
+                  ? 'understand'
+                  : sub.difficulty === 'intermediate'
+                  ? 'apply'
+                  : sub.difficulty === 'advanced'
+                  ? 'analyze'
+                  : 'create';
+              subtopics.push({
+                id: `sub_${idx}`,
+                title: sub.title,
+                description: sub.description,
+                conceptsMastered: 0,
+                totalConcepts: conceptsPerSubtopic,
+                masteryPercentage: 0,
+                status: idx === 1 ? 'IN_PROGRESS' : 'PENDING',
+                difficulty: sub.difficulty,
+                learningObjective: this.generateLearningObjective('Node.js', sub.title, cogLevel),
+                chapterId: `chap_node_${c + 1}`,
+                chapterTitle: chap.title,
+                topicId: `topic_node_${c + 1}_${t + 1}`,
+                topicTitle: top.title,
+              });
+              idx++;
+            }
+          }
+        }
+        return subtopics;
+      }
+
+      // Standard 5-chapter flagship Node.js mastery roadmap (1 subtopic per chapter)
+      return NODE_JS_CURRICULUM_CHAPTERS.map((chap, idx) => {
+        const primaryTopic = chap.topics[0];
+        const primarySub = primaryTopic.subtopics[idx % primaryTopic.subtopics.length] || primaryTopic.subtopics[0];
+        const cogLevel: QBLCognitiveLevel =
+          idx === 0 ? 'understand' : idx === 1 ? 'apply' : idx === 2 ? 'analyze' : idx === 3 ? 'evaluate' : 'create';
+        return {
+          id: `sub_${idx + 1}`,
+          title: primarySub.title,
+          description: primarySub.description,
+          conceptsMastered: 0,
+          totalConcepts: conceptsPerSubtopic,
+          masteryPercentage: 0,
+          status: idx === 0 ? 'IN_PROGRESS' : 'PENDING',
+          difficulty: primarySub.difficulty,
+          learningObjective: this.generateLearningObjective('Node.js', primarySub.title, cogLevel),
+          chapterId: `chap_node_${idx + 1}`,
+          chapterTitle: chap.title,
+          topicId: `topic_node_${idx + 1}_1`,
+          topicTitle: primaryTopic.title,
+        };
+      });
+    }
+
+    // Non-Node.js subjects in Zero-to-Hero or Standard mode (5 chapters)
+    const chapterBlueprints = [
+      {
+        chapterTitle: `Chapter 1: Core Primitives & Mental Models of ${cleanSubject}`,
+        topics: [
+          {
+            topicTitle: 'Foundational Data & Execution Primitives',
+            subtopics: [
+              {
+                title: `Core Fundamentals & Mental Models of ${cleanSubject}`,
+                description: `Master foundational principles, architectural invariants, and design primitives of ${cleanSubject}.`,
+                difficulty: 'basic' as QBLDifficulty,
+              },
+              {
+                title: `Internal Storage, Memory & Execution Mechanics`,
+                description: `Analyze low-level data layouts, lifecycle states, and deterministic execution contracts in ${cleanSubject}.`,
+                difficulty: 'intermediate' as QBLDifficulty,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        chapterTitle: `Chapter 2: Concurrency, Replication & State Coordination`,
+        topics: [
+          {
+            topicTitle: 'Synchronization & Replication Protocols',
+            subtopics: [
+              {
+                title: `Replication, Quorum & Consistency Guarantees`,
+                description: `Configure state replication, leader-follower protocols, and isolation boundaries in ${cleanSubject}.`,
+                difficulty: 'intermediate' as QBLDifficulty,
+              },
+              {
+                title: `Concurrency Control, Locking & Race Mitigation`,
+                description: `Prevent deadlocks, lost updates, and race conditions under concurrent access in ${cleanSubject}.`,
+                difficulty: 'advanced' as QBLDifficulty,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        chapterTitle: `Chapter 3: High-Scale Throughput & Performance Optimization`,
+        topics: [
+          {
+            topicTitle: 'Throughput Scaling & Tail Latency Engineering',
+            subtopics: [
+              {
+                title: `High-Scale Production Optimizations & Batching`,
+                description: `Implement adaptive micro-batching, connection pooling, and zero-copy I/O in ${cleanSubject}.`,
+                difficulty: 'intermediate' as QBLDifficulty,
+              },
+              {
+                title: `p99 Tail Latency Elimination & Cache-Line Tuning`,
+                description: `Eliminate head-of-line blocking, GC pauses, and lock contention at 100k+ RPS in ${cleanSubject}.`,
+                difficulty: 'advanced' as QBLDifficulty,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        chapterTitle: `Chapter 4: Failure Modes, Resilience & Disaster Recovery`,
+        topics: [
+          {
+            topicTitle: 'Fault Tolerance & Chaos Engineering',
+            subtopics: [
+              {
+                title: `Failure Modes, Edge Cases & Bottlenecks`,
+                description: `Diagnose cascading failures, network partitions, and resource exhaustion in ${cleanSubject}.`,
+                difficulty: 'advanced' as QBLDifficulty,
+              },
+              {
+                title: `Circuit Breakers, Bulkheads & Jittered Backoff`,
+                description: `Enforce blast-radius containment, load shedding, and graceful degradation in ${cleanSubject}.`,
+                difficulty: 'advanced' as QBLDifficulty,
+              },
+            ],
+          },
+        ],
+      },
+      {
+        chapterTitle: `Chapter 5: Staff-Level Architecture & Production Governance`,
+        topics: [
+          {
+            topicTitle: 'Multi-Region Topology & Evolution',
+            subtopics: [
+              {
+                title: `Staff-Level Architectural Trade-offs & Leadership`,
+                description: `Evaluate RPO/RTO, CAP/PACELC trade-offs, and multi-region topologies for ${cleanSubject}.`,
+                difficulty: 'pro' as QBLDifficulty,
+              },
+              {
+                title: `Cell-Based Isolation & Zero-Downtime Migrations`,
+                description: `Architect cell-based blast-radius boundaries and expand-and-contract migrations in ${cleanSubject}.`,
+                difficulty: 'pro' as QBLDifficulty,
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const subtopics: QBLSubtopic[] = [];
+    let idx = 1;
+    for (let c = 0; c < chapterBlueprints.length; c++) {
+      const chap = chapterBlueprints[c];
+      for (let t = 0; t < chap.topics.length; t++) {
+        const top = chap.topics[t];
+        const subList = isZeroToHero ? top.subtopics : [top.subtopics[0]];
+        for (let s = 0; s < subList.length; s++) {
+          const sub = subList[s];
+          subtopics.push({
+            id: `sub_${idx}`,
+            title: sub.title,
+            description: sub.description,
+            conceptsMastered: 0,
+            totalConcepts: conceptsPerSubtopic,
+            masteryPercentage: 0,
+            status: idx === 1 ? 'IN_PROGRESS' : 'PENDING',
+            difficulty: sub.difficulty,
+            learningObjective: this.generateLearningObjective(cleanSubject, sub.title, 'apply'),
+            chapterId: `chap_${c + 1}`,
+            chapterTitle: chap.chapterTitle,
+            topicId: `topic_${c + 1}_${t + 1}`,
+            topicTitle: top.topicTitle,
+          });
+          idx++;
+        }
+      }
+    }
+    return subtopics;
+  }
 
   /**
    * Generates a complete Subject -> Chapter -> Topic -> Sub-topic -> Question tree.
@@ -247,13 +464,14 @@ export class QBLCurriculumGenerator {
    * non-trivial distractors, 3-tier progressive hints, and an expected answer.
    */
   validateAndImproveQuestion(rawQuestion: Partial<QBLQuestion>, options: QuestionGenerationOptions): QBLQuestion {
+    const subjectName = options.subject || options.subjectTitle || 'Software Engineering';
     const cognitiveLevel = rawQuestion.cognitiveLevel || options.cognitiveLevel || 'understand';
     const questionType = rawQuestion.questionType || options.questionType || 'mcq';
     const difficulty = rawQuestion.difficulty || options.difficulty || 'intermediate';
     const learningObjective = rawQuestion.learningObjective || options.learningObjective ||
-      this.generateLearningObjective(options.subject, options.subtopicTitle, cognitiveLevel);
-    const sourceReference = rawQuestion.sourceReference || options.existingQuestions?.[0] ||
-      this.resolveSourceReference(options.subject, options.subtopicTitle);
+      this.generateLearningObjective(subjectName, options.subtopicTitle, cognitiveLevel);
+    const sourceReference = rawQuestion.sourceReference ||
+      this.resolveSourceReference(subjectName, options.subtopicTitle);
 
     // 1. Validate & sanitize options
     let rawOptions = Array.isArray(rawQuestion.options) ? rawQuestion.options : [];
@@ -283,12 +501,22 @@ export class QBLCurriculumGenerator {
     // 3. Expected answer
     const expectedAnswer = rawQuestion.expectedAnswer || correctOption.text;
 
-    // 4. Return complete validated question
+    // 4. Ensure questionText is non-empty and deduplicated against existingQuestions for large batches
+    let finalQuestionText =
+      rawQuestion.questionText || `In ${subjectName}, how does ${options.subtopicTitle} behave under peak load?`;
+    if (options.existingQuestions && options.existingQuestions.length > 0 && (options.conceptIndex || 1) > 4) {
+      const existingSet = new Set(options.existingQuestions.map(q => q.trim()));
+      if (existingSet.has(finalQuestionText.trim())) {
+        finalQuestionText = `[${cognitiveLevel.toUpperCase()} — Concept #${options.conceptIndex || 1}] ${finalQuestionText}`;
+      }
+    }
+
+    // 5. Return complete validated question
     return {
       id: rawQuestion.id || `q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       conceptTitle: rawQuestion.conceptTitle || options.subtopicTitle,
       conceptIndex: options.conceptIndex || 1,
-      questionText: rawQuestion.questionText || `In ${options.subject}, how does ${options.subtopicTitle} behave under peak load?`,
+      questionText: finalQuestionText,
       options: optionsList,
       explanation: rawQuestion.explanation || correctOption.explanation,
       coachingTip: rawQuestion.coachingTip || 'Reason from first principles and observe latency trade-offs.',
@@ -300,7 +528,7 @@ export class QBLCurriculumGenerator {
       hints,
       sourceReference,
       learningObjective,
-      subject: options.subject,
+      subject: subjectName,
       chapter: options.chapterTitle,
       topic: options.topicTitle,
       subtopic: options.subtopicTitle,
@@ -318,7 +546,7 @@ export class QBLCurriculumGenerator {
   adaptQuestionParameters(
     masteryPercentage: number,
     isReinforcement: boolean = false,
-    previousMistake?: string
+    _previousMistake?: string
   ): { difficulty: QBLDifficulty; cognitiveLevel: QBLCognitiveLevel } {
     if (isReinforcement) {
       return { difficulty: 'pro', cognitiveLevel: 'analyze' };
@@ -389,17 +617,18 @@ export class QBLCurriculumGenerator {
    * Generates a single validated QBL question adhering to the 7-step criteria.
    */
   async generateSingleQuestion(options: QuestionGenerationOptions): Promise<QBLQuestion> {
+    const subjectName = options.subject || options.subjectTitle || 'Software Engineering';
     const cognitiveLevel = options.cognitiveLevel || 'understand';
     const questionType = options.questionType || 'mcq';
     const difficulty = options.difficulty || 'intermediate';
     const learningObjective = options.learningObjective ||
-      this.generateLearningObjective(options.subject, options.subtopicTitle, cognitiveLevel);
-    const sourceReference = this.resolveSourceReference(options.subject, options.subtopicTitle);
+      this.generateLearningObjective(subjectName, options.subtopicTitle, cognitiveLevel);
+    const sourceReference = this.resolveSourceReference(subjectName, options.subtopicTitle);
 
     const systemPrompt = `You are Teddy's Curriculum Architect, an elite Principal Software Engineer.
 Your task is to generate a high-quality Question-Based Learning (QBL) question following these 7 rigorous steps:
 1. Learning Objective: "${learningObjective}"
-2. Hierarchy Context: Subject: "${options.subject}" | Chapter: "${options.chapterTitle || 'General'}" | Topic: "${options.topicTitle || 'General'}" | Sub-topic: "${options.subtopicTitle}"
+2. Hierarchy Context: Subject: "${subjectName}" | Chapter: "${options.chapterTitle || 'General'}" | Topic: "${options.topicTitle || 'General'}" | Sub-topic: "${options.subtopicTitle}"
 3. Bloom's Taxonomy Cognitive Level: ${cognitiveLevel.toUpperCase()} (Remember, Understand, Apply, Analyze, Evaluate, Create)
 4. Question Format: ${questionType.toUpperCase()}
 5. Grounded in Reliable Material: Cite "${sourceReference}"
@@ -430,8 +659,8 @@ STRICT OUTPUT FORMAT: A single JSON object matching:
 }`;
 
     const userPrompt = `Generate a QBL multiple-choice question with 4 options at ${cognitiveLevel.toUpperCase()} cognitive level for Concept #${options.conceptIndex || 1} of "${options.subtopicTitle}".
-Subject: "${options.subject}".
-Scope: ${options.subtopicDescription}.
+Subject: "${subjectName}".
+Scope: ${options.subtopicDescription || options.subtopicTitle}.
 Prevent repetition from previous concepts: ${options.existingQuestions?.join(' | ') || 'None'}.`;
 
     let generatedText = '';
@@ -445,8 +674,13 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
     }
 
     const parsed = this.parseJsonSafe(generatedText);
+    const existingSet = new Set((options.existingQuestions || []).map(q => q.trim()));
     const candidateQuestion =
-      parsed && parsed.questionText && Array.isArray(parsed.options) && parsed.options.length >= 2
+      parsed &&
+      parsed.questionText &&
+      !existingSet.has(parsed.questionText.trim()) &&
+      Array.isArray(parsed.options) &&
+      parsed.options.length >= 2
         ? parsed
         : this.synthesizeDomainQuestion(options);
 
@@ -596,21 +830,23 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
   }
 
   private synthesizeDomainQuestion(options: QuestionGenerationOptions): Partial<QBLQuestion> {
-    const lower = `${options.subject} ${options.subtopicTitle}`.toLowerCase();
+    const subjectName = options.subject || options.subjectTitle || 'Software Engineering';
+    const lower = `${subjectName} ${options.subtopicTitle}`.toLowerCase();
     const conceptIndex = options.conceptIndex || 1;
 
-    // Node.js specific domain questions (covers 25+ distinct scenarios)
+    // Node.js specific domain questions (covers 32+ distinct scenarios)
     if (lower.includes('node') || lower.includes('nodejs') || lower.includes('libuv') || lower.includes('v8')) {
       return getNodeJSQuestion(conceptIndex, options);
     }
 
     // Default to catalog procedural synthesis
     const catalogQ = getCatalogQuestion(
-      options.subject,
+      subjectName,
       options.subtopicTitle,
       conceptIndex,
       Boolean(options.isReinforcement),
-      options.previousMistake
+      options.previousMistake,
+      options.existingQuestions
     );
 
     return {
@@ -619,12 +855,12 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
       questionType: options.questionType || 'mcq',
       learningObjective:
         options.learningObjective ||
-        this.generateLearningObjective(options.subject, options.subtopicTitle, options.cognitiveLevel || 'understand'),
-      sourceReference: this.resolveSourceReference(options.subject, options.subtopicTitle),
+        this.generateLearningObjective(subjectName, options.subtopicTitle, options.cognitiveLevel || 'understand'),
+      sourceReference: this.resolveSourceReference(subjectName, options.subtopicTitle),
     };
   }
 
-  private generateThreeTierHints(subtopic: string, correctAnswer: string, level: QBLCognitiveLevel): string[] {
+  private generateThreeTierHints(subtopic: string, correctAnswer: string, _level: QBLCognitiveLevel): string[] {
     const lower = subtopic.toLowerCase();
     if (lower.includes('node') || lower.includes('event loop') || lower.includes('stream') || lower.includes('phase')) {
       return [
@@ -641,7 +877,7 @@ Prevent repetition from previous concepts: ${options.existingQuestions?.join(' |
     ];
   }
 
-  private generateFallbackOptions(subtopic: string, level: QBLCognitiveLevel): QBLOption[] {
+  private generateFallbackOptions(subtopic: string, _level: QBLCognitiveLevel): QBLOption[] {
     const lower = subtopic.toLowerCase();
     if (lower.includes('node') || lower.includes('event loop') || lower.includes('phase') || lower.includes('stream')) {
       return [

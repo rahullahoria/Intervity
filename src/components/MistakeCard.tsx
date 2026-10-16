@@ -1,13 +1,13 @@
 /**
  * Mistake Card Component
- * Displays post-interview autopsy, gap critique, golden L5 response, and drill launcher
+ * Displays post-interview gap analysis, reference L5 response, and targeted practice launcher
  */
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MistakeDiagnostic } from '../types';
 import { colors } from '../theme/colors';
-import { typography } from '../theme/typography';
+import { BulbIcon, CheckIcon, BoltIcon, ChevronRightIcon } from './icons/AppIcons';
 
 interface MistakeCardProps {
   mistake: MistakeDiagnostic;
@@ -17,53 +17,70 @@ interface MistakeCardProps {
 export const MistakeCard: React.FC<MistakeCardProps> = ({ mistake, onLaunchDrill }) => {
   const [expanded, setExpanded] = useState(false);
 
-  const categoryBadgeColor =
+  const categoryColor =
     mistake.mistakeCategory === 'CONCEPTUAL'
       ? colors.errorRed
       : mistake.mistakeCategory === 'L4_CEILING'
       ? colors.interruptedAmber
       : colors.thinkingViolet;
 
+  const categoryBg =
+    mistake.mistakeCategory === 'CONCEPTUAL'
+      ? colors.notionRedBg
+      : mistake.mistakeCategory === 'L4_CEILING'
+      ? colors.notionYellowBg
+      : colors.notionPurpleBg;
+
+  const formattedCategory = mistake.mistakeCategory
+    .replace('_', ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <View style={[styles.badge, { backgroundColor: `${categoryBadgeColor}20`, borderColor: categoryBadgeColor }]}>
-          <Text style={[styles.badgeText, { color: categoryBadgeColor }]}>
-            {mistake.mistakeCategory.replace('_', ' ')}
+        <View style={[styles.badge, { backgroundColor: categoryBg }]}>
+          <View style={[styles.badgeDot, { backgroundColor: categoryColor }]} />
+          <Text style={[styles.badgeText, { color: categoryColor }]}>
+            {formattedCategory}
           </Text>
         </View>
         <Text style={styles.turnText}>Turn {mistake.turnIndex + 1}</Text>
       </View>
 
-      <Text style={styles.candidateQuote} numberOfLines={2}>
-        "{mistake.candidateQuote}"
-      </Text>
+      <View style={styles.quoteBlock}>
+        <Text style={styles.candidateQuote} numberOfLines={2}>
+          "{mistake.candidateQuote}"
+        </Text>
+      </View>
 
       <Text style={styles.critiqueText}>
         {mistake.critique}
       </Text>
 
-      {/* Expandable Golden L5+ Response */}
       {expanded ? (
         <View style={styles.expandedSection}>
-          <Text style={styles.sectionHeader}>Missing Senior (L5) Concepts:</Text>
+          <Text style={styles.sectionHeader}>Missing Senior (L5) Depth</Text>
           {mistake.missingSeniorConcepts.map((concept, idx) => (
-            <Text key={idx} style={styles.conceptItem}>
-              • {concept}
-            </Text>
+            <View key={idx} style={styles.conceptRow}>
+              <View style={styles.conceptBullet} />
+              <Text style={styles.conceptItem}>{concept}</Text>
+            </View>
           ))}
 
-          <Text style={[styles.sectionHeader, { marginTop: 10 }]}>Golden L5+ Response:</Text>
+          <Text style={[styles.sectionHeader, { marginTop: 14 }]}>Reference L5+ Response</Text>
           <View style={styles.goldenResponseBox}>
             <Text style={styles.goldenResponseText}>
-              "{mistake.goldenResponse}"
+              {mistake.goldenResponse}
             </Text>
           </View>
 
-          <Text style={[styles.sectionHeader, { marginTop: 10 }]}>Actionable Mental Model:</Text>
-          <Text style={styles.mentalModelText}>
-            💡 {mistake.coachingMentalModel}
-          </Text>
+          <View style={styles.mentalModelRow}>
+            <BulbIcon size={15} color={colors.interruptedAmber} style={{ marginTop: 1 }} />
+            <Text style={styles.mentalModelText}>
+              {mistake.coachingMentalModel}
+            </Text>
+          </View>
         </View>
       ) : null}
 
@@ -71,19 +88,31 @@ export const MistakeCard: React.FC<MistakeCardProps> = ({ mistake, onLaunchDrill
         <TouchableOpacity
           style={styles.expandButton}
           onPress={() => setExpanded(!expanded)}
+          activeOpacity={0.7}
         >
           <Text style={styles.expandButtonText}>
-            {expanded ? 'Hide Golden Response' : 'View Golden L5 Response'}
+            {expanded ? 'Hide Reference Answer' : 'View L5 Reference'}
           </Text>
+          <ChevronRightIcon
+            size={14}
+            color={colors.notionBlueLight}
+            style={expanded ? { transform: [{ rotate: '-90deg' }] } : undefined}
+          />
         </TouchableOpacity>
 
         {onLaunchDrill ? (
           <TouchableOpacity
             style={[styles.drillButton, mistake.isDrilled && styles.drillButtonCompleted]}
             onPress={() => onLaunchDrill(mistake)}
+            activeOpacity={0.8}
           >
+            {mistake.isDrilled ? (
+              <CheckIcon size={13} color="#FFFFFF" />
+            ) : (
+              <BoltIcon size={13} color="#FFFFFF" />
+            )}
             <Text style={styles.drillButtonText}>
-              {mistake.isDrilled ? '✓ Drilled (+12 pts)' : '⚡ Drill This'}
+              {mistake.isDrilled ? 'Completed (+12)' : 'Practice Drill'}
             </Text>
           </TouchableOpacity>
         ) : null}
@@ -95,99 +124,143 @@ export const MistakeCard: React.FC<MistakeCardProps> = ({ mistake, onLaunchDrill
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     padding: 16,
-    marginVertical: 8,
+    marginVertical: 6,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   badge: {
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: 6,
+  },
+  badgeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 6,
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   turnText: {
-    ...typography.caption,
+    fontSize: 12,
+    color: colors.textTertiary,
+    fontWeight: '500',
+  },
+  quoteBlock: {
+    borderLeftWidth: 2,
+    borderLeftColor: colors.cardBorder,
+    paddingLeft: 10,
+    marginBottom: 10,
   },
   candidateQuote: {
-    color: colors.textTertiary,
+    color: colors.textSecondary,
     fontSize: 13,
-    fontStyle: 'italic',
-    marginBottom: 8,
+    lineHeight: 19,
   },
   critiqueText: {
-    ...typography.body,
+    fontSize: 14,
     color: colors.textPrimary,
-    marginBottom: 10,
+    lineHeight: 20,
+    marginBottom: 12,
   },
   expandedSection: {
     backgroundColor: colors.elevatedBackground,
     borderRadius: 10,
-    padding: 12,
-    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    padding: 14,
+    marginBottom: 12,
   },
   sectionHeader: {
     fontSize: 12,
-    fontWeight: '700',
-    color: colors.listeningCyan,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 6,
+  },
+  conceptRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     marginBottom: 4,
   },
+  conceptBullet: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.notionBlueLight,
+    marginTop: 7,
+    marginRight: 8,
+  },
   conceptItem: {
-    ...typography.body,
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginLeft: 4,
-    marginBottom: 2,
+    flex: 1,
+    fontSize: 13,
+    color: colors.textPrimary,
+    lineHeight: 18,
   },
   goldenResponseBox: {
-    backgroundColor: 'rgba(6, 182, 212, 0.08)',
-    borderLeftWidth: 3,
-    borderLeftColor: colors.listeningCyan,
-    padding: 8,
-    borderRadius: 4,
-    marginVertical: 4,
+    backgroundColor: colors.notionBlueBg,
+    borderLeftWidth: 2.5,
+    borderLeftColor: colors.notionBlue,
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 2,
   },
   goldenResponseText: {
     color: colors.textPrimary,
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  mentalModelRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
   },
   mentalModelText: {
-    color: colors.interruptedAmber,
+    flex: 1,
+    color: colors.textSecondary,
     fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
+    lineHeight: 18,
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    paddingTop: 4,
   },
   expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingVertical: 6,
   },
   expandButtonText: {
-    color: colors.accentPrimary,
-    fontSize: 12,
+    color: colors.notionBlueLight,
+    fontSize: 13,
     fontWeight: '600',
   },
   drillButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: colors.accentPrimary,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
   },
   drillButtonCompleted: {
@@ -196,6 +269,6 @@ const styles = StyleSheet.create({
   drillButtonText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

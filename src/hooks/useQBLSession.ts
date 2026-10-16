@@ -22,6 +22,7 @@ import {
   QBLQuestion,
   QBLTurnResult,
   QBLMistakeReviewItem,
+  QBLSessionOptions,
 } from '../types';
 
 
@@ -45,6 +46,7 @@ export function useQBLSession() {
   const [currentQuestion, setCurrentQuestion] = useState<QBLQuestion | null>(null);
   const [currentTurnResult, setCurrentTurnResult] = useState<QBLTurnResult | null>(null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
+  const [revealedHintsCount, setRevealedHintsCount] = useState<number>(0);
   const [teddyEmotion, setTeddyEmotion] = useState<'idle' | 'speaking' | 'thinking' | 'celebrating' | 'puzzled'>('idle');
   const [teddyDialogue, setTeddyDialogue] = useState<string>('');
   const [chatMessages, setChatMessages] = useState<QBLChatMessage[]>([]);
@@ -169,7 +171,7 @@ export function useQBLSession() {
   }, []);
 
   // 2. Start a New Topic Flow
-  const startNewTopic = useCallback(async (topicName: string) => {
+  const startNewTopic = useCallback(async (topicName: string, options?: QBLSessionOptions) => {
     if (!topicName.trim()) return;
 
     setIsThinking(true);
@@ -186,11 +188,11 @@ export function useQBLSession() {
       },
     ]);
 
-    const planningText = `Awesome topic! Let me break "${topicName.trim()}" down into a 5+ sub-topic masterclass roadmap... 🗺️`;
+    const planningText = `Awesome topic! Let me break "${topicName.trim()}" down into a comprehensive masterclass roadmap... 🗺️`;
     setTeddyDialogue(planningText);
 
     try {
-      const newSession = await qblEngine.current.createNewSession(topicName.trim());
+      const newSession = await qblEngine.current.createNewSession(topicName.trim(), options);
       setSession(newSession);
       setLatestSessionToResume(newSession);
       const allSessions = await qblEngine.current.getAllSessions();
@@ -198,11 +200,12 @@ export function useQBLSession() {
       setSessionMistakes([]);
       setCurrentMistakeIndex(0);
       setIsReviewSessionActive(false);
+      setRevealedHintsCount(0);
 
       const firstSubtopic = newSession.subtopics[0];
       setCurrentSubtopic(firstSubtopic);
 
-      const introText = `Here is our masterclass roadmap for "${topicName.trim()}"! We'll cover 5 in-depth sub-topics step-by-step.\n\nLet's start with Sub-topic 1: "${firstSubtopic.title}"! Here is your first question to test concept 1:`;
+      const introText = `Here is our masterclass roadmap for "${topicName.trim()}"! We'll cover ${newSession.subtopics.length} in-depth sub-topics step-by-step.\n\nLet's start with Sub-topic 1: "${firstSubtopic.title}"! Here is your first question to test concept 1:`;
       setTeddyDialogue(introText);
 
       // Generate question for concept 1
@@ -251,6 +254,7 @@ export function useQBLSession() {
       setSessionMistakes(pastMistakes);
       setCurrentMistakeIndex(0);
       setIsReviewSessionActive(false);
+      setRevealedHintsCount(0);
 
       // Check if session is already completed to avoid getting stuck in a loop on the last question!
       const isCompleted =
@@ -287,7 +291,10 @@ export function useQBLSession() {
       const activeSubtopic = loaded.subtopics[activeSubIndex];
       setCurrentSubtopic(activeSubtopic);
 
-      const conceptToTest = Math.min(3, activeSubtopic.conceptsMastered + 1);
+      const conceptToTest = Math.min(
+        activeSubtopic.totalConcepts || 3,
+        activeSubtopic.conceptsMastered + 1
+      );
 
       const resumeMsg = `Resuming "${loaded.topicName}"! 🎯\nWe are currently at Sub-topic ${activeSubIndex + 1}/${loaded.subtopics.length}: "${activeSubtopic.title}" (${activeSubtopic.masteryPercentage}% mastered).\n\nHere is your next concept question:`;
       setTeddyDialogue(resumeMsg);
@@ -552,6 +559,7 @@ export function useQBLSession() {
       // Clear evaluated turn state for fresh question
       setSelectedOptionId(null);
       setCurrentTurnResult(null);
+      setRevealedHintsCount(0);
     } catch (err) {
       console.warn('[useQBLSession] advanceToNextQuestion error:', err);
     } finally {
@@ -609,6 +617,11 @@ export function useQBLSession() {
     }
   }, [session, currentQuestion, currentSubtopic, isThinking, startNewTopic]);
 
+  const revealNextHint = useCallback(() => {
+    if (!currentQuestion?.hints?.length) return;
+    setRevealedHintsCount((prev) => Math.min(prev + 1, currentQuestion.hints!.length));
+  }, [currentQuestion]);
+
   // 7. Mistake Review Session Controls
   const startMistakeReview = useCallback(async () => {
     if (!session) return;
@@ -655,6 +668,7 @@ export function useQBLSession() {
     setCurrentQuestion(null);
     setCurrentTurnResult(null);
     setSelectedOptionId(null);
+    setRevealedHintsCount(0);
     setIsReviewSessionActive(false);
     setSessionMistakes([]);
     setCurrentMistakeIndex(0);
@@ -683,6 +697,8 @@ export function useQBLSession() {
     advanceToNextQuestion,
     currentTurnResult,
     selectedOptionId,
+    revealedHintsCount,
+    revealNextHint,
     sendChatMessage,
     isReviewSessionActive,
     sessionMistakes,

@@ -18,7 +18,7 @@ import { IMemoryRepository, AgentMemoryRepository } from '../../database';
 import { buildAgentCoachingSystemPrompt, CoachingPhase } from '../llm/SystemPrompts';
 import { OfflineLLMEngine } from '../llm/OfflineLLMEngine';
 import { TeddyDialogueEngine } from './TeddyDialogueEngine';
-import { ConversationTrack, CONVERSATION_TRACKS } from '../../types';
+import { ConversationTrack, CONVERSATION_TRACKS, QBLSession } from '../../types';
 
 export type { CoachingPhase };
 
@@ -404,7 +404,11 @@ export class AgentCoachingHarness {
     const techKeywords = [
       'kafka', 'redis', 'react native', 'jsi', 'concurrency',
       'sharding', 'postgres', 'microservices', 'graphql', 'raft',
-      'cache stampede', 'sqlite', 'docker', 'kubernetes', 'grpc'
+      'cache stampede', 'sqlite', 'docker', 'kubernetes', 'grpc',
+      'node.js', 'nodejs', 'event loop', 'libuv', 'nexttick', 'v8',
+      'streams', 'backpressure', 'highwatermark', 'worker_threads',
+      'sharedarraybuffer', 'asynclocalstorage', 'redos', 'prototype pollution',
+      'epoll', 'kqueue'
     ];
     for (const kw of techKeywords) {
       if (textLower.includes(kw)) {
@@ -416,7 +420,7 @@ export class AgentCoachingHarness {
 
         // Validate skill when candidate explains how they used it
         if (
-          (determinedPhase === 'VALIDATION' || textLower.includes('used') || textLower.includes('implemented')) &&
+          (determinedPhase === 'VALIDATION' || textLower.includes('used') || textLower.includes('implemented') || textLower.includes('mastered')) &&
           !this.memory.validatedSkills.includes(kw)
         ) {
           await this.recordMemoryFact('validated_skill', 'skill', kw);
@@ -579,6 +583,41 @@ export class AgentCoachingHarness {
       await this.memoryRepo.updateMascotProfile(this.mascot);
     } catch (err) {
       console.warn('[AgentCoachingHarness] Error updating mascot profile:', err);
+    }
+  }
+
+  /**
+   * Synchronizes Question-Based Learning (QBL) session mastery into persistent
+   * UserCareerMemory and Mascot XP progression.
+   */
+  async syncWithQBLSession(session: QBLSession): Promise<void> {
+    if (!session) return;
+
+    if (!this.memory.recentTopics.includes(session.topicName)) {
+      this.memory.recentTopics = [session.topicName, ...this.memory.recentTopics].slice(0, 10);
+    }
+
+    const completedSubtopics = session.subtopics.filter(
+      (s) => s.status === 'COMPLETED' || s.masteryPercentage === 100
+    );
+
+    for (const sub of completedSubtopics) {
+      if (!this.memory.validatedSkills.includes(sub.title)) {
+        await this.recordMemoryFact('validated_skill', 'qbl_subtopic', sub.title);
+      }
+    }
+
+    if (session.status === 'COMPLETED' || session.overallMasteryPercentage === 100) {
+      if (!this.memory.validatedSkills.includes(session.topicName)) {
+        await this.recordMemoryFact('validated_skill', 'qbl_subject', session.topicName);
+      }
+      this.mascot.xp += 100;
+      if (this.mascot.xp >= this.mascot.xpToNextLevel) {
+        this.mascot.level += 1;
+        this.mascot.xpToNextLevel = this.mascot.level * 250;
+        this.mascot.personalityTier = this.getTierForLevel(this.mascot.level);
+      }
+      await this.persistMascotState();
     }
   }
 }
