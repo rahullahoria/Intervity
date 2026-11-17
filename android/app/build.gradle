@@ -33,6 +33,15 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Upload key for Google Play. Set these in ~/.gradle/gradle.properties (never commit them).
+        release {
+            if (project.hasProperty('INTERVITY_UPLOAD_STORE_FILE')) {
+                storeFile file(INTERVITY_UPLOAD_STORE_FILE)
+                storePassword INTERVITY_UPLOAD_STORE_PASSWORD
+                keyAlias INTERVITY_UPLOAD_KEY_ALIAS
+                keyPassword INTERVITY_UPLOAD_KEY_PASSWORD
+            }
+        }
     }
 
     buildTypes {
@@ -40,9 +49,17 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+    }
+}
+
+tasks.matching { it.name in ["signReleaseBundle", "validateSigningRelease"] }.configureEach {
+    doFirst {
+        if (!project.hasProperty('INTERVITY_UPLOAD_STORE_FILE')) {
+            throw new GradleException("Release signing is not set. Add INTERVITY_UPLOAD_STORE_FILE, INTERVITY_UPLOAD_STORE_PASSWORD, INTERVITY_UPLOAD_KEY_ALIAS and INTERVITY_UPLOAD_KEY_PASSWORD to ~/.gradle/gradle.properties.")
         }
     }
 }
