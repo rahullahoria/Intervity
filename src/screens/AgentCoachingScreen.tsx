@@ -116,7 +116,7 @@ const MASTERCLASS_TRACKS: MasterclassTrack[] = [
 
 export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   const {
     session,
@@ -245,7 +245,7 @@ export const AgentCoachingScreen: React.FC<AgentCoachingScreenProps> = ({ naviga
       style={styles.rootContainer}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} translucent={true} />
+      <StatusBar barStyle="light-content" />
 
       {/* 1. Studio Top Navigation Bar */}
       <View style={[styles.topHeader, { paddingTop: topPadding }]}>

@@ -69,7 +69,7 @@ export const ModelManagerScreen: React.FC<ModelManagerScreenProps> = ({ navigati
 
   return (
     <View style={styles.rootContainer}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} translucent={true} />
+      <StatusBar barStyle="light-content" />
 
       {/* Top Header - Protected from Dynamic Island & Notch Collision */}
       <View style={[styles.topHeader, { paddingTop: topInset + 8 }]}>

@@ -1,5 +1,4 @@
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
-const path = require('path');
 
 /**
  * Metro configuration
@@ -21,18 +20,6 @@ const config = {
       'sqlite',
       'riv',
     ],
-    resolveRequest: (context, moduleName, platform) => {
-      if (moduleName === 'react-native/asset-registry') {
-        return {
-          filePath: path.resolve(
-            __dirname,
-            'node_modules/react-native/Libraries/Image/AssetRegistry.js'
-          ),
-          type: 'sourceFile',
-        };
-      }
-      return context.resolveRequest(context, moduleName, platform);
-    },
   },
 };
 

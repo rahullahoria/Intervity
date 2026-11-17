@@ -42,7 +42,7 @@ android {
         release {
             signingConfig signingConfigs.debug
             minifyEnabled false
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
 }
@@ -72,5 +72,6 @@ tasks.matching { it.name.startsWith("preBuild") }.configureEach {
 dependencies {
     implementation(files("libs/sherpa-onnx.aar"))
     implementation("com.facebook.react:react-android")
+    implementation("com.facebook.react:hermes-android")
     implementation("androidx.core:core-ktx:1.13.1")
 }
