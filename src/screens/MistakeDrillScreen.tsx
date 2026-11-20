@@ -96,7 +96,7 @@ export const MistakeDrillScreen: React.FC<MistakeDrillScreenProps> = ({ route, n
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+      <StatusBar barStyle="light-content" />
 
       {/* Top Navigation Bar */}
       <View style={styles.topBar}>

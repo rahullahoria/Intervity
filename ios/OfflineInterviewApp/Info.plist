@@ -17,22 +17,17 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Offline Interview App needs microphone access to run on-device speech-to-text, acoustic echo cancellation, and real-time voice interaction without any cloud servers.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Offline Interview App uses on-device speech recognition to transcribe your interview responses privately without internet connection.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-		<string>processing</string>
-	</array>
+	<string>Intervity uses the microphone for optional voice practice, so you can answer interview questions out loud. Audio is not stored or sent to us.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

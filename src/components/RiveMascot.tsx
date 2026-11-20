@@ -144,7 +144,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
         <TouchableOpacity
           activeOpacity={1}
           onPress={onPress}
-          style={StyleSheet.absoluteFillObject}
+          style={StyleSheet.absoluteFill}
         >
           {!hasError ? (
             <Rive
@@ -264,7 +264,7 @@ export const RiveMascot: React.FC<RiveMascotProps> = ({
 
 const styles = StyleSheet.create({
   fullScreenContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fullScreenGlowRing: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderWidth: 3,
     pointerEvents: 'none',
   },
